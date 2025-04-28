@@ -31,6 +31,7 @@ set( CMAKE_CUDA_ARCHITECTURES "52" CACHE STRING
 # not marked with __device__.
 traccc_add_flag( CMAKE_CUDA_FLAGS "--expt-relaxed-constexpr" )
 
+
 # Make CUDA generate debug symbols for the device code as well in a debug
 # build.
 traccc_add_flag( CMAKE_CUDA_FLAGS_DEBUG "-G --keep -src-in-ptx" )
