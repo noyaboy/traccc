@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-sh 01_build.sh
+#sh 01_build.sh
 
 ncu --metrics "launch__registers_per_thread,sm__warps_active.avg.per_cycle_active,sm__cycles_elapsed,sm__sass_data_bytes_mem_local_op_ld,sm__sass_data_bytes_mem_local_op_st" --section ComputeWorkloadAnalysis --section MemoryWorkloadAnalysis \
   -f \
@@ -18,3 +18,9 @@ ncu --metrics "launch__registers_per_thread,sm__warps_active.avg.per_cycle_activ
   --input-events=10 \
   --processed-events=1000 \
   --threads=1 
+
+ncu \
+  --import ./nc_report/nc_report.ncu-rep \
+  --csv \
+  --page raw \
+  --log-file ./nc_report/nc_report.csv
