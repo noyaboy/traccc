@@ -45,3 +45,4 @@ log/ptxas.log
 log/spill.log
 log/spill_summary.log
 build/
+log/maxreg_iter.log

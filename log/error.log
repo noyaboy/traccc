@@ -1,7 +1,7 @@
-93:[ 15%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-94-[ 15%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
-95-[ 15%] Building CXX object _deps/tbb-build/src/tbb/CMakeFiles/tbb.dir/private_server.cpp.o
+134:[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+135-[ 22%] Linking CXX static library ../../../lib/libbenchmark_main.a
+136-[ 22%] Built target benchmark_main
 --
-384:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
-385-[ 65%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/make_prefix_sum_buff.cu.o
-386-[ 65%] Building CXX object examples/tools/CMakeFiles/traccc_convert_csv_bfield.dir/convert_csv_bfield.cpp.o
+384:[ 64%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
+385-[ 64%] Building CXX object examples/run/cpu/CMakeFiles/traccc_examples_cpu.dir/full_chain_algorithm.cpp.o
+386-[ 64%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
