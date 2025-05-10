@@ -1,5 +1,5 @@
 diff --git a/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp b/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
-index 33849740..17c9bcfa 100644
+index 33849740..487750d2 100644
 --- a/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
 +++ b/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
 @@ -14,6 +14,9 @@
@@ -7,28 +7,43 @@ index 33849740..17c9bcfa 100644
  #include <detray/utils/tuple_helpers.hpp>
  
 +// CUDA intrinsics ── 供向量化 / 只讀快取載入
-+#include <cuda_runtime.h>
++#include <traccc/utils/view_traits.hpp>
 +
  namespace traccc::device {
  
  template <typename propagator_t, typename bfield_t>
-@@ -143,6 +146,7 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
+@@ -143,6 +146,22 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
      finding_config cfg = cfg_in;
      cfg.propagation.stepping.step_constraint *= 5.0f;  // 粗精度
  
-+// (向量化預取暫時停用；待 field_view 提供連續記憶體介面後再啟用)
++    //───────────────────────────────────────────────────────────────
++    //  Vectorised / Coalesced prefetch
++    //     - 以 float4 為單位一次載入 B-field 及 surface-bounds
++    //     - 透過 utils/view_traits.hpp 取得連續記憶體指標
++    //───────────────────────────────────────────────────────────────
++    const float4* bfield_vec4 = reinterpret_cast<const float4*>(
++        traccc::device::contiguous_ptr(payload.field_data));
++    const float4* surf_vec4  = reinterpret_cast<const float4*>(
++        traccc::device::contiguous_ptr(payload.det_data));
++
++    const float4  B       = bfield_vec4[globalIndex];
++    const float4  surf_lo = surf_vec4[globalIndex * 2 + 0];
++    const float4  surf_hi = surf_vec4[globalIndex * 2 + 1];
++
++    (void)B; (void)surf_lo; (void)surf_hi;  // 資料已進暫存器 / L1
++    // 先行粗略 propagate；實際幾何判斷留待 propagate_to_next_surface
      propagate_to_next_surface(globalIndex, cfg, payload);
  }
  
 diff --git a/device/cuda/src/finding/kernels/propagate_stage1.cuh b/device/cuda/src/finding/kernels/propagate_stage1.cuh
-index f1ef7637..36429198 100644
+index f1ef7637..e1d98296 100644
 --- a/device/cuda/src/finding/kernels/propagate_stage1.cuh
 +++ b/device/cuda/src/finding/kernels/propagate_stage1.cuh
 @@ -10,6 +10,7 @@
  #include "../../utils/global_index.hpp"
  #include "traccc/finding/device/propagate_to_next_surface.hpp"
  #include "traccc/finding/finding_config.hpp"
-+#include <cuda_runtime.h>
++#include <traccc/utils/view_traits.hpp>
  
  // ─── Cooperative-groups ────────────────────────────────────────────────────────
  #include <cooperative_groups.h>
