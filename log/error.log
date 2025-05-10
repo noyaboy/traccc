@@ -1,7 +1,98 @@
-134:[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-135-[ 22%] Linking CXX static library ../../../lib/libbenchmark_main.a
-136-[ 22%] Built target benchmark_main
+162:[ 25%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+163-[ 25%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
+164-[ 25%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/get_device_name.cpp.o
 --
-384:[ 64%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
-385-[ 64%] Building CXX object examples/run/cpu/CMakeFiles/traccc_examples_cpu.dir/full_chain_algorithm.cpp.o
-386-[ 64%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
+386:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
+387-[ 65%] Building CXX object examples/tools/CMakeFiles/traccc_generate_constant_bfield.dir/generate_constant_bfield.cpp.o
+388-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
+--
+416:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(155): error #191-D: type qualifier is meaningless on cast type
+417-          reinterpret_cast<const float4* __restrict__>(
+418-                           ^
+--
+422:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(157): error: calling a __device__ function("_ZN59_INTERNAL_ec5f598d_20_finding_algorithm_cu_2aef6359_40875185__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+423-      const float4 B = __ldg(&bfield_vec4[globalIndex]);
+424-                       ^
+--
+426:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(160): error #191-D: type qualifier is meaningless on cast type
+427-          reinterpret_cast<const float4* __restrict__>(
+428-                           ^
+--
+430:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(162): error: calling a __device__ function("_ZN59_INTERNAL_ec5f598d_20_finding_algorithm_cu_2aef6359_40875185__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+431-      const float4 surf_lo = __ldg(&surf_vec4[globalIndex * 2 + 0]);
+432-                             ^
+--
+434:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(163): error: calling a __device__ function("_ZN59_INTERNAL_ec5f598d_20_finding_algorithm_cu_2aef6359_40875185__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+435-      const float4 surf_hi = __ldg(&surf_vec4[globalIndex * 2 + 1]);
+436-                             ^
+--
+438:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(155): error #191-D: type qualifier is meaningless on cast type
+439-          reinterpret_cast<const float4* __restrict__>(
+440-                           ^
+--
+444:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(157): error: calling a __device__ function("_ZN84_INTERNAL_87bbce8f_45_propagate_to_next_surface_default_detector_cu_81cceadc_40875655__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+445-      const float4 B = __ldg(&bfield_vec4[globalIndex]);
+446-                       ^
+--
+448:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(160): error #191-D: type qualifier is meaningless on cast type
+449-          reinterpret_cast<const float4* __restrict__>(
+450-                           ^
+--
+452:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(162): error: calling a __device__ function("_ZN84_INTERNAL_87bbce8f_45_propagate_to_next_surface_default_detector_cu_81cceadc_40875655__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+453-      const float4 surf_lo = __ldg(&surf_vec4[globalIndex * 2 + 0]);
+454-                             ^
+--
+456:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(163): error: calling a __device__ function("_ZN84_INTERNAL_87bbce8f_45_propagate_to_next_surface_default_detector_cu_81cceadc_40875655__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+457-      const float4 surf_hi = __ldg(&surf_vec4[globalIndex * 2 + 1]);
+458-                             ^
+--
+460:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(155): error #191-D: type qualifier is meaningless on cast type
+461-          reinterpret_cast<const float4* __restrict__>(
+462-                           ^
+--
+466:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(157): error: calling a __device__ function("_ZN75_INTERNAL_230ab9cc_36_propagate_stage1_default_detector_cu_38ffa1ce_40876505__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+467-      const float4 B = __ldg(&bfield_vec4[globalIndex]);
+468-                       ^
+--
+470:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(160): error #191-D: type qualifier is meaningless on cast type
+471-          reinterpret_cast<const float4* __restrict__>(
+472-                           ^
+--
+474:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(162): error: calling a __device__ function("_ZN75_INTERNAL_230ab9cc_36_propagate_stage1_default_detector_cu_38ffa1ce_40876505__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+475-      const float4 surf_lo = __ldg(&surf_vec4[globalIndex * 2 + 0]);
+476-                             ^
+--
+478:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(163): error: calling a __device__ function("_ZN75_INTERNAL_230ab9cc_36_propagate_stage1_default_detector_cu_38ffa1ce_40876505__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+479-      const float4 surf_hi = __ldg(&surf_vec4[globalIndex * 2 + 1]);
+480-                             ^
+--
+482:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(155): error #191-D: type qualifier is meaningless on cast type
+483-          reinterpret_cast<const float4* __restrict__>(
+484-                           ^
+--
+488:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(157): error: calling a __device__ function("_ZN75_INTERNAL_58143b2f_36_propagate_stage2_default_detector_cu_00d88b2f_40876515__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+489-      const float4 B = __ldg(&bfield_vec4[globalIndex]);
+490-                       ^
+--
+492:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(160): error #191-D: type qualifier is meaningless on cast type
+493-          reinterpret_cast<const float4* __restrict__>(
+494-                           ^
+--
+496:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(162): error: calling a __device__ function("_ZN75_INTERNAL_58143b2f_36_propagate_stage2_default_detector_cu_00d88b2f_40876515__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+497-      const float4 surf_lo = __ldg(&surf_vec4[globalIndex * 2 + 0]);
+498-                             ^
+--
+500:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(163): error: calling a __device__ function("_ZN75_INTERNAL_58143b2f_36_propagate_stage2_default_detector_cu_00d88b2f_40876515__ldgE1?") from a __host__ __device__ function("propagate_stage1") is not allowed
+501-      const float4 surf_hi = __ldg(&surf_vec4[globalIndex * 2 + 1]);
+502-                             ^
+--
+504:5 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/finding_algorithm.cu".
+505:5 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/kernels/specializations/propagate_to_next_surface_default_detector.cu".
+506-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:375: device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/propagate_to_next_surface_default_detector.cu.o] Error 2
+507-gmake[2]: *** Waiting for unfinished jobs....
+--
+509:5 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/kernels/specializations/propagate_stage2_default_detector.cu".
+510-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:405: device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/propagate_stage2_default_detector.cu.o] Error 2
+511:5 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/kernels/specializations/propagate_stage1_default_detector.cu".
+512-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:390: device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/propagate_stage1_default_detector.cu.o] Error 2
+513-[ 69%] Linking CXX shared library ../../lib/libActsPluginJson.so
