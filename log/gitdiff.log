@@ -52,10 +52,10 @@ index 33849740..4fd24879 100644
  
 diff --git a/device/common/include/traccc/utils/view_traits.hpp b/device/common/include/traccc/utils/view_traits.hpp
 new file mode 100644
-index 00000000..35b8b359
+index 00000000..5e8a254d
 --- /dev/null
 +++ b/device/common/include/traccc/utils/view_traits.hpp
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,51 @@
 +// =============================================================================
 +//  view_traits.hpp ― 為各式 *view* 提供連續記憶體指標的統一存取介面
 +//                  (相容 covfie::field_view, detray::dmulti_view … 等)
@@ -84,11 +84,15 @@ index 00000000..35b8b359
 +//  優先序 2：退而求其次，使用 .begin()
 +//            ※ 若 .begin() 僅於 non-const 有效，透過 const_cast 取得
 +// ────────────────────────────────────────────────────────────────────────────
++// ────────────────────────────────────────────────────────────────────────────
++//  後備方案：若僅有 .begin()，取 &*begin() 取得首元素地址
++//            這能覆蓋 covfie::field_view 與 detray::dmulti_view
++// ────────────────────────────────────────────────────────────────────────────
 +template <class View>
 +TRACCC_HOST_DEVICE inline auto contiguous_ptr_impl(const View& v, ...)
-+    -> decltype(const_cast<View&>(v).begin()) {
++    -> decltype(&(*const_cast<View&>(v).begin())) {
 +
-+    return const_cast<View&>(v).begin();
++    return &(*const_cast<View&>(v).begin());
 +}
 +
 +}  // namespace detail

@@ -26,11 +26,15 @@ TRACCC_HOST_DEVICE inline auto contiguous_ptr_impl(const View& v, int)
 //  優先序 2：退而求其次，使用 .begin()
 //            ※ 若 .begin() 僅於 non-const 有效，透過 const_cast 取得
 // ────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────
+//  後備方案：若僅有 .begin()，取 &*begin() 取得首元素地址
+//            這能覆蓋 covfie::field_view 與 detray::dmulti_view
+// ────────────────────────────────────────────────────────────────────────────
 template <class View>
 TRACCC_HOST_DEVICE inline auto contiguous_ptr_impl(const View& v, ...)
-    -> decltype(const_cast<View&>(v).begin()) {
+    -> decltype(&(*const_cast<View&>(v).begin())) {
 
-    return const_cast<View&>(v).begin();
+    return &(*const_cast<View&>(v).begin());
 }
 
 }  // namespace detail
