@@ -10,7 +10,7 @@
 #include "../../utils/global_index.hpp"
 #include "traccc/finding/device/propagate_to_next_surface.hpp"
 #include "traccc/finding/finding_config.hpp"
-#include <cuda_runtime.h>
+#include <traccc/utils/view_traits.hpp>
 
 // ─── Cooperative-groups ────────────────────────────────────────────────────────
 #include <cooperative_groups.h>

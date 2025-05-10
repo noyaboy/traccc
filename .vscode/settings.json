@@ -2,6 +2,7 @@
    "files.associations": {
       "*.hip": "cpp",
       "*.sycl": "cpp",
-      "*.ipp": "cpp"
+      "*.ipp": "cpp",
+      "type_traits": "cpp"
    }
 }
