@@ -1,5 +1,5 @@
 diff --git a/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp b/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
-index 33849740..bd0860bf 100644
+index 33849740..17c9bcfa 100644
 --- a/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
 +++ b/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
 @@ -14,6 +14,9 @@
@@ -12,23 +12,11 @@ index 33849740..bd0860bf 100644
  namespace traccc::device {
  
  template <typename propagator_t, typename bfield_t>
-@@ -143,6 +146,19 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
+@@ -143,6 +146,7 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
      finding_config cfg = cfg_in;
      cfg.propagation.stepping.step_constraint *= 5.0f;  // 粗精度
  
-+    //───────────────────────────────────────────────────────────────
-+    //  Device-only：float4 向量化載入 B-field
-+    //───────────────────────────────────────────────────────────────
-+#if defined(__CUDA_ARCH__)
-+    {
-+        // field_view 支援 operator[]；&ptr[0] 等效於連續記憶體開頭
-+        const float4* bfield_vec4 =
-+            reinterpret_cast<const float4*>(&payload.field_data[0]);
-+        const float4 B = __ldg(bfield_vec4 + globalIndex);
-+        (void)B;  // 資料已進暫存器 / L1，供後續計算
-+    }
-+#endif
-+
++// (向量化預取暫時停用；待 field_view 提供連續記憶體介面後再啟用)
      propagate_to_next_surface(globalIndex, cfg, payload);
  }
  
