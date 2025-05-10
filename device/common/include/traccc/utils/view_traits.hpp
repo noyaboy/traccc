@@ -1,6 +1,6 @@
 // =============================================================================
-//  view_traits.hpp ― 為各式 *view* 提供連續記憶體指標的統一存取介面
-//                  (相容 covfie::field_view, detray::dmulti_view … 等)
+//  view_traits.hpp ― 為各式 *view* 取得連續記憶體首位址
+//                    相容 covfie::field_view、detray::dmulti_view…等
 // =============================================================================
 
 #pragma once
@@ -10,42 +10,44 @@
 
 namespace traccc::device {
 
+// ────────────────────────────────────────────────────────────────────────────
+//  SFINAE 偵測：是否具備 .data() / .begin() / operator[]
+// ────────────────────────────────────────────────────────────────────────────
 namespace detail {
+template <typename, typename = void> struct has_data      : std::false_type {};
+template <typename T>
+struct has_data<T, std::void_t<decltype(std::declval<T&>().data())>>
+    : std::true_type {};
 
-// ────────────────────────────────────────────────────────────────────────────
-//  優先序 1：具備 .data() 成員函式者
-// ────────────────────────────────────────────────────────────────────────────
-template <class View>
-TRACCC_HOST_DEVICE inline auto contiguous_ptr_impl(const View& v, int)
-    -> decltype(const_cast<View&>(v).data()) {
+template <typename, typename = void> struct has_begin     : std::false_type {};
+template <typename T>
+struct has_begin<T, std::void_t<decltype(std::declval<T&>().begin())>>
+    : std::true_type {};
 
-    return const_cast<View&>(v).data();
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-//  優先序 2：退而求其次，使用 .begin()
-//            ※ 若 .begin() 僅於 non-const 有效，透過 const_cast 取得
-// ────────────────────────────────────────────────────────────────────────────
-// ────────────────────────────────────────────────────────────────────────────
-//  後備方案：若僅有 .begin()，取 &*begin() 取得首元素地址
-//            這能覆蓋 covfie::field_view 與 detray::dmulti_view
-// ────────────────────────────────────────────────────────────────────────────
-template <class View>
-TRACCC_HOST_DEVICE inline auto contiguous_ptr_impl(const View& v, ...)
-    -> decltype(&(*const_cast<View&>(v).begin())) {
-
-    return &(*const_cast<View&>(v).begin());
-}
-
+template <typename, typename = void> struct has_subscript : std::false_type {};
+template <typename T>
+struct has_subscript<T, std::void_t<decltype(std::declval<T&>()[0])>>
+    : std::true_type {};
 }  // namespace detail
 
 // ────────────────────────────────────────────────────────────────────────────
-//  公開介面：根據 SFINAE 自動挑選可行實作
+//  取得首元素之裸指標 (`const value_type*`)
+//  * .data()  >  .begin()  >  operator[]
 // ────────────────────────────────────────────────────────────────────────────
 template <class View>
 TRACCC_HOST_DEVICE inline auto contiguous_ptr(const View& v) {
-    // 透過整數 / 可變參數 overload trick，落實「.data() 優先、否則 .begin()」
-    return detail::contiguous_ptr_impl(v, 0);
+
+    if constexpr (detail::has_data<View>::value) {
+        return const_cast<View&>(v).data();
+
+    } else if constexpr (detail::has_begin<View>::value) {
+        return &(*const_cast<View&>(v).begin());
+
+    } else {
+        static_assert(detail::has_subscript<View>::value,
+                      "View type lacks .data(), .begin(), and operator[]");
+        return &const_cast<View&>(v)[0];
+    }
 }
 
 }  // namespace traccc::device
