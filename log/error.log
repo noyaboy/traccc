@@ -1,13 +1,7 @@
+133:[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+134-[ 22%] Linking CXX static library ../../../lib/libbenchmark_main.a
+135-[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
 --
-416:/home/noah/project/traccc/device/common/include/traccc/utils/view_traits.hpp(47): error: static assertion failed with "View type lacks .data(), .begin(), and operator[]"
-417-          static_assert(detail::has_subscript<View>::value,
-418-          ^
---
-425:/home/noah/project/traccc/device/common/include/traccc/utils/view_traits.hpp(49): error: no operator "[]" matches these operands
-426-            operand types are: covfie::field_view<covfie::backend::constant<covfie::vector::vector_d<float, 3UL>, covfie::vector::vector_d<float, 3UL>>> [ int ]
-427-          return &const_cast<View&>(v)[0];
---
-512:4 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/finding_algorithm.cu".
-513:4 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/kernels/specializations/propagate_stage1_default_detector.cu".
-514-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:270: device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/finding_algorithm.cu.o] Error 1
-515-gmake[2]: *** Waiting for unfinished jobs....
+385:[ 64%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
+386-[ 65%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/make_prefix_sum_buff.cu.o
+387-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
