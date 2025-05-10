@@ -148,19 +148,28 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
 
     //───────────────────────────────────────────────────────────────
     //  Vectorised / Coalesced prefetch
-    //     - 以 float4 為單位一次載入 B-field 及第一層表面資料
-    //     - 使用 __ldg() 走唯讀快取，減少 global-mem 延遲
+    //     - 以 float4 為單位一次載入 B-field 與表面資料
+    //     - Device 端用 __ldg() 走唯讀快取；Host 端走一般載入
     //───────────────────────────────────────────────────────────────
-    const float4* __restrict__ bfield_vec4 =
-        reinterpret_cast<const float4* __restrict__>(
-            payload.field_data.data());
-    const float4 B = __ldg(&bfield_vec4[globalIndex]);
 
-    const float4* __restrict__ surf_vec4 =
-        reinterpret_cast<const float4* __restrict__>(
-            payload.det_data.data());
-    const float4 surf_lo = __ldg(&surf_vec4[globalIndex * 2 + 0]);
-    const float4 surf_hi = __ldg(&surf_vec4[globalIndex * 2 + 1]);
+    // 先轉成連續 float4 指標（無 __restrict__ 以免 Host 編譯器告警）
+    const float4* bfield_vec4 =
+        reinterpret_cast<const float4*>(payload.field_data.data());
+    const float4* surf_vec4 =
+        reinterpret_cast<const float4*>(payload.det_data.data());
+
+    float4 B, surf_lo, surf_hi;
+#if defined(__CUDA_ARCH__)
+    // Device path ─ 使用唯讀快取
+    B       = __ldg(&bfield_vec4[globalIndex]);
+    surf_lo = __ldg(&surf_vec4[globalIndex * 2 + 0]);
+    surf_hi = __ldg(&surf_vec4[globalIndex * 2 + 1]);
+#else
+    // Host path ─ 避免非法呼叫 __ldg
+    B       = bfield_vec4[globalIndex];
+    surf_lo = surf_vec4[globalIndex * 2 + 0];
+    surf_hi = surf_vec4[globalIndex * 2 + 1];
+#endif
 
     // 抑制未使用警告；資料已進入暫存器 (L1) 供後續 kernel 使用
     (void)B;
