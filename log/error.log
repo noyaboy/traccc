@@ -1,9 +1,7 @@
+111:[ 20%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+112-[ 20%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
+113-[ 20%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/get_device_name.cpp.o
 --
-416:/home/noah/project/traccc/device/common/include/traccc/finding/device/./impl/propagate_to_next_surface.ipp(156): error: no operator "[]" matches these operands
-417-            operand types are: const covfie::field_view<covfie::backend::constant<covfie::vector::vector_d<float, 3UL>, covfie::vector::vector_d<float, 3UL>>> [ int ]
-418-              reinterpret_cast<const float4*>(&payload.field_data[0]);
---
-445:1 error detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/kernels/specializations/propagate_stage1_default_detector.cu".
-446:1 error detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/finding_algorithm.cu".
-447-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:390: device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/propagate_stage1_default_detector.cu.o] Error 1
-448-gmake[2]: *** Waiting for unfinished jobs....
+387:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
+388-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
+389-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/opaque_stream.cpp.o
