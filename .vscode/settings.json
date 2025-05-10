@@ -3,6 +3,7 @@
       "*.hip": "cpp",
       "*.sycl": "cpp",
       "*.ipp": "cpp",
-      "type_traits": "cpp"
+      "type_traits": "cpp",
+      "target": "cpp"
    }
 }
