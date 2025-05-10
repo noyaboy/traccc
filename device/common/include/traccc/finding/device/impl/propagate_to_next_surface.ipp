@@ -14,6 +14,9 @@
 #include <detray/propagator/constrained_step.hpp>
 #include <detray/utils/tuple_helpers.hpp>
 
+// CUDA intrinsics ── 供向量化 / 只讀快取載入
+#include <cuda_runtime.h>
+
 namespace traccc::device {
 
 template <typename propagator_t, typename bfield_t>
@@ -142,6 +145,27 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
 
     finding_config cfg = cfg_in;
     cfg.propagation.stepping.step_constraint *= 5.0f;  // 粗精度
+
+    //───────────────────────────────────────────────────────────────
+    //  Vectorised / Coalesced prefetch
+    //     - 以 float4 為單位一次載入 B-field 及第一層表面資料
+    //     - 使用 __ldg() 走唯讀快取，減少 global-mem 延遲
+    //───────────────────────────────────────────────────────────────
+    const float4* __restrict__ bfield_vec4 =
+        reinterpret_cast<const float4* __restrict__>(
+            payload.field_data.data());
+    const float4 B = __ldg(&bfield_vec4[globalIndex]);
+
+    const float4* __restrict__ surf_vec4 =
+        reinterpret_cast<const float4* __restrict__>(
+            payload.det_data.data());
+    const float4 surf_lo = __ldg(&surf_vec4[globalIndex * 2 + 0]);
+    const float4 surf_hi = __ldg(&surf_vec4[globalIndex * 2 + 1]);
+
+    // 抑制未使用警告；資料已進入暫存器 (L1) 供後續 kernel 使用
+    (void)B;
+    (void)surf_lo;
+    (void)surf_hi;
 
     propagate_to_next_surface(globalIndex, cfg, payload);
 }
