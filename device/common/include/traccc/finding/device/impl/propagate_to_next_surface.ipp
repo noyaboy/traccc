@@ -149,20 +149,23 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
     cfg.propagation.stepping.step_constraint *= 5.0f;  // 粗精度
 
     //───────────────────────────────────────────────────────────────
-    //  Vectorised / Coalesced prefetch
-    //     - 以 float4 為單位一次載入 B-field 及 surface-bounds
-    //     - 透過 utils/view_traits.hpp 取得連續記憶體指標
+    //  Vectorised / Coalesced prefetch  (DEVICE-ONLY)
     //───────────────────────────────────────────────────────────────
-    const float4* bfield_vec4 = reinterpret_cast<const float4*>(
-        traccc::device::contiguous_ptr(payload.field_data));
-    const float4* surf_vec4  = reinterpret_cast<const float4*>(
-        traccc::device::contiguous_ptr(payload.det_data));
+#if defined(__CUDA_ARCH__)
+    {
+        const float4* bfield_vec4 = reinterpret_cast<const float4*>(
+            traccc::device::contiguous_ptr(payload.field_data));
+        const float4* surf_vec4  = reinterpret_cast<const float4*>(
+            traccc::device::contiguous_ptr(payload.det_data));
 
-    const float4  B       = bfield_vec4[globalIndex];
-    const float4  surf_lo = surf_vec4[globalIndex * 2 + 0];
-    const float4  surf_hi = surf_vec4[globalIndex * 2 + 1];
+        const float4 B       = bfield_vec4[globalIndex];
+        const float4 surf_lo = surf_vec4[globalIndex * 2 + 0];
+        const float4 surf_hi = surf_vec4[globalIndex * 2 + 1];
 
-    (void)B; (void)surf_lo; (void)surf_hi;  // 資料已進暫存器 / L1
+        (void)B; (void)surf_lo; (void)surf_hi;  // 進暫存器 / L1
+    }
+#endif  // __CUDA_ARCH__
+
     // 先行粗略 propagate；實際幾何判斷留待 propagate_to_next_surface
     propagate_to_next_surface(globalIndex, cfg, payload);
 }

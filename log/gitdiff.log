@@ -1,5 +1,5 @@
 diff --git a/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp b/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
-index 33849740..487750d2 100644
+index 33849740..4fd24879 100644
 --- a/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
 +++ b/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
 @@ -14,6 +14,9 @@
@@ -12,29 +12,98 @@ index 33849740..487750d2 100644
  namespace traccc::device {
  
  template <typename propagator_t, typename bfield_t>
-@@ -143,6 +146,22 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
+@@ -82,8 +85,10 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
+ 
+     // Create propagator state
+     typename propagator_t::state propagation(in_par, payload.field_data, det);
++    // 使用全域命名空間中的  traccc::detail::correct_particle_hypothesis
+     propagation.set_particle(
+-        detail::correct_particle_hypothesis(cfg.ptc_hypothesis, in_par));
++        ::traccc::detail::correct_particle_hypothesis(cfg.ptc_hypothesis,
++                                                      in_par));
+     propagation._stepping
+         .template set_constraint<detray::step::constraint::e_accuracy>(
+             cfg.propagation.stepping.step_constraint);
+@@ -143,6 +148,25 @@ TRACCC_HOST_DEVICE inline void propagate_stage1(
      finding_config cfg = cfg_in;
      cfg.propagation.stepping.step_constraint *= 5.0f;  // 粗精度
  
 +    //───────────────────────────────────────────────────────────────
-+    //  Vectorised / Coalesced prefetch
-+    //     - 以 float4 為單位一次載入 B-field 及 surface-bounds
-+    //     - 透過 utils/view_traits.hpp 取得連續記憶體指標
++    //  Vectorised / Coalesced prefetch  (DEVICE-ONLY)
 +    //───────────────────────────────────────────────────────────────
-+    const float4* bfield_vec4 = reinterpret_cast<const float4*>(
-+        traccc::device::contiguous_ptr(payload.field_data));
-+    const float4* surf_vec4  = reinterpret_cast<const float4*>(
-+        traccc::device::contiguous_ptr(payload.det_data));
++#if defined(__CUDA_ARCH__)
++    {
++        const float4* bfield_vec4 = reinterpret_cast<const float4*>(
++            traccc::device::contiguous_ptr(payload.field_data));
++        const float4* surf_vec4  = reinterpret_cast<const float4*>(
++            traccc::device::contiguous_ptr(payload.det_data));
 +
-+    const float4  B       = bfield_vec4[globalIndex];
-+    const float4  surf_lo = surf_vec4[globalIndex * 2 + 0];
-+    const float4  surf_hi = surf_vec4[globalIndex * 2 + 1];
++        const float4 B       = bfield_vec4[globalIndex];
++        const float4 surf_lo = surf_vec4[globalIndex * 2 + 0];
++        const float4 surf_hi = surf_vec4[globalIndex * 2 + 1];
 +
-+    (void)B; (void)surf_lo; (void)surf_hi;  // 資料已進暫存器 / L1
++        (void)B; (void)surf_lo; (void)surf_hi;  // 進暫存器 / L1
++    }
++#endif  // __CUDA_ARCH__
++
 +    // 先行粗略 propagate；實際幾何判斷留待 propagate_to_next_surface
      propagate_to_next_surface(globalIndex, cfg, payload);
  }
  
+diff --git a/device/common/include/traccc/utils/view_traits.hpp b/device/common/include/traccc/utils/view_traits.hpp
+new file mode 100644
+index 00000000..35b8b359
+--- /dev/null
++++ b/device/common/include/traccc/utils/view_traits.hpp
+@@ -0,0 +1,47 @@
++// =============================================================================
++//  view_traits.hpp ― 為各式 *view* 提供連續記憶體指標的統一存取介面
++//                  (相容 covfie::field_view, detray::dmulti_view … 等)
++// =============================================================================
++
++#pragma once
++
++#include <type_traits>
++#include <utility>
++
++namespace traccc::device {
++
++namespace detail {
++
++// ────────────────────────────────────────────────────────────────────────────
++//  優先序 1：具備 .data() 成員函式者
++// ────────────────────────────────────────────────────────────────────────────
++template <class View>
++TRACCC_HOST_DEVICE inline auto contiguous_ptr_impl(const View& v, int)
++    -> decltype(const_cast<View&>(v).data()) {
++
++    return const_cast<View&>(v).data();
++}
++
++// ────────────────────────────────────────────────────────────────────────────
++//  優先序 2：退而求其次，使用 .begin()
++//            ※ 若 .begin() 僅於 non-const 有效，透過 const_cast 取得
++// ────────────────────────────────────────────────────────────────────────────
++template <class View>
++TRACCC_HOST_DEVICE inline auto contiguous_ptr_impl(const View& v, ...)
++    -> decltype(const_cast<View&>(v).begin()) {
++
++    return const_cast<View&>(v).begin();
++}
++
++}  // namespace detail
++
++// ────────────────────────────────────────────────────────────────────────────
++//  公開介面：根據 SFINAE 自動挑選可行實作
++// ────────────────────────────────────────────────────────────────────────────
++template <class View>
++TRACCC_HOST_DEVICE inline auto contiguous_ptr(const View& v) {
++    // 透過整數 / 可變參數 overload trick，落實「.data() 優先、否則 .begin()」
++    return detail::contiguous_ptr_impl(v, 0);
++}
++
++}  // namespace traccc::device
+\ No newline at end of file
 diff --git a/device/cuda/src/finding/kernels/propagate_stage1.cuh b/device/cuda/src/finding/kernels/propagate_stage1.cuh
 index f1ef7637..e1d98296 100644
 --- a/device/cuda/src/finding/kernels/propagate_stage1.cuh
