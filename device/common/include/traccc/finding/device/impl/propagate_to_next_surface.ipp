@@ -85,8 +85,10 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
 
     // Create propagator state
     typename propagator_t::state propagation(in_par, payload.field_data, det);
+    // 使用全域命名空間中的  traccc::detail::correct_particle_hypothesis
     propagation.set_particle(
-        detail::correct_particle_hypothesis(cfg.ptc_hypothesis, in_par));
+        ::traccc::detail::correct_particle_hypothesis(cfg.ptc_hypothesis,
+                                                      in_par));
     propagation._stepping
         .template set_constraint<detray::step::constraint::e_accuracy>(
             cfg.propagation.stepping.step_constraint);
