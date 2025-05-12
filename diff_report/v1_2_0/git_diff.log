@@ -1,0 +1,234 @@
+diff --git a/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp b/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
+index 54548cbe..33849740 100644
+--- a/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
++++ b/device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
+@@ -126,3 +126,34 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
+ }
+ 
+ }  // namespace traccc::device
++
++//======================================================================
++//  新增：兩段式外推實作
++//======================================================================
++
++namespace traccc::device {
++
++/// Stage-1 ── 只做粗步進，放寬 step_constraint 以降低暫存器佔用
++template <typename propagator_t, typename bfield_t>
++TRACCC_HOST_DEVICE inline void propagate_stage1(
++    global_index_t globalIndex,
++    const finding_config&           cfg_in,
++    const propagate_to_next_surface_payload<propagator_t, bfield_t>& payload) {
++
++    finding_config cfg = cfg_in;
++    cfg.propagation.stepping.step_constraint *= 5.0f;  // 粗精度
++
++    propagate_to_next_surface(globalIndex, cfg, payload);
++}
++
++/// Stage-2 ── 以原本高精度設定進行 covariance / gain 更新
++template <typename propagator_t, typename bfield_t>
++TRACCC_HOST_DEVICE inline void propagate_stage2(
++    global_index_t globalIndex,
++    const finding_config&           cfg,
++    const propagate_to_next_surface_payload<propagator_t, bfield_t>& payload) {
++
++    propagate_to_next_surface(globalIndex, cfg, payload);
++}
++
++}  // namespace traccc::device
+diff --git a/device/common/include/traccc/finding/device/propagate_to_next_surface.hpp b/device/common/include/traccc/finding/device/propagate_to_next_surface.hpp
+index 9e41c78a..9ecf33c8 100644
+--- a/device/common/include/traccc/finding/device/propagate_to_next_surface.hpp
++++ b/device/common/include/traccc/finding/device/propagate_to_next_surface.hpp
+@@ -98,6 +98,20 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
+     global_index_t globalIndex, const finding_config& cfg,
+     const propagate_to_next_surface_payload<propagator_t, bfield_t>& payload);
+ 
++    /// Stage-1：粗步進磁場外推（Reg/thread ≈ 64–80，記憶體瓶頸）
++    template <typename propagator_t, typename bfield_t>
++    TRACCC_HOST_DEVICE inline void propagate_stage1(
++        global_index_t globalIndex,
++        const finding_config&           cfg,
++        const propagate_to_next_surface_payload<propagator_t, bfield_t>& payload);
++
++    /// Stage-2：高精度誤差增益／covariance 更新（Reg/thread ≈ 96–112，計算瓶頸）
++    template <typename propagator_t, typename bfield_t>
++    TRACCC_HOST_DEVICE inline void propagate_stage2(
++        global_index_t globalIndex,
++        const finding_config&           cfg,
++        const propagate_to_next_surface_payload<propagator_t, bfield_t>& payload);
++
+ }  // namespace traccc::device
+ 
+ // Include the implementation.
+diff --git a/device/cuda/src/finding/finding_algorithm.cu b/device/cuda/src/finding/finding_algorithm.cu
+index 775df5ef..7666bec6 100644
+--- a/device/cuda/src/finding/finding_algorithm.cu
++++ b/device/cuda/src/finding/finding_algorithm.cu
+@@ -17,6 +17,8 @@
+ #include "./kernels/find_tracks.cuh"
+ #include "./kernels/make_barcode_sequence.cuh"
+ #include "./kernels/propagate_to_next_surface.cuh"
++#include "./kernels/propagate_stage1.cuh"
++#include "./kernels/propagate_stage2.cuh"
+ #include "./kernels/prune_tracks.cuh"
+ #include "traccc/cuda/finding/finding_algorithm.hpp"
+ #include "traccc/definitions/primitives.hpp"
+@@ -345,7 +347,8 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
+                 const unsigned int nThreads = m_warp_size * 2;
+                 const unsigned int nBlocks =
+                     (n_candidates + nThreads - 1) / nThreads;
+-                kernels::propagate_to_next_surface<
++                /* ---------- Stage-1：粗步進 ---------- */
++                kernels::propagate_stage1<
+                     std::decay_t<propagator_type>, std::decay_t<bfield_type>>
+                     <<<nBlocks, nThreads, 0, stream>>>(
+                         m_cfg,
+@@ -367,6 +370,26 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
+                 TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
+ 
+                 m_stream.synchronize();
++
++                /* ---------- Stage-2：Covariance 更新 ---------- */
++                kernels::propagate_stage2<
++                    std::decay_t<propagator_type>, std::decay_t<bfield_type>>
++                    <<<nBlocks, nThreads, 0, details::get_stream(m_stream)>>>(
++                        m_cfg,
++                        typename device::propagate_to_next_surface_payload<
++                            std::decay_t<propagator_type>, std::decay_t<bfield_type>>{
++                            .det_data               = det_view,
++                            .field_data             = field_view,
++                            .params_view            = in_params_buffer,
++                            .params_liveness_view   = param_liveness_buffer,
++                            .param_ids_view         = param_ids_buffer,
++                            .links_view             = links_buffer,
++                            .prev_links_idx         = step_to_link_idx_map[step],
++                            .step                   = step,
++                            .n_in_params            = n_candidates,
++                            .tips_view              = tips_buffer,
++                            .n_tracks_per_seed_view = n_tracks_per_seed_buffer});
++                TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
+             }
+         }
+ 
+diff --git a/device/cuda/src/finding/kernels/propagate_stage1.cuh b/device/cuda/src/finding/kernels/propagate_stage1.cuh
+new file mode 100644
+index 00000000..5c6f4591
+--- /dev/null
++++ b/device/cuda/src/finding/kernels/propagate_stage1.cuh
+@@ -0,0 +1,25 @@
++/** TRACCC library, part of the ACTS project (R&D line)
++ *
++ * (c) 2025 CERN for the benefit of the ACTS project
++ *
++ * Mozilla Public License Version 2.0
++ */
++
++#pragma once
++
++#include "../../utils/global_index.hpp"
++#include "traccc/finding/device/propagate_to_next_surface.hpp"
++#include "traccc/finding/finding_config.hpp"
++
++namespace traccc::cuda::kernels {
++
++template <typename propagator_t, typename bfield_t>
++__global__ void propagate_stage1(
++    const finding_config cfg,
++    device::propagate_to_next_surface_payload<propagator_t, bfield_t> payload) {
++
++    device::propagate_stage1<propagator_t, bfield_t>(
++        details::global_index1(), cfg, payload);
++}
++
++}  // namespace traccc::cuda::kernels
+\ No newline at end of file
+diff --git a/device/cuda/src/finding/kernels/propagate_stage2.cuh b/device/cuda/src/finding/kernels/propagate_stage2.cuh
+new file mode 100644
+index 00000000..f187c218
+--- /dev/null
++++ b/device/cuda/src/finding/kernels/propagate_stage2.cuh
+@@ -0,0 +1,25 @@
++/** TRACCC library, part of the ACTS project (R&D line)
++ *
++ * (c) 2025 CERN for the benefit of the ACTS project
++ *
++ * Mozilla Public License Version 2.0
++ */
++
++#pragma once
++
++#include "../../utils/global_index.hpp"
++#include "traccc/finding/device/propagate_to_next_surface.hpp"
++#include "traccc/finding/finding_config.hpp"
++
++namespace traccc::cuda::kernels {
++
++template <typename propagator_t, typename bfield_t>
++__global__ void propagate_stage2(
++    const finding_config cfg,
++    device::propagate_to_next_surface_payload<propagator_t, bfield_t> payload) {
++
++    device::propagate_stage2<propagator_t, bfield_t>(
++        details::global_index1(), cfg, payload);
++}
++
++}  // namespace traccc::cuda::kernels
+\ No newline at end of file
+diff --git a/device/cuda/src/finding/kernels/specializations/propagate_stage1_default_detector.cu b/device/cuda/src/finding/kernels/specializations/propagate_stage1_default_detector.cu
+new file mode 100644
+index 00000000..d59c444d
+--- /dev/null
++++ b/device/cuda/src/finding/kernels/specializations/propagate_stage1_default_detector.cu
+@@ -0,0 +1,21 @@
++/** TRACCC library, part of the ACTS project (R&D line)
++ *
++ * (c) 2025 CERN for the benefit of the ACTS project
++ *
++ * Mozilla Public License Version 2.0
++ */
++
++#include "../propagate_stage1.cuh"
++#include "types.hpp"
++
++namespace traccc::cuda::kernels {
++
++template __global__ void
++propagate_stage1<default_finding_algorithm::propagator_type,
++                 default_finding_algorithm::bfield_type>(
++    const finding_config,
++    device::propagate_to_next_surface_payload<
++        default_finding_algorithm::propagator_type,
++        default_finding_algorithm::bfield_type>);
++
++}  // namespace traccc::cuda::kernels
+\ No newline at end of file
+diff --git a/device/cuda/src/finding/kernels/specializations/propagate_stage2_default_detector.cu b/device/cuda/src/finding/kernels/specializations/propagate_stage2_default_detector.cu
+new file mode 100644
+index 00000000..a1687ff6
+--- /dev/null
++++ b/device/cuda/src/finding/kernels/specializations/propagate_stage2_default_detector.cu
+@@ -0,0 +1,21 @@
++/** TRACCC library, part of the ACTS project (R&D line)
++ *
++ * (c) 2025 CERN for the benefit of the ACTS project
++ *
++ * Mozilla Public License Version 2.0
++ */
++
++#include "../propagate_stage2.cuh"
++#include "types.hpp"
++
++namespace traccc::cuda::kernels {
++
++template __global__ void
++propagate_stage2<default_finding_algorithm::propagator_type,
++                 default_finding_algorithm::bfield_type>(
++    const finding_config,
++    device::propagate_to_next_surface_payload<
++        default_finding_algorithm::propagator_type,
++        default_finding_algorithm::bfield_type>);
++
++}  // namespace traccc::cuda::kernels
+\ No newline at end of file
