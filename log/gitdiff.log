@@ -31,10 +31,10 @@ index 21ebaa61..59a5aef8 100644
          const matrix_type<6, 1> filtered_vec =
 diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 new file mode 100644
-index 00000000..8a0b7062
+index 00000000..743e5c3c
 --- /dev/null
 +++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,116 @@
 +/** KalmanNet-inspired GRU-based gain predictor
 + *
 + * Two stacked GRU layers (hidden = 64) → FC (64 × 25) producing the
@@ -127,7 +127,10 @@ index 00000000..8a0b7062
 +                scalar acc = b_out_[o];
 +                for (size_type j = 0; j < HiddenSize; ++j)
 +                    acc += W_out_[o * HiddenSize + j] * h1[j];
-+                K(r, c) = acc;
++                /* plugin::array 的 dmatrix<> 內部實作為
++                 *   std::array<std::array<scalar, Row>, Col>，外層先 column。
++                 * 因此需以 [col][row] 存取。                                   */
++                K[c][r] = acc;
 +            }
 +
 +        return K;

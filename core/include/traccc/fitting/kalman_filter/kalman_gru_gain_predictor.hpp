@@ -90,7 +90,10 @@ struct kalman_gru_gain_predictor {
                 scalar acc = b_out_[o];
                 for (size_type j = 0; j < HiddenSize; ++j)
                     acc += W_out_[o * HiddenSize + j] * h1[j];
-                K(r, c) = acc;
+                /* plugin::array 的 dmatrix<> 內部實作為
+                 *   std::array<std::array<scalar, Row>, Col>，外層先 column。
+                 * 因此需以 [col][row] 存取。                                   */
+                K[c][r] = acc;
             }
 
         return K;
