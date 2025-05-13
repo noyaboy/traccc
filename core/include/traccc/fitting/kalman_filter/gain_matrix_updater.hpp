@@ -12,6 +12,7 @@
 #include "traccc/definitions/track_parametrization.hpp"
 #include "traccc/edm/track_state.hpp"
 #include "traccc/fitting/status_codes.hpp"
+#include "traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp"
 
 // Detray inlcude(s)
 #include <detray/geometry/shapes/line.hpp>
@@ -108,9 +109,9 @@ struct gain_matrix_updater {
         const matrix_type<D, D> M =
             H * predicted_cov * matrix::transpose(H) + V;
 
-        // Kalman gain matrix
-        const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+        // Kalman gain matrix predicted by two-layer GRU KalmanNet surrogate
+        static traccc::fitting::kalman_gru_gain_predictor<algebra_t, D> kalman_gru{};
+        const matrix_type<6, D> K = kalman_gru(predicted_vec);
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
