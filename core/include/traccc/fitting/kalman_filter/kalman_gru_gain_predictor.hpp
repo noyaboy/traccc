@@ -26,7 +26,7 @@ struct kalman_gru_gain_predictor {
     static constexpr size_type HiddenSize = 64;         // GRU width
     static constexpr size_type OutputSize = 6 * D;      // flattened K
 
-    /*──────────────────  deterministic pseudo-random helper  ─────────────────*/
+    /*─────────────────────  compile-time friendly pseudo-random  ─────────────*/
     TRACCC_HOST_DEVICE
     static inline scalar rnd(std::size_t i) {
         scalar x = 0.f, denom = 1.f;
@@ -39,46 +39,29 @@ struct kalman_gru_gain_predictor {
         return static_cast<scalar>(0.1f * (x - 0.5f));
     }
 
-    /*───────────────────────────  constructor  ───────────────────────────────*/
-    TRACCC_HOST_DEVICE
-    kalman_gru_gain_predictor() {
-        for (std::size_t i = 0; i < HiddenSize * InputSize;  ++i) W0_[i]    = rnd(i);
-        for (std::size_t i = 0; i < HiddenSize * HiddenSize; ++i) {
-            U0_[i]  = rnd(i + 17);
-            W1_[i]  = rnd(i + 31);
-            U1_[i]  = rnd(i + 47);
-        }
-        for (std::size_t i = 0; i < HiddenSize; ++i) {
-            b0_[i]  = rnd(i + 97);
-            b1_[i]  = rnd(i + 131);
-        }
-        for (std::size_t i = 0; i < OutputSize * HiddenSize; ++i) W_out_[i] = rnd(i + 197);
-        for (std::size_t i = 0; i < OutputSize; ++i)            b_out_[i]  = rnd(i + 337);
-    }
-
-    /*────────────────────────────  forward  ──────────────────────────────────*/
+    /*──────────────────────  stateless forward (static)  ─────────────────────*/
     template <typename vec6_t>
     TRACCC_HOST_DEVICE
-    inline matrix_type<6, D> operator()(const vec6_t& x) const {
+    static inline matrix_type<6, D> eval(const vec6_t& x) {
 
         scalar h0[HiddenSize]{};
         scalar h1[HiddenSize]{};
 
         /*─ GRU-0 (simplified) ─*/
         for (size_type i = 0; i < HiddenSize; ++i) {
-            scalar acc = b0_[i];
+            scalar acc = rnd(10'000 + i);               // bias_0
             /* 來源向量實際型別為 std::array<std::array<scalar, 6>, 1>，
              * 因此外層僅有索引 0；再取第 j 個元素。                 */
             for (size_type j = 0; j < InputSize; ++j)
-                acc += W0_[i * InputSize + j] * x[0][j];
+                acc += rnd(i * InputSize + j) * x[0][j]; // W0
             h0[i] = std::tanh(acc);
         }
 
         /*─ GRU-1 (simplified) ─*/
         for (size_type i = 0; i < HiddenSize; ++i) {
-            scalar acc = b1_[i];
+            scalar acc = rnd(20'000 + i);               // bias_1
             for (size_type j = 0; j < HiddenSize; ++j)
-                acc += W1_[i * HiddenSize + j] * h0[j];
+                acc += rnd(5000 + i * HiddenSize + j) * h0[j]; // W1
             h1[i] = std::tanh(acc);
         }
 
@@ -87,9 +70,9 @@ struct kalman_gru_gain_predictor {
         for (size_type r = 0; r < 6; ++r)
             for (size_type c = 0; c < D; ++c) {
                 const size_type o = r * D + c;
-                scalar acc = b_out_[o];
+                scalar acc = rnd(30'000 + o);            // bias_out
                 for (size_type j = 0; j < HiddenSize; ++j)
-                    acc += W_out_[o * HiddenSize + j] * h1[j];
+                    acc += rnd(40'000 + o * HiddenSize + j) * h1[j]; // W_out
                 /* plugin::array 的 dmatrix<> 內部實作為
                  *   std::array<std::array<scalar, Row>, Col>，外層先 column。
                  * 因此需以 [col][row] 存取。                                   */
@@ -99,18 +82,6 @@ struct kalman_gru_gain_predictor {
         return K;
     }
 
-  private:
-    /*─ layer weights (flat arrays) ─*/
-    scalar W0_[HiddenSize * InputSize];
-    [[maybe_unused]] scalar U0_[HiddenSize * HiddenSize];
-    scalar b0_[HiddenSize];
-
-    scalar W1_[HiddenSize * HiddenSize];
-    [[maybe_unused]] scalar U1_[HiddenSize * HiddenSize];
-    scalar b1_[HiddenSize];
-
-    scalar W_out_[OutputSize * HiddenSize];
-    scalar b_out_[OutputSize];
 };
 
 } // namespace traccc::fitting
