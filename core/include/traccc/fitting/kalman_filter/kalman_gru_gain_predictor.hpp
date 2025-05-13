@@ -17,7 +17,8 @@ template <typename algebra_t, std::size_t D>
 struct kalman_gru_gain_predictor {
 
     using size_type   = detray::dsize_type<algebra_t>;
-    using scalar      = typename algebra_t::scalar_type;
+    /* `plugin::array< T >` 沒有 `scalar_type` 別名，改用 STL 慣用的 `value_type`. */
+    using scalar      = typename algebra_t::value_type;
     template <size_type R, size_type C>
     using matrix_type = detray::dmatrix<algebra_t, R, C>;
 
