@@ -31,10 +31,10 @@ index 21ebaa61..59a5aef8 100644
          const matrix_type<6, 1> filtered_vec =
 diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 new file mode 100644
-index 00000000..53dac2de
+index 00000000..8a0b7062
 --- /dev/null
 +++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,113 @@
 +/** KalmanNet-inspired GRU-based gain predictor
 + *
 + * Two stacked GRU layers (hidden = 64) → FC (64 × 25) producing the
@@ -104,8 +104,10 @@ index 00000000..53dac2de
 +        /*─ GRU-0 (simplified) ─*/
 +        for (size_type i = 0; i < HiddenSize; ++i) {
 +            scalar acc = b0_[i];
++            /* 來源向量實際型別為 std::array<std::array<scalar, 6>, 1>，
++             * 因此外層僅有索引 0；再取第 j 個元素。                 */
 +            for (size_type j = 0; j < InputSize; ++j)
-+                acc += W0_[i * InputSize + j] * x[j][0];
++                acc += W0_[i * InputSize + j] * x[0][j];
 +            h0[i] = std::tanh(acc);
 +        }
 +
@@ -125,7 +127,7 @@ index 00000000..53dac2de
 +                scalar acc = b_out_[o];
 +                for (size_type j = 0; j < HiddenSize; ++j)
 +                    acc += W_out_[o * HiddenSize + j] * h1[j];
-+                K[r][c] = acc;
++                K(r, c) = acc;
 +            }
 +
 +        return K;
@@ -134,11 +136,11 @@ index 00000000..53dac2de
 +  private:
 +    /*─ layer weights (flat arrays) ─*/
 +    scalar W0_[HiddenSize * InputSize];
-+    scalar U0_[HiddenSize * HiddenSize];
++    [[maybe_unused]] scalar U0_[HiddenSize * HiddenSize];
 +    scalar b0_[HiddenSize];
 +
 +    scalar W1_[HiddenSize * HiddenSize];
-+    scalar U1_[HiddenSize * HiddenSize];
++    [[maybe_unused]] scalar U1_[HiddenSize * HiddenSize];
 +    scalar b1_[HiddenSize];
 +
 +    scalar W_out_[OutputSize * HiddenSize];

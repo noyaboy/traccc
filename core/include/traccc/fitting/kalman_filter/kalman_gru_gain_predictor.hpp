@@ -67,8 +67,10 @@ struct kalman_gru_gain_predictor {
         /*─ GRU-0 (simplified) ─*/
         for (size_type i = 0; i < HiddenSize; ++i) {
             scalar acc = b0_[i];
+            /* 來源向量實際型別為 std::array<std::array<scalar, 6>, 1>，
+             * 因此外層僅有索引 0；再取第 j 個元素。                 */
             for (size_type j = 0; j < InputSize; ++j)
-                acc += W0_[i * InputSize + j] * x[j][0];
+                acc += W0_[i * InputSize + j] * x[0][j];
             h0[i] = std::tanh(acc);
         }
 
@@ -88,7 +90,7 @@ struct kalman_gru_gain_predictor {
                 scalar acc = b_out_[o];
                 for (size_type j = 0; j < HiddenSize; ++j)
                     acc += W_out_[o * HiddenSize + j] * h1[j];
-                K[r][c] = acc;
+                K(r, c) = acc;
             }
 
         return K;
@@ -97,11 +99,11 @@ struct kalman_gru_gain_predictor {
   private:
     /*─ layer weights (flat arrays) ─*/
     scalar W0_[HiddenSize * InputSize];
-    scalar U0_[HiddenSize * HiddenSize];
+    [[maybe_unused]] scalar U0_[HiddenSize * HiddenSize];
     scalar b0_[HiddenSize];
 
     scalar W1_[HiddenSize * HiddenSize];
-    scalar U1_[HiddenSize * HiddenSize];
+    [[maybe_unused]] scalar U1_[HiddenSize * HiddenSize];
     scalar b1_[HiddenSize];
 
     scalar W_out_[OutputSize * HiddenSize];
