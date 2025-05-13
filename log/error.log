@@ -1,7 +1,31 @@
-110:[ 17%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-111-[ 17%] Building CXX object _deps/acts-build/Core/CMakeFiles/ActsCore.dir/src/Detector/detail/ProtoMaterialHelper.cpp.o
-112-[ 17%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
+387:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:20:11: error: no type named 'scalar_type' in 'struct algebra::plugin::array<float>'
+388-   20 |     using scalar      = typename algebra_t::scalar_type;
+389-      |           ^~~~~~
 --
-387:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
-388-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
-389-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/opaque_stream.cpp.o
+399:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:20:11: error: no type named 'scalar_type' in 'struct algebra::plugin::array<float>'
+400-In file included from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:15,
+401-                 from /home/noah/project/traccc/core/include/traccc/finding/details/find_tracks.hpp:17,
+--
+412:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:20:11: error: no type named 'scalar_type' in 'struct algebra::plugin::array<float>'
+413-   20 |     using scalar      = typename algebra_t::scalar_type;
+414-      |           ^~~~~~
+--
+424:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:20:11: error: no type named 'scalar_type' in 'struct algebra::plugin::array<float>'
+425-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:177: core/CMakeFiles/traccc_core.dir/src/finding/combinatorial_kalman_filter_algorithm_constant_field_telescope_detector.cpp.o] Error 1
+426-gmake[2]: *** Waiting for unfinished jobs....
+--
+444:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:20:11: error: no type named 'scalar_type' in 'struct algebra::plugin::array<float>'
+445-   20 |     using scalar      = typename algebra_t::scalar_type;
+446-      |           ^~~~~~
+--
+460:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:20:11: error: no type named 'scalar_type' in 'struct algebra::plugin::array<float>'
+461-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:163: core/CMakeFiles/traccc_core.dir/src/finding/combinatorial_kalman_filter_algorithm_constant_field_default_detector.cpp.o] Error 1
+462-In file included from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:15,
+--
+479:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:20:11: error: no type named 'scalar_type' in 'struct algebra::plugin::array<float>'
+480-   20 |     using scalar      = typename algebra_t::scalar_type;
+481-      |           ^~~~~~
+--
+495:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:20:11: error: no type named 'scalar_type' in 'struct algebra::plugin::array<float>'
+496-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:205: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_default_detector.cpp.o] Error 1
+497-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:219: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_telescope_detector.cpp.o] Error 1
