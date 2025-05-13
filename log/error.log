@@ -1,162 +1,35 @@
-127:[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-128-[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
-129-[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/get_device_name.cpp.o
+134:[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+135-[ 22%] Building CXX object _deps/tbb-build/src/tbb/CMakeFiles/tbb.dir/rtm_rw_mutex.cpp.o
+136-[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
 --
-367:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-368-   91 |                 K[r][c] = acc;
-369-      |                 ~~~~~~~~^~~~~
+373:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:93:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::matrix_type<6, 1> {aka std::array<std::array<float, 6>, 1>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&)'
+374-   93 |                 K(r, c) = acc;
+375-      |                 ~^~~~~~
 --
-375:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-376-   91 |                 K[r][c] = acc;
-377-      |                 ~~~~~~~~^~~~~
+385:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:93:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::matrix_type<6, 2> {aka std::array<std::array<float, 6>, 2>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&)'
+386-In file included from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:15,
+387-                 from /home/noah/project/traccc/core/include/traccc/finding/details/find_tracks.hpp:17,
 --
-391:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-392-   91 |                 K[r][c] = acc;
-393-      |                 ~~~~~~~~^~~~~
+398:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:93:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::matrix_type<6, 1> {aka std::array<std::array<float, 6>, 1>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&)'
+399-   93 |                 K(r, c) = acc;
+400-      |                 ~^~~~~~
 --
-399:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-400-   91 |                 K[r][c] = acc;
-401-      |                 ~~~~~~~~^~~~~
+410:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:93:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::matrix_type<6, 2> {aka std::array<std::array<float, 6>, 2>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&)'
+411-[ 60%] Building CXX object core/CMakeFiles/traccc_core.dir/src/seeding/seed_finding.cpp.o
+412-[ 60%] Building CXX object core/CMakeFiles/traccc_core.dir/src/seeding/spacepoint_binning.cpp.o
 --
-407:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-408-   91 |                 K[r][c] = acc;
-409-      |                 ~~~~~~~~^~~~~
+437:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:93:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::matrix_type<6, 1> {aka std::array<std::array<float, 6>, 1>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&)'
+438-   93 |                 K(r, c) = acc;
+439-      |                 ~^~~~~~
 --
-415:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-416-   91 |                 K[r][c] = acc;
-417-      |                 ~~~~~~~~^~~~~
+453:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:93:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::matrix_type<6, 2> {aka std::array<std::array<float, 6>, 2>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&)'
+454-[ 60%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/ProtoDetectorJsonConverter.cpp.o
+455-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:219: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_telescope_detector.cpp.o] Error 1
 --
-423:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-424-   91 |                 K[r][c] = acc;
-425-      |                 ~~~~~~~~^~~~~
+474:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:93:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::matrix_type<6, 1> {aka std::array<std::array<float, 6>, 1>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&)'
+475-   93 |                 K(r, c) = acc;
+476-      |                 ~^~~~~~
 --
-431:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-432-   91 |                 K[r][c] = acc;
-433-      |                 ~~~~~~~~^~~~~
---
-439:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-440-   91 |                 K[r][c] = acc;
-441-      |                 ~~~~~~~~^~~~~
---
-447:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-448-   91 |                 K[r][c] = acc;
-449-      |                 ~~~~~~~~^~~~~
---
-453:cc1plus: all warnings being treated as errors
-454-In member function 'traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::matrix_type<((typename algebra::traits::get_algebra<T>::size_type)6), D> traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::operator()(const vec6_t&) const [with vec6_t = std::array<std::array<float, 6>, 1>; algebra_t = algebra::plugin::array<float>; long unsigned int D = 2]',
-455-    inlined from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::line<true>; algebra_t = algebra::plugin::array<float>]' at /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:116:47:
-456:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-457-   91 |                 K[r][c] = acc;
-458-      |                 ~~~~~~~~^~~~~
---
-464:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-465-   91 |                 K[r][c] = acc;
-466-      |                 ~~~~~~~~^~~~~
---
-472:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-473-   91 |                 K[r][c] = acc;
-474-      |                 ~~~~~~~~^~~~~
---
-483:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-484-   91 |                 K[r][c] = acc;
-485-      |                 ~~~~~~~~^~~~~
---
-492:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-493-   91 |                 K[r][c] = acc;
-494-      |                 ~~~~~~~~^~~~~
---
-500:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-501-   91 |                 K[r][c] = acc;
-502-      |                 ~~~~~~~~^~~~~
---
-508:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-509-   91 |                 K[r][c] = acc;
-510-      |                 ~~~~~~~~^~~~~
---
-516:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-517-   91 |                 K[r][c] = acc;
-518-      |                 ~~~~~~~~^~~~~
---
-531:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-532-   91 |                 K[r][c] = acc;
-533-      |                 ~~~~~~~~^~~~~
---
-539:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-540-   91 |                 K[r][c] = acc;
-541-      |                 ~~~~~~~~^~~~~
---
-545:cc1plus: all warnings being treated as errors
-546-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:219: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_telescope_detector.cpp.o] Error 1
-547-[ 63%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/UtilitiesJsonConverter.cpp.o
---
-550:cc1plus: all warnings being treated as errors
-551-In file included from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:15,
-552-                 from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_actor.hpp:13,
---
-557:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-558-   91 |                 K[r][c] = acc;
-559-      |                 ~~~~~~~~^~~~~
---
-565:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-566-   91 |                 K[r][c] = acc;
-567-      |                 ~~~~~~~~^~~~~
---
-573:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-574-   91 |                 K[r][c] = acc;
-575-      |                 ~~~~~~~~^~~~~
---
-581:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-582-   91 |                 K[r][c] = acc;
-583-      |                 ~~~~~~~~^~~~~
---
-589:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-590-   91 |                 K[r][c] = acc;
-591-      |                 ~~~~~~~~^~~~~
---
-597:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-598-   91 |                 K[r][c] = acc;
-599-      |                 ~~~~~~~~^~~~~
---
-605:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-606-   91 |                 K[r][c] = acc;
-607-      |                 ~~~~~~~~^~~~~
---
-615:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-616-   91 |                 K[r][c] = acc;
-617-      |                 ~~~~~~~~^~~~~
---
-624:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-625-   91 |                 K[r][c] = acc;
-626-      |                 ~~~~~~~~^~~~~
---
-632:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-633-   91 |                 K[r][c] = acc;
-634-      |                 ~~~~~~~~^~~~~
---
-640:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-641-   91 |                 K[r][c] = acc;
-642-      |                 ~~~~~~~~^~~~~
---
-648:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-649-   91 |                 K[r][c] = acc;
-650-      |                 ~~~~~~~~^~~~~
---
-656:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-657-   91 |                 K[r][c] = acc;
-658-      |                 ~~~~~~~~^~~~~
---
-664:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-665-   91 |                 K[r][c] = acc;
-666-      |                 ~~~~~~~~^~~~~
---
-672:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-673-   91 |                 K[r][c] = acc;
-674-      |                 ~~~~~~~~^~~~~
---
-680:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
-681-   91 |                 K[r][c] = acc;
-682-      |                 ~~~~~~~~^~~~~
---
-688:cc1plus: all warnings being treated as errors
-689-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:205: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_default_detector.cpp.o] Error 1
-690-gmake[1]: *** [CMakeFiles/Makefile2:4669: core/CMakeFiles/traccc_core.dir/all] Error 2
+490:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:93:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::matrix_type<6, 2> {aka std::array<std::array<float, 6>, 2>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&)'
+491-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:205: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_default_detector.cpp.o] Error 1
+492-[ 62%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/SurfaceJsonConverter.cpp.o
