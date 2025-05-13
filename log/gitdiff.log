@@ -25,10 +25,10 @@ index 21ebaa61..13ab41f8 100644
          const matrix_type<6, 1> filtered_vec =
 diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 new file mode 100644
-index 00000000..0e81ebba
+index 00000000..4170b051
 --- /dev/null
 +++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,111 @@
 +/** KalmanNet-inspired GRU-based gain predictor
 + *
 + * Two stacked GRU layers (hidden = 64) → FC (64 × 25) producing the
@@ -48,7 +48,8 @@ index 00000000..0e81ebba
 +struct kalman_gru_gain_predictor {
 +
 +    using size_type   = detray::dsize_type<algebra_t>;
-+    using scalar      = typename algebra_t::scalar_type;
++    /* `plugin::array< T >` 沒有 `scalar_type` 別名，改用 STL 慣用的 `value_type`. */
++    using scalar      = typename algebra_t::value_type;
 +    template <size_type R, size_type C>
 +    using matrix_type = detray::dmatrix<algebra_t, R, C>;
 +
