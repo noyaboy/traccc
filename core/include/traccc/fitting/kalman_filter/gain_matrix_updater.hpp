@@ -111,9 +111,12 @@ struct gain_matrix_updater {
         [[maybe_unused]] const matrix_type<D, D> M =
             H * predicted_cov * matrix::transpose(H) + V;
 
-        // Kalman gain matrix predicted by two-layer GRU KalmanNet surrogate
-        static traccc::fitting::kalman_gru_gain_predictor<algebra_t, D> kalman_gru{};
-        const matrix_type<6, D> K = kalman_gru(predicted_vec);
+        /* Kalman gain via兩層 GRU KalmanNet surrogate —— 以
+         *   kalman_gru_gain_predictor<>::eval(...)
+         *   靜態函式呼叫，避免在 device 函式中動態初始化。           */
+        const matrix_type<6, D> K =
+            traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::eval(
+                predicted_vec);
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
