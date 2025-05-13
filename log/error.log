@@ -1,22 +1,7 @@
-115:[ 20%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-116-[ 20%] Building CXX object _deps/tbb-build/src/tbb/CMakeFiles/tbb.dir/rtm_rw_mutex.cpp.o
-117-[ 20%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
+138:[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+139-[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
+140-[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/get_device_name.cpp.o
 --
 385:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
-386-[ 65%] Building CXX object examples/tools/CMakeFiles/traccc_convert_csv_bfield.dir/convert_csv_bfield.cpp.o
-387-[ 65%] Building CXX object examples/run/cpu/CMakeFiles/traccc_examples_cpu.dir/full_chain_algorithm.cpp.o
---
-416:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp(115): error: dynamic initialization is not supported for a function-scope static __device__ variable within a __device__/__global__ function
-417-          static traccc::fitting::kalman_gru_gain_predictor<algebra_t, D> kalman_gru{};
-418-                                                                          ^
---
-425:1 error detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/kernels/specializations/find_tracks_default_detector.cu".
-426-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:345: device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/find_tracks_default_detector.cu.o] Error 1
-427-gmake[2]: *** Waiting for unfinished jobs....
-428:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp(115): error: dynamic initialization is not supported for a function-scope static __device__ variable within a __device__/__global__ function
-429-          static traccc::fitting::kalman_gru_gain_predictor<algebra_t, D> kalman_gru{};
-430-                                                                          ^
---
-445:1 error detected in the compilation of "/home/noah/project/traccc/device/cuda/src/fitting/fitting_algorithm.cu".
-446-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:420: device/cuda/CMakeFiles/traccc_cuda.dir/src/fitting/fitting_algorithm.cu.o] Error 1
-447-[ 69%] Built target ActsPluginJson
+386-[ 65%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/make_prefix_sum_buff.cu.o
+387-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/opaque_stream.cpp.o
