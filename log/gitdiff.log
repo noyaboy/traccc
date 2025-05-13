@@ -1,0 +1,142 @@
+diff --git a/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp b/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp
+index 21ebaa61..13ab41f8 100644
+--- a/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp
++++ b/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp
+@@ -12,6 +12,7 @@
+ #include "traccc/definitions/track_parametrization.hpp"
+ #include "traccc/edm/track_state.hpp"
+ #include "traccc/fitting/status_codes.hpp"
++#include "traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp"
+ 
+ // Detray inlcude(s)
+ #include <detray/geometry/shapes/line.hpp>
+@@ -108,9 +109,9 @@ struct gain_matrix_updater {
+         const matrix_type<D, D> M =
+             H * predicted_cov * matrix::transpose(H) + V;
+ 
+-        // Kalman gain matrix
+-        const matrix_type<6, D> K =
+-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
++        // Kalman gain matrix predicted by two-layer GRU KalmanNet surrogate
++        static traccc::fitting::kalman_gru_gain_predictor<algebra_t, D> kalman_gru{};
++        const matrix_type<6, D> K = kalman_gru(predicted_vec);
+ 
+         // Calculate the filtered track parameters
+         const matrix_type<6, 1> filtered_vec =
+diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
+new file mode 100644
+index 00000000..0e81ebba
+--- /dev/null
++++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
+@@ -0,0 +1,110 @@
++/** KalmanNet-inspired GRU-based gain predictor
++ *
++ * Two stacked GRU layers (hidden = 64) → FC (64 × 25) producing the
++ * flattened 6 × D Kalman gain matrix.  Weights are initialised
++ * deterministically but effectively random.
++ */
++
++#pragma once
++
++#include <cmath>        // std::exp / std::tanh
++#include <cstddef>      // std::size_t
++#include "traccc/definitions/qualifiers.hpp"
++
++namespace traccc::fitting {
++
++template <typename algebra_t, std::size_t D>
++struct kalman_gru_gain_predictor {
++
++    using size_type   = detray::dsize_type<algebra_t>;
++    using scalar      = typename algebra_t::scalar_type;
++    template <size_type R, size_type C>
++    using matrix_type = detray::dmatrix<algebra_t, R, C>;
++
++    static constexpr size_type InputSize  = 6;          // x dimension
++    static constexpr size_type HiddenSize = 64;         // GRU width
++    static constexpr size_type OutputSize = 6 * D;      // flattened K
++
++    /*──────────────────  deterministic pseudo-random helper  ─────────────────*/
++    TRACCC_HOST_DEVICE
++    static inline scalar rnd(std::size_t i) {
++        scalar x = 0.f, denom = 1.f;
++        std::size_t n = i + 1;          // skip zero
++        while (n) {
++            denom *= 2.f;
++            x += (n & 1U) / denom;
++            n >>= 1U;
++        }
++        return static_cast<scalar>(0.1f * (x - 0.5f));
++    }
++
++    /*───────────────────────────  constructor  ───────────────────────────────*/
++    TRACCC_HOST_DEVICE
++    kalman_gru_gain_predictor() {
++        for (std::size_t i = 0; i < HiddenSize * InputSize;  ++i) W0_[i]    = rnd(i);
++        for (std::size_t i = 0; i < HiddenSize * HiddenSize; ++i) {
++            U0_[i]  = rnd(i + 17);
++            W1_[i]  = rnd(i + 31);
++            U1_[i]  = rnd(i + 47);
++        }
++        for (std::size_t i = 0; i < HiddenSize; ++i) {
++            b0_[i]  = rnd(i + 97);
++            b1_[i]  = rnd(i + 131);
++        }
++        for (std::size_t i = 0; i < OutputSize * HiddenSize; ++i) W_out_[i] = rnd(i + 197);
++        for (std::size_t i = 0; i < OutputSize; ++i)            b_out_[i]  = rnd(i + 337);
++    }
++
++    /*────────────────────────────  forward  ──────────────────────────────────*/
++    template <typename vec6_t>
++    TRACCC_HOST_DEVICE
++    inline matrix_type<6, D> operator()(const vec6_t& x) const {
++
++        scalar h0[HiddenSize]{};
++        scalar h1[HiddenSize]{};
++
++        /*─ GRU-0 (simplified) ─*/
++        for (size_type i = 0; i < HiddenSize; ++i) {
++            scalar acc = b0_[i];
++            for (size_type j = 0; j < InputSize; ++j)
++                acc += W0_[i * InputSize + j] * x(j, 0);
++            h0[i] = std::tanh(acc);
++        }
++
++        /*─ GRU-1 (simplified) ─*/
++        for (size_type i = 0; i < HiddenSize; ++i) {
++            scalar acc = b1_[i];
++            for (size_type j = 0; j < HiddenSize; ++j)
++                acc += W1_[i * HiddenSize + j] * h0[j];
++            h1[i] = std::tanh(acc);
++        }
++
++        /*─ Dense output → 6 × D gain matrix ─*/
++        matrix_type<6, D> K{};
++        for (size_type r = 0; r < 6; ++r)
++            for (size_type c = 0; c < D; ++c) {
++                const size_type o = r * D + c;
++                scalar acc = b_out_[o];
++                for (size_type j = 0; j < HiddenSize; ++j)
++                    acc += W_out_[o * HiddenSize + j] * h1[j];
++                K(r, c) = acc;
++            }
++
++        return K;
++    }
++
++  private:
++    /*─ layer weights (flat arrays) ─*/
++    scalar W0_[HiddenSize * InputSize];
++    scalar U0_[HiddenSize * HiddenSize];
++    scalar b0_[HiddenSize];
++
++    scalar W1_[HiddenSize * HiddenSize];
++    scalar U1_[HiddenSize * HiddenSize];
++    scalar b1_[HiddenSize];
++
++    scalar W_out_[OutputSize * HiddenSize];
++    scalar b_out_[OutputSize];
++};
++
++} // namespace traccc::fitting
+\ No newline at end of file
