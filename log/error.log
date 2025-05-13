@@ -1,240 +1,162 @@
-125:[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-126-[ 21%] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark_main.dir/benchmark_main.cc.o
-127-[ 22%] Building CXX object _deps/acts-build/Core/CMakeFiles/ActsCore.dir/src/Detector/CylindricalContainerBuilder.cpp.o
+127:[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+128-[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
+129-[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/get_device_name.cpp.o
 --
-370:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-371-  109 |         const matrix_type<D, D> M =
-372-      |                                 ^
+367:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+368-   91 |                 K[r][c] = acc;
+369-      |                 ~~~~~~~~^~~~~
 --
-382:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-383-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::trapezoid2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-384-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::trapezoid2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::trapezoid2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+375:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+376-   91 |                 K[r][c] = acc;
+377-      |                 ~~~~~~~~^~~~~
 --
-392:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-393-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::trapezoid2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-394-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::trapezoid2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::trapezoid2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+391:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+392-   91 |                 K[r][c] = acc;
+393-      |                 ~~~~~~~~^~~~~
 --
-402:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-403-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::annulus2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-404-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::annulus2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::annulus2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+399:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+400-   91 |                 K[r][c] = acc;
+401-      |                 ~~~~~~~~^~~~~
 --
-412:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-413-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::annulus2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-414-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::annulus2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::annulus2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+407:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+408-   91 |                 K[r][c] = acc;
+409-      |                 ~~~~~~~~^~~~~
 --
-422:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-423-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::cylinder2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-424-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::cylinder2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::cylinder2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+415:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+416-   91 |                 K[r][c] = acc;
+417-      |                 ~~~~~~~~^~~~~
 --
-432:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-433-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::cylinder2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-434-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::cylinder2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::cylinder2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+423:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+424-   91 |                 K[r][c] = acc;
+425-      |                 ~~~~~~~~^~~~~
 --
-442:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-443-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::concentric_cylinder2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-444-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::concentric_cylinder2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::concentric_cylinder2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+431:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+432-   91 |                 K[r][c] = acc;
+433-      |                 ~~~~~~~~^~~~~
 --
-452:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-453-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::concentric_cylinder2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-454-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::concentric_cylinder2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::concentric_cylinder2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+439:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+440-   91 |                 K[r][c] = acc;
+441-      |                 ~~~~~~~~^~~~~
 --
-462:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-463-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::ring2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-464-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::ring2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::ring2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+447:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+448-   91 |                 K[r][c] = acc;
+449-      |                 ~~~~~~~~^~~~~
 --
-472:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-473-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::ring2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-474-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::ring2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::ring2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+453:cc1plus: all warnings being treated as errors
+454-In member function 'traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::matrix_type<((typename algebra::traits::get_algebra<T>::size_type)6), D> traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::operator()(const vec6_t&) const [with vec6_t = std::array<std::array<float, 6>, 1>; algebra_t = algebra::plugin::array<float>; long unsigned int D = 2]',
+455-    inlined from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::line<true>; algebra_t = algebra::plugin::array<float>]' at /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:116:47:
+456:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+457-   91 |                 K[r][c] = acc;
+458-      |                 ~~~~~~~~^~~~~
 --
-482:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-483-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::line<false>; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-484-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::line<false>, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::line<false>, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+464:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+465-   91 |                 K[r][c] = acc;
+466-      |                 ~~~~~~~~^~~~~
 --
-492:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-493-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::line<false>; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-494-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::line<false>, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::line<false>, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+472:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+473-   91 |                 K[r][c] = acc;
+474-      |                 ~~~~~~~~^~~~~
 --
-502:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-503-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::line<true>; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-504-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::line<true>, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::line<true>, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+483:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+484-   91 |                 K[r][c] = acc;
+485-      |                 ~~~~~~~~^~~~~
 --
-512:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-513-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::line<true>; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-514-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::line<true>, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::line<true>, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+492:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+493-   91 |                 K[r][c] = acc;
+494-      |                 ~~~~~~~~^~~~~
 --
-522:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-523-In file included from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:15:
-524-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp: In instantiation of 'traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::matrix_type<((typename algebra::traits::get_algebra<T>::size_type)6), D> traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::operator()(const vec6_t&) const [with vec6_t = std::array<std::array<float, 6>, 1>; algebra_t = algebra::plugin::array<float>; long unsigned int D = 1; matrix_type<((typename algebra::traits::get_algebra<T>::size_type)6), D> = std::array<std::array<float, 6>, 1>; typename algebra::traits::get_algebra<T>::size_type = long unsigned int]':
+500:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+501-   91 |                 K[r][c] = acc;
+502-      |                 ~~~~~~~~^~~~~
 --
-533:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:71:50: error: no match for call to '(const std::array<std::array<float, 6>, 1>) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, int)'
-534-   71 |                 acc += W0_[i * InputSize + j] * x(j, 0);
-535-      |                                                 ~^~~~~~
-536:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::matrix_type<6, 1> {aka std::array<std::array<float, 6>, 1>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&)'
-537-   91 |                 K(r, c) = acc;
-538-      |                 ~^~~~~~
+508:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+509-   91 |                 K[r][c] = acc;
+510-      |                 ~~~~~~~~^~~~~
 --
-548:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:71:50: error: no match for call to '(const std::array<std::array<float, 6>, 1>) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, int)'
-549-   71 |                 acc += W0_[i * InputSize + j] * x(j, 0);
-550-      |                                                 ~^~~~~~
-551:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::matrix_type<6, 2> {aka std::array<std::array<float, 6>, 2>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&)'
-552-   91 |                 K(r, c) = acc;
-553-      |                 ~^~~~~~
+516:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+517-   91 |                 K[r][c] = acc;
+518-      |                 ~~~~~~~~^~~~~
 --
-565:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:36:21: error: conversion from 'std::size_t' {aka 'long unsigned int'} to 'traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::scalar' {aka 'float'} may change value [-Werror=conversion]
-566-   36 |             x += (n & 1U) / denom;
-567-      |                  ~~~^~~~~
+531:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+532-   91 |                 K[r][c] = acc;
+533-      |                 ~~~~~~~~^~~~~
 --
-578:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:36:21: error: conversion from 'std::size_t' {aka 'long unsigned int'} to 'traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::scalar' {aka 'float'} may change value [-Werror=conversion]
-579:cc1plus: all warnings being treated as errors
-580-In file included from /home/noah/project/traccc/core/include/traccc/finding/details/find_tracks.hpp:17,
-581-                 from /home/noah/project/traccc/core/src/finding/combinatorial_kalman_filter_algorithm_constant_field_telescope_detector.cpp:10:
+539:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+540-   91 |                 K[r][c] = acc;
+541-      |                 ~~~~~~~~^~~~~
 --
-590:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-591-  109 |         const matrix_type<D, D> M =
-592-      |                                 ^
+545:cc1plus: all warnings being treated as errors
+546-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:219: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_telescope_detector.cpp.o] Error 1
+547-[ 63%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/UtilitiesJsonConverter.cpp.o
 --
-601:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-602-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:163: core/CMakeFiles/traccc_core.dir/src/finding/combinatorial_kalman_filter_algorithm_constant_field_default_detector.cpp.o] Error 1
-603-gmake[2]: *** Waiting for unfinished jobs....
+550:cc1plus: all warnings being treated as errors
+551-In file included from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:15,
+552-                 from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_actor.hpp:13,
 --
-615:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:71:50: error: no match for call to '(const std::array<std::array<float, 6>, 1>) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, int)'
-616-   71 |                 acc += W0_[i * InputSize + j] * x(j, 0);
-617-      |                                                 ~^~~~~~
-618:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::matrix_type<6, 1> {aka std::array<std::array<float, 6>, 1>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&)'
-619-   91 |                 K(r, c) = acc;
-620-      |                 ~^~~~~~
+557:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+558-   91 |                 K[r][c] = acc;
+559-      |                 ~~~~~~~~^~~~~
 --
-630:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:71:50: error: no match for call to '(const std::array<std::array<float, 6>, 1>) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, int)'
-631-   71 |                 acc += W0_[i * InputSize + j] * x(j, 0);
-632-      |                                                 ~^~~~~~
-633:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::matrix_type<6, 2> {aka std::array<std::array<float, 6>, 2>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&)'
-634-   91 |                 K(r, c) = acc;
-635-      |                 ~^~~~~~
+565:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+566-   91 |                 K[r][c] = acc;
+567-      |                 ~~~~~~~~^~~~~
 --
-646:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:36:21: error: conversion from 'std::size_t' {aka 'long unsigned int'} to 'traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::scalar' {aka 'float'} may change value [-Werror=conversion]
-647-   36 |             x += (n & 1U) / denom;
-648-      |                  ~~~^~~~~
+573:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+574-   91 |                 K[r][c] = acc;
+575-      |                 ~~~~~~~~^~~~~
 --
-659:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:36:21: error: conversion from 'std::size_t' {aka 'long unsigned int'} to 'traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::scalar' {aka 'float'} may change value [-Werror=conversion]
-660:cc1plus: all warnings being treated as errors
-661-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:177: core/CMakeFiles/traccc_core.dir/src/finding/combinatorial_kalman_filter_algorithm_constant_field_telescope_detector.cpp.o] Error 1
-662-[ 60%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/PortalJsonConverter.cpp.o
+581:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+582-   91 |                 K[r][c] = acc;
+583-      |                 ~~~~~~~~^~~~~
 --
-680:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-681-  109 |         const matrix_type<D, D> M =
-682-      |                                 ^
+589:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+590-   91 |                 K[r][c] = acc;
+591-      |                 ~~~~~~~~^~~~~
 --
-696:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-697-In file included from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_actor.hpp:13,
-698-                 from /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_fitter.hpp:16,
+597:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+598-   91 |                 K[r][c] = acc;
+599-      |                 ~~~~~~~~^~~~~
 --
-713:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-714-  109 |         const matrix_type<D, D> M =
-715-      |                                 ^
+605:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+606-   91 |                 K[r][c] = acc;
+607-      |                 ~~~~~~~~^~~~~
 --
-729:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-730-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::trapezoid2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-731-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::trapezoid2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::trapezoid2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+615:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 1 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+616-   91 |                 K[r][c] = acc;
+617-      |                 ~~~~~~~~^~~~~
 --
-743:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-744-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::trapezoid2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-745-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::trapezoid2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::trapezoid2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+624:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+625-   91 |                 K[r][c] = acc;
+626-      |                 ~~~~~~~~^~~~~
 --
-757:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-758-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::annulus2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-759-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::annulus2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::annulus2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+632:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+633-   91 |                 K[r][c] = acc;
+634-      |                 ~~~~~~~~^~~~~
 --
-771:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-772-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::annulus2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-773-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::annulus2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::annulus2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+640:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+641-   91 |                 K[r][c] = acc;
+642-      |                 ~~~~~~~~^~~~~
 --
-785:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-786-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::cylinder2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-787-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::cylinder2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::cylinder2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+648:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+649-   91 |                 K[r][c] = acc;
+650-      |                 ~~~~~~~~^~~~~
 --
-799:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-800-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::cylinder2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-801-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::cylinder2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::cylinder2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+656:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+657-   91 |                 K[r][c] = acc;
+658-      |                 ~~~~~~~~^~~~~
 --
-813:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-814-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::concentric_cylinder2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-815-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::concentric_cylinder2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::concentric_cylinder2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+664:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+665-   91 |                 K[r][c] = acc;
+666-      |                 ~~~~~~~~^~~~~
 --
-827:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-828-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::concentric_cylinder2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-829-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::concentric_cylinder2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::concentric_cylinder2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+672:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+673-   91 |                 K[r][c] = acc;
+674-      |                 ~~~~~~~~^~~~~
 --
-841:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-842-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::ring2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-843-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::ring2D, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::ring2D, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
+680:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:25: error: iteration 2 invokes undefined behavior [-Werror=aggressive-loop-optimizations]
+681-   91 |                 K[r][c] = acc;
+682-      |                 ~~~~~~~~^~~~~
 --
-856:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-857-[ 62%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/SurfaceBoundsJsonConverter.cpp.o
-858-[ 62%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/SurfaceJsonConverter.cpp.o
---
-884:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-885-:vector::vector_d<float, 3> > >, algebra::plugin::array<float>, detray::constrained_step<float> >; navigator_t = detray::navigator<const detray::detector<detray::telescope_metadata<algebra::plugin::array<float>, detray::rectangle2D>, detray::container_types<> > >]'
-886-/home/noah/project/traccc/core/include/traccc/fitting/details/fit_tracks.hpp:76:53:   required from 'traccc::container_types<traccc::fitting_result<algebra::plugin::array<float> >, traccc::track_state<algebra::plugin::array<float> > >::host traccc::host::details::fit_tracks(fitter_t&, const traccc::container_types<traccc::finding_result, traccc::measurement>::const_view&, vecmem::memory_resource&, vecmem::copy&) [with fitter_t = traccc::kalman_fitter<detray::rk_stepper<covfie::field_view<covfie::backend::constant<covfie::vector::vector_d<float, 3>, covfie::vector::vector_d<float, 3> > >, algebra::plugin::array<float>, detray::constrained_step<float> >, detray::navigator<const detray::detector<detray::telescope_metadata<algebra::plugin::array<float>, detray::rectangle2D>, detray::container_types<> > > >; traccc::container_types<traccc::fitting_result<algebra::plugin::array<float> >, traccc::track_state<algebra::plugin::array<float> > >::host = traccc::host_container<traccc::fitting_result<algebra::plugin::array<float> >, traccc::track_state<algebra::plugin::array<float> > >; traccc::container_types<traccc::finding_result, traccc::measurement>::const_view = traccc::container_view<const traccc::finding_result, const traccc::measurement>; vecmem::memory_resource = std::pmr::memory_resource]'
---
-888:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:71:50: error: no match for call to '(const std::array<std::array<float, 6>, 1>) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, int)'
-889-   71 |                 acc += W0_[i * InputSize + j] * x(j, 0);
-890-      |                                                 ~^~~~~~
-891:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::matrix_type<6, 1> {aka std::array<std::array<float, 6>, 1>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&)'
-892-   91 |                 K(r, c) = acc;
-893-      |                 ~^~~~~~
---
-909:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-910-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp: In instantiation of 'traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::matrix_type<((typename algebra::traits::get_algebra<T>::size_type)6), D> traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::operator()(const vec6_t&) const [with vec6_t = std::array<std::array<float, 6>, 1>; algebra_t = algebra::plugin::array<float>; long unsigned int D = 2; matrix_type<((typename algebra::traits::get_algebra<T>::size_type)6), D> = std::array<std::array<float, 6>, 2>; typename algebra::traits::get_algebra<T>::size_type = long unsigned int]':
-911-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:114:47:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::rectangle2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
---
-923:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:71:50: error: no match for call to '(const std::array<std::array<float, 6>, 1>) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, int)'
-924-   71 |                 acc += W0_[i * InputSize + j] * x(j, 0);
-925-      |                                                 ~^~~~~~
-926:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::matrix_type<6, 2> {aka std::array<std::array<float, 6>, 2>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&)'
-927-   91 |                 K(r, c) = acc;
-928-      |                 ~^~~~~~
---
-944:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-945-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 1; shape_t = detray::line<true>; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-946-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:57:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::line<true>, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::line<true>, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
---
-961:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-962-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp: In instantiation of 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::line<true>; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]':
-963-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:60:48:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::operator()(const mask_group_t&, const index_t&, traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with mask_group_t = std::vector<detray::mask<detray::line<true>, algebra::plugin::array<float>, short unsigned int>, std::pmr::polymorphic_allocator<detray::mask<detray::line<true>, algebra::plugin::array<float>, short unsigned int> > >; index_t = unsigned int; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
---
-978:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:109:33: error: variable 'M' set but not used [-Werror=unused-but-set-variable]
-979-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp: In instantiation of 'static traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::scalar traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::rnd(std::size_t) [with algebra_t = algebra::plugin::array<float>; long unsigned int D = 1; scalar = float; std::size_t = long unsigned int]':
-980-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:45:82:   required from 'traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::kalman_gru_gain_predictor() [with algebra_t = algebra::plugin::array<float>; long unsigned int D = 1]'
---
-999:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:36:21: error: conversion from 'std::size_t' {aka 'long unsigned int'} to 'traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::scalar' {aka 'float'} may change value [-Werror=conversion]
-1000-   36 |             x += (n & 1U) / denom;
-1001-      |                  ~~~^~~~~
---
-1010:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:71:50: error: no match for call to '(const std::array<std::array<float, 6>, 1>) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, int)'
-1011-   71 |                 acc += W0_[i * InputSize + j] * x(j, 0);
-1012-      |                                                 ~^~~~~~
-1013:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::matrix_type<6, 1> {aka std::array<std::array<float, 6>, 1>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::size_type&)'
-1014-   91 |                 K(r, c) = acc;
-1015-      |                 ~^~~~~~
---
-1029:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:36:21: error: conversion from 'std::size_t' {aka 'long unsigned int'} to 'traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::scalar' {aka 'float'} may change value [-Werror=conversion]
-1030-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp: In instantiation of 'traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::matrix_type<((typename algebra::traits::get_algebra<T>::size_type)6), D> traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::operator()(const vec6_t&) const [with vec6_t = std::array<std::array<float, 6>, 1>; algebra_t = algebra::plugin::array<float>; long unsigned int D = 2; matrix_type<((typename algebra::traits::get_algebra<T>::size_type)6), D> = std::array<std::array<float, 6>, 2>; typename algebra::traits::get_algebra<T>::size_type = long unsigned int]':
-1031-/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp:114:47:   required from 'traccc::kalman_fitter_status traccc::gain_matrix_updater<algebra_t>::update(traccc::track_state<algebra_t>&, traccc::bound_track_parameters<algebra_t>&) const [with typename algebra::traits::get_algebra<T>::size_type D = 2; shape_t = detray::rectangle2D; algebra_t = algebra::plugin::array<float>; traccc::bound_track_parameters<algebra_t> = detray::bound_track_parameters<algebra::plugin::array<float> >]'
---
-1043:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:71:50: error: no match for call to '(const std::array<std::array<float, 6>, 1>) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, int)'
-1044-   71 |                 acc += W0_[i * InputSize + j] * x(j, 0);
-1045-      |                                                 ~^~~~~~
-1046:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:91:18: error: no match for call to '(traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::matrix_type<6, 2> {aka std::array<std::array<float, 6>, 2>}) (traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&, traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::size_type&)'
-1047-   91 |                 K(r, c) = acc;
-1048-      |                 ~^~~~~~
---
-1062:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:36:21: error: conversion from 'std::size_t' {aka 'long unsigned int'} to 'traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 1>::scalar' {aka 'float'} may change value [-Werror=conversion]
-1063-   36 |             x += (n & 1U) / denom;
-1064-      |                  ~~~^~~~~
---
-1078:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:36:21: error: conversion from 'std::size_t' {aka 'long unsigned int'} to 'traccc::fitting::kalman_gru_gain_predictor<algebra::plugin::array<float>, 2>::scalar' {aka 'float'} may change value [-Werror=conversion]
-1079:cc1plus: all warnings being treated as errors
-1080-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:219: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_telescope_detector.cpp.o] Error 1
-1081:cc1plus: all warnings being treated as errors
-1082-[ 62%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/VolumeBoundsJsonConverter.cpp.o
-1083-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:205: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_default_detector.cpp.o] Error 1
+688:cc1plus: all warnings being treated as errors
+689-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:205: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_default_detector.cpp.o] Error 1
+690-gmake[1]: *** [CMakeFiles/Makefile2:4669: core/CMakeFiles/traccc_core.dir/all] Error 2
