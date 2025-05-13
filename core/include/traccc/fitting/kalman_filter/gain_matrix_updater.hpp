@@ -106,7 +106,9 @@ struct gain_matrix_updater {
         const matrix_type<D, D> V =
             trk_state.template measurement_covariance<D>();
 
-        const matrix_type<D, D> M =
+        /* 以 KalmanNet-GRU 取代解析解後，M 僅供後續可能診斷，
+         * 加上 [[maybe_unused]] 以避免 -Werror=unused-variable。        */
+        [[maybe_unused]] const matrix_type<D, D> M =
             H * predicted_cov * matrix::transpose(H) + V;
 
         // Kalman gain matrix predicted by two-layer GRU KalmanNet surrogate

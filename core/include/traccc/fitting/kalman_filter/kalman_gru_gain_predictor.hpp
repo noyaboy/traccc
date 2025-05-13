@@ -33,7 +33,7 @@ struct kalman_gru_gain_predictor {
         std::size_t n = i + 1;          // skip zero
         while (n) {
             denom *= 2.f;
-            x += (n & 1U) / denom;
+            x += static_cast<scalar>(n & 1U) / denom;
             n >>= 1U;
         }
         return static_cast<scalar>(0.1f * (x - 0.5f));
@@ -68,7 +68,7 @@ struct kalman_gru_gain_predictor {
         for (size_type i = 0; i < HiddenSize; ++i) {
             scalar acc = b0_[i];
             for (size_type j = 0; j < InputSize; ++j)
-                acc += W0_[i * InputSize + j] * x(j, 0);
+                acc += W0_[i * InputSize + j] * x[j][0];
             h0[i] = std::tanh(acc);
         }
 
@@ -88,7 +88,7 @@ struct kalman_gru_gain_predictor {
                 scalar acc = b_out_[o];
                 for (size_type j = 0; j < HiddenSize; ++j)
                     acc += W_out_[o * HiddenSize + j] * h1[j];
-                K(r, c) = acc;
+                K[r][c] = acc;
             }
 
         return K;

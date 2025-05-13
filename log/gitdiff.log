@@ -1,5 +1,5 @@
 diff --git a/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp b/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp
-index 21ebaa61..13ab41f8 100644
+index 21ebaa61..59a5aef8 100644
 --- a/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp
 +++ b/core/include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp
 @@ -12,6 +12,7 @@
@@ -10,8 +10,14 @@ index 21ebaa61..13ab41f8 100644
  
  // Detray inlcude(s)
  #include <detray/geometry/shapes/line.hpp>
-@@ -108,9 +109,9 @@ struct gain_matrix_updater {
-         const matrix_type<D, D> M =
+@@ -105,12 +106,14 @@ struct gain_matrix_updater {
+         const matrix_type<D, D> V =
+             trk_state.template measurement_covariance<D>();
+ 
+-        const matrix_type<D, D> M =
++        /* 以 KalmanNet-GRU 取代解析解後，M 僅供後續可能診斷，
++         * 加上 [[maybe_unused]] 以避免 -Werror=unused-variable。        */
++        [[maybe_unused]] const matrix_type<D, D> M =
              H * predicted_cov * matrix::transpose(H) + V;
  
 -        // Kalman gain matrix
@@ -25,7 +31,7 @@ index 21ebaa61..13ab41f8 100644
          const matrix_type<6, 1> filtered_vec =
 diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 new file mode 100644
-index 00000000..4170b051
+index 00000000..53dac2de
 --- /dev/null
 +++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 @@ -0,0 +1,111 @@
@@ -64,7 +70,7 @@ index 00000000..4170b051
 +        std::size_t n = i + 1;          // skip zero
 +        while (n) {
 +            denom *= 2.f;
-+            x += (n & 1U) / denom;
++            x += static_cast<scalar>(n & 1U) / denom;
 +            n >>= 1U;
 +        }
 +        return static_cast<scalar>(0.1f * (x - 0.5f));
@@ -99,7 +105,7 @@ index 00000000..4170b051
 +        for (size_type i = 0; i < HiddenSize; ++i) {
 +            scalar acc = b0_[i];
 +            for (size_type j = 0; j < InputSize; ++j)
-+                acc += W0_[i * InputSize + j] * x(j, 0);
++                acc += W0_[i * InputSize + j] * x[j][0];
 +            h0[i] = std::tanh(acc);
 +        }
 +
@@ -119,7 +125,7 @@ index 00000000..4170b051
 +                scalar acc = b_out_[o];
 +                for (size_type j = 0; j < HiddenSize; ++j)
 +                    acc += W_out_[o * HiddenSize + j] * h1[j];
-+                K(r, c) = acc;
++                K[r][c] = acc;
 +            }
 +
 +        return K;
