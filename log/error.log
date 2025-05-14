@@ -1,7 +1,7 @@
-123:[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-124-[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
-125-[ 21%] Building CXX object _deps/acts-build/Core/CMakeFiles/ActsCore.dir/src/Detector/detail/SupportSurfacesHelper.cpp.o
+119:[ 20%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+120-[ 20%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
+121-[ 20%] Linking CXX static library ../../../lib/libbenchmark.a
 --
 388:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
-389-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/utils.cpp.o
-390-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/opaque_stream.cpp.o
+389-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/opaque_stream.cpp.o
+390-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/utils.cpp.o

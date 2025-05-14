@@ -51,7 +51,7 @@ struct kalman_gru_gain_predictor {
     static constexpr size_type InputSize  = 6;          // x dimension
     /* 16→8：經 prof 量測，在 Kalman filter 每-step latency 佔比最高處，
      *        隱藏層降半可削去 ≈40 % 時間，而對 χ² 影響 <0.05 σ          */
-    static constexpr size_type HiddenSize = 8;          // GRU width
+    static constexpr size_type HiddenSize = 16;          // GRU width
     static constexpr size_type OutputSize = 6 * D;      // flattened K
 
     /*─────────────────────  compile-time friendly pseudo-random  ─────────────*/
