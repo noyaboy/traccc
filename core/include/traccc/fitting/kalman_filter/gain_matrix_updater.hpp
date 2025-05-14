@@ -12,7 +12,7 @@
 #include "traccc/definitions/track_parametrization.hpp"
 #include "traccc/edm/track_state.hpp"
 #include "traccc/fitting/status_codes.hpp"
-#include "traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp"
+#include "traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor.hpp"
 
 // Detray inlcude(s)
 #include <detray/geometry/shapes/line.hpp>
@@ -111,11 +111,11 @@ struct gain_matrix_updater {
         [[maybe_unused]] const matrix_type<D, D> M =
             H * predicted_cov * matrix::transpose(H) + V;
 
-        /* Kalman gain via兩層 GRU KalmanNet surrogate —— 以
-         *   kalman_gru_gain_predictor<>::eval(...)
+        /* Kalman gain via兩層 GRU KalmanNet surrogate（INT8 TensorCore 版）：
+         *   kalman_int8_gru_gain_predictor<>::eval(...)
          *   靜態函式呼叫，避免在 device 函式中動態初始化。           */
         const matrix_type<6, D> K =
-            traccc::fitting::kalman_gru_gain_predictor<algebra_t, D>::eval(
+            traccc::fitting::kalman_int8_gru_gain_predictor<algebra_t, D>::eval(
                 predicted_vec);
 
         // Calculate the filtered track parameters
