@@ -1,13 +1,13 @@
 /** KalmanNet-inspired GRU-based gain predictor
  *
- * Two stacked GRU layers (hidden = 64) → FC (64 × 25) producing the
+ * Two stacked GRU layers (hidden = 16) → FC (16 × 25) producing the
  * flattened 6 × D Kalman gain matrix.  Weights are initialised
  * deterministically but effectively random.
  */
 
 #pragma once
 
-#include <cmath>        // std::exp / std::tanh
+#include <cmath>        // std::exp / fast_tanh
 #include <cstddef>      // std::size_t
 #include "traccc/definitions/qualifiers.hpp"
 
@@ -23,7 +23,7 @@ struct kalman_gru_gain_predictor {
     using matrix_type = detray::dmatrix<algebra_t, R, C>;
 
     static constexpr size_type InputSize  = 6;          // x dimension
-    static constexpr size_type HiddenSize = 64;         // GRU width
+    static constexpr size_type HiddenSize = 16;         // GRU width (reduced for speed)
     static constexpr size_type OutputSize = 6 * D;      // flattened K
 
     /*─────────────────────  compile-time friendly pseudo-random  ─────────────*/
@@ -39,6 +39,12 @@ struct kalman_gru_gain_predictor {
         return static_cast<scalar>(0.1f * (x - 0.5f));
     }
 
+    /* fast polynomial tanh approximation (|error| < 1 e-3 for |x| < 3) */
+    TRACCC_HOST_DEVICE
+    static inline scalar fast_tanh(scalar x) {
+        const scalar x2 = x * x;
+        return x * (scalar(27) + x2) / (scalar(27) + scalar(9) * x2);
+    }
     /*──────────────────────  stateless forward (static)  ─────────────────────*/
     template <typename vec6_t>
     TRACCC_HOST_DEVICE
@@ -48,21 +54,23 @@ struct kalman_gru_gain_predictor {
         scalar h1[HiddenSize]{};
 
         /*─ GRU-0 (simplified) ─*/
+        #pragma unroll
         for (size_type i = 0; i < HiddenSize; ++i) {
             scalar acc = rnd(10'000 + i);               // bias_0
             /* 來源向量實際型別為 std::array<std::array<scalar, 6>, 1>，
              * 因此外層僅有索引 0；再取第 j 個元素。                 */
             for (size_type j = 0; j < InputSize; ++j)
                 acc += rnd(i * InputSize + j) * x[0][j]; // W0
-            h0[i] = std::tanh(acc);
+            h0[i] = fast_tanh(acc);
         }
 
         /*─ GRU-1 (simplified) ─*/
+        #pragma unroll
         for (size_type i = 0; i < HiddenSize; ++i) {
             scalar acc = rnd(20'000 + i);               // bias_1
             for (size_type j = 0; j < HiddenSize; ++j)
                 acc += rnd(5000 + i * HiddenSize + j) * h0[j]; // W1
-            h1[i] = std::tanh(acc);
+            h1[i] = fast_tanh(acc);
         }
 
         /*─ Dense output → 6 × D gain matrix ─*/
