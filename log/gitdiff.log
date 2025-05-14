@@ -33,7 +33,7 @@ index 21ebaa61..61c3cbd5 100644
          const matrix_type<6, 1> filtered_vec =
 diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 new file mode 100644
-index 00000000..746fd475
+index 00000000..522b7c4b
 --- /dev/null
 +++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 @@ -0,0 +1,207 @@
@@ -90,7 +90,7 @@ index 00000000..746fd475
 +    static constexpr size_type InputSize  = 6;          // x dimension
 +    /* 16→8：經 prof 量測，在 Kalman filter 每-step latency 佔比最高處，
 +     *        隱藏層降半可削去 ≈40 % 時間，而對 χ² 影響 <0.05 σ          */
-+    static constexpr size_type HiddenSize = 8;          // GRU width
++    static constexpr size_type HiddenSize = 16;          // GRU width
 +    static constexpr size_type OutputSize = 6 * D;      // flattened K
 +
 +    /*─────────────────────  compile-time friendly pseudo-random  ─────────────*/
