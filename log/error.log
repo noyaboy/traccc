@@ -1,47 +1,7 @@
-113:[ 18%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-114-[ 18%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
-115-[ 18%] Building CXX object _deps/benchmark-build/src/CMakeFiles/benchmark_main.dir/benchmark_main.cc.o
+126:[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+127-[ 21%] Building CXX object _deps/acts-build/Core/CMakeFiles/ActsCore.dir/src/Detector/detail/CylindricalDetectorHelper.cpp.o
+128-[ 21%] Building CXX object _deps/acts-build/Core/CMakeFiles/ActsCore.dir/src/Detector/detail/DetectorVolumeConsistency.cpp.o
 --
-384:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
-385-[ 65%] Building CXX object examples/tools/CMakeFiles/traccc_generate_constant_bfield.dir/generate_constant_bfield.cpp.o
-386-[ 65%] Building CXX object examples/tools/CMakeFiles/traccc_convert_csv_bfield.dir/convert_csv_bfield.cpp.o
---
-416:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(119): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)1ul> ::B0" is undefined in device code
-417-
-418:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(121): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)1ul> ::W0" is undefined in device code
-419-
-420:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(131): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)1ul> ::B1" is undefined in device code
-421-
-422:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(133): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)1ul> ::W1" is undefined in device code
-423-
-424:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(119): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)2ul> ::B0" is undefined in device code
-425-
-426:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(121): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)2ul> ::W0" is undefined in device code
-427-
-428:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(131): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)2ul> ::B1" is undefined in device code
-429-
-430:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(133): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)2ul> ::W1" is undefined in device code
-431-
-432:8 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/kernels/specializations/find_tracks_default_detector.cu".
-433-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:345: device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/find_tracks_default_detector.cu.o] Error 1
-434-gmake[2]: *** Waiting for unfinished jobs....
---
-436:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(119): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)1ul> ::B0" is undefined in device code
-437-
-438:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(121): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)1ul> ::W0" is undefined in device code
-439-
-440:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(131): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)1ul> ::B1" is undefined in device code
-441-
-442:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(133): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)1ul> ::W1" is undefined in device code
-443-
-444:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(119): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)2ul> ::B0" is undefined in device code
-445-
-446:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(121): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)2ul> ::W0" is undefined in device code
-447-
-448:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(131): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)2ul> ::B1" is undefined in device code
-449-
-450:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp(133): error: identifier "traccc::fitting::kalman_gru_gain_predictor< ::algebra::plugin::array<float> , (unsigned long)2ul> ::W1" is undefined in device code
-451-
-452:8 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/fitting/fitting_algorithm.cu".
-453-[ 69%] Built target ActsPluginJson
-454-[ 69%] Building CXX object io/CMakeFiles/traccc_io.dir/src/data_format.cpp.o
+387:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
+388-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
+389-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/opaque_stream.cpp.o
