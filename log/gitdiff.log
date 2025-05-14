@@ -33,13 +33,13 @@ index 21ebaa61..61c3cbd5 100644
          const matrix_type<6, 1> filtered_vec =
 diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 new file mode 100644
-index 00000000..2841ceac
+index 00000000..c5586471
 --- /dev/null
 +++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
-@@ -0,0 +1,127 @@
+@@ -0,0 +1,162 @@
 +/** KalmanNet-inspired GRU-based gain predictor
 + *
-+ * Two stacked GRU layers (hidden = 16) → FC (16 × 25) producing the
++ * Two stacked GRU layers (hidden = 8)  → FC (8  × 25) producing the
 + * flattened 6 × D Kalman gain matrix.  Weights are initialised
 + * deterministically but effectively random.
 + */
@@ -48,6 +48,7 @@ index 00000000..2841ceac
 +
 +#include <cmath>        // std::exp / fast_tanh
 +#include <cstddef>      // std::size_t
++#include <array>        // std::array – compile-time weight tables
 +#include "traccc/definitions/qualifiers.hpp"
 +
 +namespace traccc::fitting {
@@ -84,8 +85,9 @@ index 00000000..2841ceac
 +    static constexpr size_type OutputSize = 6 * D;      // flattened K
 +
 +    /*─────────────────────  compile-time friendly pseudo-random  ─────────────*/
-+    TRACCC_HOST_DEVICE
-+    static inline scalar rnd(std::size_t i) {
++    /* constexpr 以便用於編譯期產生常量權重（完全移除 runtime 開銷） */
++    TRACCC_HOST_DEVICE constexpr static
++    scalar rnd(std::size_t i) {
 +        scalar x = 0.f, denom = 1.f;
 +        std::size_t n = i + 1;          // skip zero
 +        while (n) {
@@ -103,6 +105,41 @@ index 00000000..2841ceac
 +        const scalar ax = x >= scalar(0) ? x : -x;
 +        return x / (scalar(1) + ax);
 +    }
++
++    /*───────────────────  編譯期常量權重 / 偏差  ───────────────────*/
++    /* 第一層 GRU ----------------------------------------------------*/
++    static constexpr std::array<scalar, HiddenSize> B0 = {
++        rnd(10'000 + 0), rnd(10'000 + 1), rnd(10'000 + 2), rnd(10'000 + 3),
++        rnd(10'000 + 4), rnd(10'000 + 5), rnd(10'000 + 6), rnd(10'000 + 7)};
++
++    static constexpr std::array<std::array<scalar, InputSize>, HiddenSize> W0 = {{
++        { rnd(0  *InputSize + 0), rnd(0  *InputSize + 1), rnd(0  *InputSize + 2), rnd(0  *InputSize + 3), rnd(0  *InputSize + 4), rnd(0  *InputSize + 5) },
++        { rnd(1  *InputSize + 0), rnd(1  *InputSize + 1), rnd(1  *InputSize + 2), rnd(1  *InputSize + 3), rnd(1  *InputSize + 4), rnd(1  *InputSize + 5) },
++        { rnd(2  *InputSize + 0), rnd(2  *InputSize + 1), rnd(2  *InputSize + 2), rnd(2  *InputSize + 3), rnd(2  *InputSize + 4), rnd(2  *InputSize + 5) },
++        { rnd(3  *InputSize + 0), rnd(3  *InputSize + 1), rnd(3  *InputSize + 2), rnd(3  *InputSize + 3), rnd(3  *InputSize + 4), rnd(3  *InputSize + 5) },
++        { rnd(4  *InputSize + 0), rnd(4  *InputSize + 1), rnd(4  *InputSize + 2), rnd(4  *InputSize + 3), rnd(4  *InputSize + 4), rnd(4  *InputSize + 5) },
++        { rnd(5  *InputSize + 0), rnd(5  *InputSize + 1), rnd(5  *InputSize + 2), rnd(5  *InputSize + 3), rnd(5  *InputSize + 4), rnd(5  *InputSize + 5) },
++        { rnd(6  *InputSize + 0), rnd(6  *InputSize + 1), rnd(6  *InputSize + 2), rnd(6  *InputSize + 3), rnd(6  *InputSize + 4), rnd(6  *InputSize + 5) },
++        { rnd(7  *InputSize + 0), rnd(7  *InputSize + 1), rnd(7  *InputSize + 2), rnd(7  *InputSize + 3), rnd(7  *InputSize + 4), rnd(7  *InputSize + 5) },
++    }};
++
++    /* 第二層 GRU ----------------------------------------------------*/
++    static constexpr std::array<scalar, HiddenSize> B1 = {
++        rnd(20'000 + 0), rnd(20'000 + 1), rnd(20'000 + 2), rnd(20'000 + 3),
++        rnd(20'000 + 4), rnd(20'000 + 5), rnd(20'000 + 6), rnd(20'000 + 7)};
++
++    static constexpr std::array<std::array<scalar, HiddenSize>, HiddenSize> W1 = {{
++        { rnd(5'000 +  0), rnd(5'000 +  1), rnd(5'000 +  2), rnd(5'000 +  3), rnd(5'000 +  4), rnd(5'000 +  5), rnd(5'000 +  6), rnd(5'000 +  7) },
++        { rnd(5'000 +  8), rnd(5'000 +  9), rnd(5'000 + 10), rnd(5'000 + 11), rnd(5'000 + 12), rnd(5'000 + 13), rnd(5'000 + 14), rnd(5'000 + 15) },
++        { rnd(5'000 + 16), rnd(5'000 + 17), rnd(5'000 + 18), rnd(5'000 + 19), rnd(5'000 + 20), rnd(5'000 + 21), rnd(5'000 + 22), rnd(5'000 + 23) },
++        { rnd(5'000 + 24), rnd(5'000 + 25), rnd(5'000 + 26), rnd(5'000 + 27), rnd(5'000 + 28), rnd(5'000 + 29), rnd(5'000 + 30), rnd(5'000 + 31) },
++        { rnd(5'000 + 32), rnd(5'000 + 33), rnd(5'000 + 34), rnd(5'000 + 35), rnd(5'000 + 36), rnd(5'000 + 37), rnd(5'000 + 38), rnd(5'000 + 39) },
++        { rnd(5'000 + 40), rnd(5'000 + 41), rnd(5'000 + 42), rnd(5'000 + 43), rnd(5'000 + 44), rnd(5'000 + 45), rnd(5'000 + 46), rnd(5'000 + 47) },
++        { rnd(5'000 + 48), rnd(5'000 + 49), rnd(5'000 + 50), rnd(5'000 + 51), rnd(5'000 + 52), rnd(5'000 + 53), rnd(5'000 + 54), rnd(5'000 + 55) },
++        { rnd(5'000 + 56), rnd(5'000 + 57), rnd(5'000 + 58), rnd(5'000 + 59), rnd(5'000 + 60), rnd(5'000 + 61), rnd(5'000 + 62), rnd(5'000 + 63) },
++    }};
++
++
 +    /*──────────────────────  stateless forward (static)  ─────────────────────*/
 +    /* `__forceinline__` 令 NVCC/Clang 必內聯，避免 call-frame 開銷       */
 +    template <typename vec6_t>
@@ -118,11 +155,9 @@ index 00000000..2841ceac
 +#pragma unroll
 +#endif
 +        for (size_type i = 0; i < HiddenSize; ++i) {
-+            scalar acc = rnd(10'000 + i);               // bias_0
-+            /* 來源向量實際型別為 std::array<std::array<scalar, 6>, 1>，
-+             * 因此外層僅有索引 0；再取第 j 個元素。                 */
++            scalar acc = B0[i];                         // 預先計算的 bias_0
 +            for (size_type j = 0; j < InputSize; ++j)
-+                acc += rnd(i * InputSize + j) * x[0][j]; // W0
++                acc += W0[i][j] * x[0][j];              // 預先計算的 W0
 +            h0[i] = fast_tanh(acc);
 +        }
 +
@@ -132,9 +167,9 @@ index 00000000..2841ceac
 +#pragma unroll
 +#endif
 +        for (size_type i = 0; i < HiddenSize; ++i) {
-+            scalar acc = rnd(20'000 + i);               // bias_1
++            scalar acc = B1[i];                         // 預先計算的 bias_1
 +            for (size_type j = 0; j < HiddenSize; ++j)
-+                acc += rnd(5000 + i * HiddenSize + j) * h0[j]; // W1
++                acc += W1[i][j] * h0[j];                // 預先計算的 W1
 +            h1[i] = fast_tanh(acc);
 +        }
 +
