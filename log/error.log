@@ -1,44 +1,7 @@
-116:[ 20%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-117-[ 20%] Building CXX object _deps/tbb-build/src/tbb/CMakeFiles/tbb.dir/rtm_rw_mutex.cpp.o
-118-[ 20%] Building CXX object _deps/acts-build/Core/CMakeFiles/ActsCore.dir/src/Detector/detail/DetectorVolumeConsistency.cpp.o
+133:[ 22%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+134-[ 22%] Built target gtest
+135-[ 22%] Building CXX object _deps/tbb-build/src/tbb/CMakeFiles/tbb.dir/thread_request_serializer.cpp.o
 --
-362:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:57: error: ignoring '#pragma unroll ' [-Werror=unknown-pragmas]
-363-   57 |         #pragma unroll
-364-      | 
-365:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:68: error: ignoring '#pragma unroll ' [-Werror=unknown-pragmas]
-366-   68 |         #pragma unroll
-367-      | 
---
-372:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:57: error: ignoring '#pragma unroll ' [-Werror=unknown-pragmas]
-373-   57 |         #pragma unroll
-374-      | 
-375:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:68: error: ignoring '#pragma unroll ' [-Werror=unknown-pragmas]
-376-   68 |         #pragma unroll
-377-      | 
---
-384:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:57: error: ignoring '#pragma unroll ' [-Werror=unknown-pragmas]
-385-   57 |         #pragma unroll
-386-      | 
-387:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:68: error: ignoring '#pragma unroll ' [-Werror=unknown-pragmas]
-388-   68 |         #pragma unroll
-389-      | 
---
-397:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:57: error: ignoring '#pragma unroll ' [-Werror=unknown-pragmas]
-398-   57 |         #pragma unroll
-399-      | 
-400:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp:68: error: ignoring '#pragma unroll ' [-Werror=unknown-pragmas]
-401-   68 |         #pragma unroll
-402-      | 
---
-404:cc1plus: all warnings being treated as errors
-405-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:177: core/CMakeFiles/traccc_core.dir/src/finding/combinatorial_kalman_filter_algorithm_constant_field_telescope_detector.cpp.o] Error 1
-406-gmake[2]: *** Waiting for unfinished jobs....
---
-412:cc1plus: all warnings being treated as errors
-413-[ 63%] Building CXX object _deps/acts-build/Plugins/Json/CMakeFiles/ActsPluginJson.dir/src/JsonSurfacesReader.cpp.o
-414-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:163: core/CMakeFiles/traccc_core.dir/src/finding/combinatorial_kalman_filter_algorithm_constant_field_default_detector.cpp.o] Error 1
-415:cc1plus: all warnings being treated as errors
-416-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:219: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_telescope_detector.cpp.o] Error 1
-417:cc1plus: all warnings being treated as errors
-418-gmake[2]: *** [core/CMakeFiles/traccc_core.dir/build.make:205: core/CMakeFiles/traccc_core.dir/src/fitting/kalman_fitting_algorithm_constant_field_default_detector.cpp.o] Error 1
-419-gmake[1]: *** [CMakeFiles/Makefile2:4669: core/CMakeFiles/traccc_core.dir/all] Error 2
+384:[ 64%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
+385-[ 64%] Building CXX object examples/tools/CMakeFiles/traccc_generate_constant_bfield.dir/generate_constant_bfield.cpp.o
+386-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
