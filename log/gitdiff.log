@@ -33,10 +33,10 @@ index 21ebaa61..61c3cbd5 100644
          const matrix_type<6, 1> filtered_vec =
 diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 new file mode 100644
-index 00000000..c5586471
+index 00000000..86d00cf4
 --- /dev/null
 +++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
-@@ -0,0 +1,162 @@
+@@ -0,0 +1,146 @@
 +/** KalmanNet-inspired GRU-based gain predictor
 + *
 + * Two stacked GRU layers (hidden = 8)  → FC (8  × 25) producing the
@@ -106,38 +106,22 @@ index 00000000..c5586471
 +        return x / (scalar(1) + ax);
 +    }
 +
-+    /*───────────────────  編譯期常量權重 / 偏差  ───────────────────*/
-+    /* 第一層 GRU ----------------------------------------------------*/
-+    static constexpr std::array<scalar, HiddenSize> B0 = {
-+        rnd(10'000 + 0), rnd(10'000 + 1), rnd(10'000 + 2), rnd(10'000 + 3),
-+        rnd(10'000 + 4), rnd(10'000 + 5), rnd(10'000 + 6), rnd(10'000 + 7)};
++    /*──────── compile-time helpers：以 constexpr -getter 取代大型陣列 ───────*/
++    TRACCC_HOST_DEVICE constexpr static scalar B0(size_type i) {
++        return rnd(10'000 + i);
++    }
 +
-+    static constexpr std::array<std::array<scalar, InputSize>, HiddenSize> W0 = {{
-+        { rnd(0  *InputSize + 0), rnd(0  *InputSize + 1), rnd(0  *InputSize + 2), rnd(0  *InputSize + 3), rnd(0  *InputSize + 4), rnd(0  *InputSize + 5) },
-+        { rnd(1  *InputSize + 0), rnd(1  *InputSize + 1), rnd(1  *InputSize + 2), rnd(1  *InputSize + 3), rnd(1  *InputSize + 4), rnd(1  *InputSize + 5) },
-+        { rnd(2  *InputSize + 0), rnd(2  *InputSize + 1), rnd(2  *InputSize + 2), rnd(2  *InputSize + 3), rnd(2  *InputSize + 4), rnd(2  *InputSize + 5) },
-+        { rnd(3  *InputSize + 0), rnd(3  *InputSize + 1), rnd(3  *InputSize + 2), rnd(3  *InputSize + 3), rnd(3  *InputSize + 4), rnd(3  *InputSize + 5) },
-+        { rnd(4  *InputSize + 0), rnd(4  *InputSize + 1), rnd(4  *InputSize + 2), rnd(4  *InputSize + 3), rnd(4  *InputSize + 4), rnd(4  *InputSize + 5) },
-+        { rnd(5  *InputSize + 0), rnd(5  *InputSize + 1), rnd(5  *InputSize + 2), rnd(5  *InputSize + 3), rnd(5  *InputSize + 4), rnd(5  *InputSize + 5) },
-+        { rnd(6  *InputSize + 0), rnd(6  *InputSize + 1), rnd(6  *InputSize + 2), rnd(6  *InputSize + 3), rnd(6  *InputSize + 4), rnd(6  *InputSize + 5) },
-+        { rnd(7  *InputSize + 0), rnd(7  *InputSize + 1), rnd(7  *InputSize + 2), rnd(7  *InputSize + 3), rnd(7  *InputSize + 4), rnd(7  *InputSize + 5) },
-+    }};
++    TRACCC_HOST_DEVICE constexpr static scalar B1(size_type i) {
++        return rnd(20'000 + i);
++    }
 +
-+    /* 第二層 GRU ----------------------------------------------------*/
-+    static constexpr std::array<scalar, HiddenSize> B1 = {
-+        rnd(20'000 + 0), rnd(20'000 + 1), rnd(20'000 + 2), rnd(20'000 + 3),
-+        rnd(20'000 + 4), rnd(20'000 + 5), rnd(20'000 + 6), rnd(20'000 + 7)};
++    TRACCC_HOST_DEVICE constexpr static scalar W0(size_type i, size_type j) {
++        return rnd(i * InputSize + j);
++    }
 +
-+    static constexpr std::array<std::array<scalar, HiddenSize>, HiddenSize> W1 = {{
-+        { rnd(5'000 +  0), rnd(5'000 +  1), rnd(5'000 +  2), rnd(5'000 +  3), rnd(5'000 +  4), rnd(5'000 +  5), rnd(5'000 +  6), rnd(5'000 +  7) },
-+        { rnd(5'000 +  8), rnd(5'000 +  9), rnd(5'000 + 10), rnd(5'000 + 11), rnd(5'000 + 12), rnd(5'000 + 13), rnd(5'000 + 14), rnd(5'000 + 15) },
-+        { rnd(5'000 + 16), rnd(5'000 + 17), rnd(5'000 + 18), rnd(5'000 + 19), rnd(5'000 + 20), rnd(5'000 + 21), rnd(5'000 + 22), rnd(5'000 + 23) },
-+        { rnd(5'000 + 24), rnd(5'000 + 25), rnd(5'000 + 26), rnd(5'000 + 27), rnd(5'000 + 28), rnd(5'000 + 29), rnd(5'000 + 30), rnd(5'000 + 31) },
-+        { rnd(5'000 + 32), rnd(5'000 + 33), rnd(5'000 + 34), rnd(5'000 + 35), rnd(5'000 + 36), rnd(5'000 + 37), rnd(5'000 + 38), rnd(5'000 + 39) },
-+        { rnd(5'000 + 40), rnd(5'000 + 41), rnd(5'000 + 42), rnd(5'000 + 43), rnd(5'000 + 44), rnd(5'000 + 45), rnd(5'000 + 46), rnd(5'000 + 47) },
-+        { rnd(5'000 + 48), rnd(5'000 + 49), rnd(5'000 + 50), rnd(5'000 + 51), rnd(5'000 + 52), rnd(5'000 + 53), rnd(5'000 + 54), rnd(5'000 + 55) },
-+        { rnd(5'000 + 56), rnd(5'000 + 57), rnd(5'000 + 58), rnd(5'000 + 59), rnd(5'000 + 60), rnd(5'000 + 61), rnd(5'000 + 62), rnd(5'000 + 63) },
-+    }};
++    TRACCC_HOST_DEVICE constexpr static scalar W1(size_type i, size_type j) {
++        return rnd(5'000 + i * HiddenSize + j);
++    }
 +
 +
 +    /*──────────────────────  stateless forward (static)  ─────────────────────*/
@@ -155,9 +139,9 @@ index 00000000..c5586471
 +#pragma unroll
 +#endif
 +        for (size_type i = 0; i < HiddenSize; ++i) {
-+            scalar acc = B0[i];                         // 預先計算的 bias_0
++            scalar acc = B0(i);                         // bias_0
 +            for (size_type j = 0; j < InputSize; ++j)
-+                acc += W0[i][j] * x[0][j];              // 預先計算的 W0
++                acc += W0(i, j) * x[0][j];              // W0
 +            h0[i] = fast_tanh(acc);
 +        }
 +
@@ -167,9 +151,9 @@ index 00000000..c5586471
 +#pragma unroll
 +#endif
 +        for (size_type i = 0; i < HiddenSize; ++i) {
-+            scalar acc = B1[i];                         // 預先計算的 bias_1
++            scalar acc = B1(i);                         // bias_1
 +            for (size_type j = 0; j < HiddenSize; ++j)
-+                acc += W1[i][j] * h0[j];                // 預先計算的 W1
++                acc += W1(i, j) * h0[j];                // W1
 +            h1[i] = fast_tanh(acc);
 +        }
 +
