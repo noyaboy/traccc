@@ -13,6 +13,22 @@
 
 namespace traccc::fitting {
 
+/*─────────────────── cross-compiler ALWAYS_INLINE helper ────────────────────*
+ * ─ `__forceinline__`：NVCC / MSVC 專用                                *
+ * ─ GNU / Clang 採 `__attribute__((always_inline))`                      *
+ * 如未匹配任何條件則回退為一般 `inline`                                 *
+ *-------------------------------------------------------------------------*/
+#ifndef TRACCC_ALWAYS_INLINE
+#   if defined(__CUDA_ARCH__)
+#       define TRACCC_ALWAYS_INLINE __forceinline__
+#   elif defined(__GNUC__) || defined(__clang__)
+#       define TRACCC_ALWAYS_INLINE inline __attribute__((always_inline))
+#   else
+#       define TRACCC_ALWAYS_INLINE inline
+#   endif
+#endif
+
+
 template <typename algebra_t, std::size_t D>
 struct kalman_gru_gain_predictor {
 
@@ -51,8 +67,9 @@ struct kalman_gru_gain_predictor {
     /*──────────────────────  stateless forward (static)  ─────────────────────*/
     /* `__forceinline__` 令 NVCC/Clang 必內聯，避免 call-frame 開銷       */
     template <typename vec6_t>
-    TRACCC_HOST_DEVICE __forceinline__
-    static inline matrix_type<6, D> eval(const vec6_t& __restrict__ x) {
+    /* 必內聯：避免 device-side call-frame 開銷                           */
+    TRACCC_HOST_DEVICE TRACCC_ALWAYS_INLINE static
+    matrix_type<6, D> eval(const vec6_t& __restrict__ x) {
 
         scalar h0[HiddenSize];   // register-resident
         scalar h1[HiddenSize];
