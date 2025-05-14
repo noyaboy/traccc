@@ -33,10 +33,10 @@ index 21ebaa61..61c3cbd5 100644
          const matrix_type<6, 1> filtered_vec =
 diff --git a/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
 new file mode 100644
-index 00000000..be673f4d
+index 00000000..2841ceac
 --- /dev/null
 +++ b/core/include/traccc/fitting/kalman_filter/kalman_gru_gain_predictor.hpp
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,127 @@
 +/** KalmanNet-inspired GRU-based gain predictor
 + *
 + * Two stacked GRU layers (hidden = 16) → FC (16 × 25) producing the
@@ -51,6 +51,22 @@ index 00000000..be673f4d
 +#include "traccc/definitions/qualifiers.hpp"
 +
 +namespace traccc::fitting {
++
++/*─────────────────── cross-compiler ALWAYS_INLINE helper ────────────────────*
++ * ─ `__forceinline__`：NVCC / MSVC 專用                                *
++ * ─ GNU / Clang 採 `__attribute__((always_inline))`                      *
++ * 如未匹配任何條件則回退為一般 `inline`                                 *
++ *-------------------------------------------------------------------------*/
++#ifndef TRACCC_ALWAYS_INLINE
++#   if defined(__CUDA_ARCH__)
++#       define TRACCC_ALWAYS_INLINE __forceinline__
++#   elif defined(__GNUC__) || defined(__clang__)
++#       define TRACCC_ALWAYS_INLINE inline __attribute__((always_inline))
++#   else
++#       define TRACCC_ALWAYS_INLINE inline
++#   endif
++#endif
++
 +
 +template <typename algebra_t, std::size_t D>
 +struct kalman_gru_gain_predictor {
@@ -90,8 +106,9 @@ index 00000000..be673f4d
 +    /*──────────────────────  stateless forward (static)  ─────────────────────*/
 +    /* `__forceinline__` 令 NVCC/Clang 必內聯，避免 call-frame 開銷       */
 +    template <typename vec6_t>
-+    TRACCC_HOST_DEVICE __forceinline__
-+    static inline matrix_type<6, D> eval(const vec6_t& __restrict__ x) {
++    /* 必內聯：避免 device-side call-frame 開銷                           */
++    TRACCC_HOST_DEVICE TRACCC_ALWAYS_INLINE static
++    matrix_type<6, D> eval(const vec6_t& __restrict__ x) {
 +
 +        scalar h0[HiddenSize];   // register-resident
 +        scalar h1[HiddenSize];
