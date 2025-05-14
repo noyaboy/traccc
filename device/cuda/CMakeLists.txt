@@ -118,8 +118,9 @@ if ( "${CMAKE_CUDA_COMPILER_ID}" STREQUAL "NVIDIA" )
   set_target_properties( traccc_cuda PROPERTIES
     CUDA_ARCHITECTURES 75 )
 
+  # 啟用 INT8 TensorCore 路徑；保留原 FP16 定義以維持兼容
   target_compile_definitions( traccc_cuda
-    PUBLIC TRACCC_USE_FP16=1 )
+    PUBLIC TRACCC_USE_FP16=1 TRACCC_USE_INT8=1 )
 
   target_compile_options( traccc_cuda
     PRIVATE
