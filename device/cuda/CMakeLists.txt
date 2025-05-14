@@ -123,7 +123,7 @@ if ( "${CMAKE_CUDA_COMPILER_ID}" STREQUAL "NVIDIA" )
 
   target_compile_options( traccc_cuda
     PRIVATE
-      $<$<COMPILE_LANGUAGE:CUDA>:--use_fast_math -tensormath --ftz=true> )
+      $<$<COMPILE_LANGUAGE:CUDA>:--use_fast_math --ftz=true> )
 endif()
 
 
