@@ -82,6 +82,9 @@
       "iterator": "cpp",
       "random": "cpp",
       "cfenv": "cpp",
-      "cinttypes": "cpp"
+      "cinttypes": "cpp",
+      "simd": "cpp",
+      "inplace_vector": "cpp",
+      "annotated_ptr": "cpp"
    }
 }
