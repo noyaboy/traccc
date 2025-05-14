@@ -1,5 +1,7 @@
-nvcc fatal   : 'ensormath': expected a number
-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:80: device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/make_prefix_sum_buff.cu.o] Error 1
-gmake[2]: *** Waiting for unfinished jobs....
-gmake[1]: *** [CMakeFiles/Makefile2:4704: device/cuda/CMakeFiles/traccc_cuda.dir/all] Error 2
-gmake[1]: *** Waiting for unfinished jobs....
+123:[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
+124-[ 21%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
+125-[ 21%] Building CXX object _deps/acts-build/Core/CMakeFiles/ActsCore.dir/src/Detector/detail/SupportSurfacesHelper.cpp.o
+--
+388:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
+389-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/utils.cpp.o
+390-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/opaque_stream.cpp.o
