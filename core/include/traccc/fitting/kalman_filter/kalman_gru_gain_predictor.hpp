@@ -54,7 +54,10 @@ struct kalman_gru_gain_predictor {
         scalar h1[HiddenSize]{};
 
         /*─ GRU-0 (simplified) ─*/
-        #pragma unroll
+        /* ─ fully unroll only在 CUDA device 編譯時啟用 ─ */
+#ifdef __CUDA_ARCH__
+#pragma unroll
+#endif
         for (size_type i = 0; i < HiddenSize; ++i) {
             scalar acc = rnd(10'000 + i);               // bias_0
             /* 來源向量實際型別為 std::array<std::array<scalar, 6>, 1>，
@@ -65,7 +68,10 @@ struct kalman_gru_gain_predictor {
         }
 
         /*─ GRU-1 (simplified) ─*/
-        #pragma unroll
+        /* ─ fully unroll only在 CUDA device 編譯時啟用 ─ */
+#ifdef __CUDA_ARCH__
+#pragma unroll
+#endif
         for (size_type i = 0; i < HiddenSize; ++i) {
             scalar acc = rnd(20'000 + i);               // bias_1
             for (size_type j = 0; j < HiddenSize; ++j)
