@@ -21,6 +21,9 @@
 #endif
 #include "traccc/definitions/qualifiers.hpp"
 
+#ifdef TRACCC_LOAD_TRAINED_WEIGHTS
+#include "traccc/fitting/kalman_filter/kalman_int8_gru_trained_weights.hpp"
+#endif
 namespace traccc::fitting {
 
 #ifndef TRACCC_ALWAYS_INLINE
@@ -56,12 +59,20 @@ struct kalman_int8_gru_gain_predictor {
         }
         return 0.1f * (x - 0.5f);
     }
+/* 由匯出的 INT8 查表 */
+#ifdef TRACCC_LOAD_TRAINED_WEIGHTS
+    TRACCC_HOST_DEVICE constexpr static
+    qscalar qrnd(std::size_t i) {
+        return traccc::fitting::trained::kRndInt8[i];
+    }
+#else
     TRACCC_HOST_DEVICE constexpr static
     qscalar qrnd(std::size_t i) {
         const float q = rnd(i) * kScale;
         return static_cast<qscalar>(q >= 0 ? (q > 127.f ? 127 : q + 0.5f)
                                            : (q < -128.f ? -128 : q - 0.5f));
     }
+#endif
 
     /* 簡易 INT32 tanh 近似：y = x / (1 + |x|) (右移 7 位近似除以 128) */
     TRACCC_HOST_DEVICE static inline

@@ -15,6 +15,9 @@
 #endif
 #include "traccc/definitions/qualifiers.hpp"
 
+#ifdef TRACCC_LOAD_TRAINED_WEIGHTS
+#include "traccc/fitting/kalman_filter/kalman_gru_trained_weights.hpp"
+#endif
 namespace traccc::fitting {
 
 /*─────────────────── cross-compiler ALWAYS_INLINE helper ────────────────────*
@@ -56,10 +59,17 @@ struct kalman_gru_gain_predictor {
 
     /*─────────────────────  compile-time friendly pseudo-random  ─────────────*/
     /* constexpr 以便用於編譯期產生常量權重（完全移除 runtime 開銷） */
+/* 若已匯入訓練後權重，改為查表 */
+#ifdef TRACCC_LOAD_TRAINED_WEIGHTS
+    TRACCC_HOST_DEVICE constexpr static
+    scalar rnd(std::size_t i) {
+        return traccc::fitting::trained::kRnd[i];
+    }
+#else
     TRACCC_HOST_DEVICE constexpr static
     scalar rnd(std::size_t i) {
         scalar x = 0.f, denom = 1.f;
-        std::size_t n = i + 1;          // skip zero
+        std::size_t n = i + 1;
         while (n) {
             denom *= 2.f;
             x += static_cast<scalar>(n & 1U) / denom;
@@ -67,6 +77,7 @@ struct kalman_gru_gain_predictor {
         }
         return static_cast<scalar>(0.1f * (x - 0.5f));
     }
+#endif
 
     /* 更廉價的雙線段近似：x / (1+|x|)（|err|<2e-2, |x|≤3）。
      * 只含 1 個除法，較原 2 乘+2 加。                                     */
