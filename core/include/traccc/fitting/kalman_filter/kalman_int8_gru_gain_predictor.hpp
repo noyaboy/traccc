@@ -60,19 +60,25 @@ struct kalman_int8_gru_gain_predictor {
         return 0.1f * (x - 0.5f);
     }
 /* 由匯出的 INT8 查表 */
-#ifdef TRACCC_LOAD_TRAINED_WEIGHTS
+    /** qrnd — host 端走查表，device 端則回退至即時量化以避免
+      * `kRndInt8` 在 __device__ 環境下未定義的編譯錯誤。              */
     TRACCC_HOST_DEVICE constexpr static
     qscalar qrnd(std::size_t i) {
-        return traccc::fitting::trained::kRndInt8[i];
-    }
-#else
-    TRACCC_HOST_DEVICE constexpr static
-    qscalar qrnd(std::size_t i) {
+#if defined(__CUDA_ARCH__)
+        /* GPU (device) 編譯：不用表，而是現算並量化。 */
         const float q = rnd(i) * kScale;
         return static_cast<qscalar>(q >= 0 ? (q > 127.f ? 127 : q + 0.5f)
                                            : (q < -128.f ? -128 : q - 0.5f));
-    }
+#elif defined(TRACCC_LOAD_TRAINED_WEIGHTS)
+        /* CPU / host 編譯：直接使用離線匯出的 INT8 權重表。 */
+        return traccc::fitting::trained::kRndInt8[i];
+#else
+        /* 未開啟 TRACCC_LOAD_TRAINED_WEIGHTS 時維持舊行為。 */
+        const float q = rnd(i) * kScale;
+        return static_cast<qscalar>(q >= 0 ? (q > 127.f ? 127 : q + 0.5f)
+                                           : (q < -128.f ? -128 : q - 0.5f));
 #endif
+    }
 
     /* 簡易 INT32 tanh 近似：y = x / (1 + |x|) (右移 7 位近似除以 128) */
     TRACCC_HOST_DEVICE static inline
