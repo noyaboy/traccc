@@ -29,7 +29,7 @@ def main():
     ap.add_argument("--epochs",      type=int, default=300)
     ap.add_argument("--hidden",      type=int, default=32)
     ap.add_argument("--batch",       type=int, default=8192)
-    ap.add_argument("--lr",          type=float, default=1e-2)
+    ap.add_argument("--lr",          type=float, default=1e-3)
     ap.add_argument("--weight-decay", type=float, default=0.0, help="L2 weight-decay")
     ap.add_argument("--patience",     type=int,   default=5,   help="early-stopping patience")
     ap.add_argument("--optimizer",   type=str, choices=["adam", "sgd"], default="sgd")
@@ -105,8 +105,7 @@ def main():
         cur_val = np.mean(eval_losses)
         print(f"Epoch {epoch+1:03d}: "
               f"train MSE={np.mean(train_losses):.6f}, "
-              f"eval  MSE={cur_val:.6f}, "
-              f"eval  Acc@ε={np.mean(eval_accs):.4f}")
+              f"eval  MSE={cur_val:.6f}.")
 
         # ----- early stopping bookkeeping -----
         if cur_val < best_val:
@@ -120,7 +119,7 @@ def main():
                 break
 
     # --- final test evaluation on **best** checkpoint ---
-    model.load_state_dict(torch.load(args.out), weights_only=True)
+    model.load_state_dict(torch.load(args.out))
     model.eval()
     with torch.no_grad():
         test_losses = []
@@ -131,7 +130,7 @@ def main():
             test_losses.append(loss.item())
             abs_err = (pred - yb).abs()
             test_accs.append((abs_err <= args.epsilon).float().mean().item())
-    print(f"Test MSE : {np.mean(test_losses):.6f}, Test Acc@ε={np.mean(test_accs):.4f}")
+    print(f"Test MSE : {np.mean(test_losses):.6f}")
 
     # best weights已於早停流程另行保存
 
