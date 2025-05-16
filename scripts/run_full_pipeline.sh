@@ -6,13 +6,16 @@ ROOT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 cd "${ROOT_DIR}"
 
 # 1) 產生訓練資料
-python scripts/generate_dataset.py --samples 500000 --out data/dataset.npz
+python scripts/generate_dataset.py --samples 5000000 --out data/dataset.npz
 
 # 2) 訓練模型
 python scripts/train_mlp.py \
-    --data  data/dataset.npz \
-    --epochs 30 \
+    --data   data/dataset.npz \
+    --epochs 50 \
     --hidden 32 \
+    --weight-decay 1e-4 \
+    --patience 7 \
+    --scheduler cosine \
     --out    data/kalmannet.pt
 
 ## 3) 匯出 C++ header（浮點 + INT8 版）

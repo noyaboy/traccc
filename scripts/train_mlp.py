@@ -26,17 +26,19 @@ class KalmanNet(nn.Module):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data",        required=True, help="由 generate_dataset.py 產生的 .npz")
-    ap.add_argument("--epochs",      type=int, default=30)
+    ap.add_argument("--epochs",      type=int, default=300)
     ap.add_argument("--hidden",      type=int, default=32)
     ap.add_argument("--batch",       type=int, default=8192)
     ap.add_argument("--lr",          type=float, default=1e-2)
+    ap.add_argument("--weight-decay", type=float, default=0.0, help="L2 weight-decay")
+    ap.add_argument("--patience",     type=int,   default=5,   help="early-stopping patience")
     ap.add_argument("--optimizer",   type=str, choices=["adam", "sgd"], default="sgd")
     ap.add_argument("--scheduler",   type=str, choices=["step", "cosine"], default=None)
     ap.add_argument("--step-size",   type=int, default=10, help="StepLR 週期")
     ap.add_argument("--gamma",       type=float, default=0.1, help="StepLR 衰減率")
     ap.add_argument("--eval-split",  type=float, default=0.1)
     ap.add_argument("--test-split",  type=float, default=0.1)
-    ap.add_argument("--epsilon",     type=float, default=0.1, help="誤差閾值 ε，用於 accuracy 評估")
+    ap.add_argument("--epsilon",     type=float, default=0.005, help="誤差閾值 ε，用於 accuracy 評估")
     ap.add_argument("--out",         required=True)
     args = ap.parse_args()
 
@@ -59,9 +61,11 @@ def main():
 
     # --- optimizer ---
     if args.optimizer == "sgd":
-        optim = torch.optim.SGD(model.parameters(), lr=args.lr, momentum=0.9)
+        optim = torch.optim.SGD(model.parameters(), lr=args.lr,
+                                momentum=0.9, weight_decay=args.weight_decay)
     else:
-        optim = torch.optim.Adam(model.parameters(), lr=args.lr)
+        optim = torch.optim.Adam(model.parameters(), lr=args.lr,
+                                 weight_decay=args.weight_decay)
 
     # --- scheduler (optional) ---
     if args.scheduler == "step":
@@ -73,7 +77,8 @@ def main():
 
     lossf = nn.MSELoss()
 
-    # --- training loop ---
+    # --- training loop with early-stopping ---
+    best_val, no_improve = float("inf"), 0
     for epoch in range(args.epochs):
         model.train()
         train_losses = []
@@ -91,18 +96,31 @@ def main():
                 pred = model(xb)
                 loss = lossf(pred, yb)
                 eval_losses.append(loss.item())
-                abs_err = (pred/yb - 1).abs()
+                abs_err = (pred - yb).abs()
                 eval_accs.append((abs_err <= args.epsilon).float().mean().item())
 
         if scheduler is not None:
             scheduler.step()
 
+        cur_val = np.mean(eval_losses)
         print(f"Epoch {epoch+1:03d}: "
               f"train MSE={np.mean(train_losses):.6f}, "
-              f"eval MSE={np.mean(eval_losses):.6f}, "
-              f"eval Acc@ε={np.mean(eval_accs):.4f}")
+              f"eval  MSE={cur_val:.6f}, "
+              f"eval  Acc@ε={np.mean(eval_accs):.4f}")
 
-    # --- final test evaluation ---
+        # ----- early stopping bookkeeping -----
+        if cur_val < best_val:
+            best_val = cur_val
+            no_improve = 0
+            torch.save(model.state_dict(), args.out)      # keep best
+        else:
+            no_improve += 1
+            if no_improve >= args.patience:
+                print(f"Early-stopping triggered at epoch {epoch+1}.")
+                break
+
+    # --- final test evaluation on **best** checkpoint ---
+    model.load_state_dict(torch.load(args.out), weights_only=True)
     model.eval()
     with torch.no_grad():
         test_losses = []
@@ -111,12 +129,11 @@ def main():
             pred = model(xb)
             loss = lossf(pred, yb)
             test_losses.append(loss.item())
-            abs_err = (pred/yb - 1).abs()
+            abs_err = (pred - yb).abs()
             test_accs.append((abs_err <= args.epsilon).float().mean().item())
     print(f"Test MSE : {np.mean(test_losses):.6f}, Test Acc@ε={np.mean(test_accs):.4f}")
 
-    # 儲存權重以供 export_weights.py 使用
-    torch.save(model.state_dict(), args.out)
+    # best weights已於早停流程另行保存
 
 if __name__ == "__main__":
     main()
