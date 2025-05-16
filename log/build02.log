@@ -3,12 +3,12 @@
 [  1%] Built target tbbbind_2_5
 [  2%] Built target gtest
 [  3%] Built target tbbmalloc
-[  3%] Built target gmock
-[  3%] Built target traccc_tests_cuda_main
 [  3%] Built target gtest_main
+[  3%] Built target traccc_tests_cuda_main
+[  3%] Built target gmock
 [  7%] Built target benchmark
+[  7%] Built target tbbmalloc_proxy
 [ 12%] Built target vecmem_core
-[ 12%] Built target tbbmalloc_proxy
 [ 12%] Built target benchmark_main
 [ 12%] Built target gmock_main
 [ 15%] Built target vecmem_cuda
@@ -21,12 +21,31 @@
 [ 64%] Built target traccc_generate_constant_bfield
 [ 64%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/finding_algorithm.cu.o
 [ 64%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/find_tracks_default_detector.cu.o
+[ 64%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/apply_interaction_default_detector.cu.o
 [ 64%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/propagate_to_next_surface_default_detector.cu.o
 [ 65%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/propagate_stage1_default_detector.cu.o
-[ 65%] Building CXX object io/CMakeFiles/traccc_io.dir/src/read_detector.cpp.o
 [ 65%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/propagate_stage2_default_detector.cu.o
-[ 65%] Building CXX object io/CMakeFiles/traccc_io.dir/src/read_geometry.cpp.o
 [ 65%] Building CUDA object device/cuda/CMakeFiles/traccc_cuda.dir/src/fitting/fitting_algorithm.cu.o
+[ 70%] Built target traccc_io
+[ 72%] Built target traccc_benchmark_cpu
+[ 72%] Built target traccc_tests_common
+[ 72%] Built target traccc_test_core
+[ 74%] Built target traccc_performance
+[ 75%] Built target traccc_test_io
+[ 79%] Built target traccc_test_cpu
+[ 83%] Built target traccc_options
+[ 83%] Built target traccc_test_examples
+[ 84%] Built target traccc_seeding_example
+[ 84%] Built target traccc_simulate_toy_detector
+[ 84%] Built target traccc_seq_example
+[ 84%] Built target traccc_throughput_st
+[ 84%] Built target traccc_truth_fitting_example
+[ 84%] Built target traccc_create_binaries
+[ 84%] Built target traccc_simulate
+[ 84%] Built target traccc_simulate_telescope
+[ 84%] Built target traccc_truth_finding_example
+[ 86%] Built target traccc_throughput_mt
+[ 87%] Built target traccc_simulate_wire_chamber
 /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor.hpp(66): error: identifier "traccc::fitting::trained::kRndInt8" is undefined in device code
 
 /home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor.hpp(66): error: identifier "traccc::fitting::trained::kRndInt8" is undefined in device code
@@ -40,120 +59,5 @@ gmake[2]: *** Waiting for unfinished jobs....
 
 2 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/fitting/fitting_algorithm.cu".
 gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:420: device/cuda/CMakeFiles/traccc_cuda.dir/src/fitting/fitting_algorithm.cu.o] Error 1
-[ 65%] Linking CXX shared library ../lib/libtraccc_io.so
-[ 70%] Built target traccc_io
-[ 70%] Building CXX object benchmarks/cpu/CMakeFiles/traccc_benchmark_cpu.dir/toy_detector_cpu.cpp.o
-[ 70%] Building CXX object tests/CMakeFiles/traccc_tests_common.dir/common/tests/kalman_fitting_momentum_resolution_test.cpp.o
-[ 70%] Building CXX object tests/CMakeFiles/traccc_tests_common.dir/common/tests/kalman_fitting_test.cpp.o
-[ 70%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/efficiency/seeding_performance_writer.cpp.o
-[ 70%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/efficiency/nseed_performance_writer.cpp.o
-[ 70%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/efficiency/finding_performance_writer.cpp.o
-[ 70%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/efficiency/track_matcher.cpp.o
-[ 72%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/efficiency/track_filter.cpp.o
-[ 72%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/resolution/fitting_performance_writer.cpp.o
-[ 72%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/resolution/stat_plot_tool.cpp.o
-[ 72%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/resolution/res_plot_tool.cpp.o
-[ 72%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/utils/helpers.cpp.o
-[ 72%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/utils/event_data.cpp.o
-[ 73%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/performance/details/is_same_angle.cpp.o
-[ 73%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/performance/details/is_same_scalar.cpp.o
-[ 73%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/performance/timing_info.cpp.o
-[ 73%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/performance/details/is_same_object.cpp.o
-[ 73%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/performance/timer.cpp.o
-[ 73%] Building CXX object performance/CMakeFiles/traccc_performance.dir/src/performance/throughput.cpp.o
-[ 73%] Linking CXX shared library ../lib/libtraccc_performance.so
-[ 73%] Built target traccc_performance
-[ 73%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/details/interface.cpp.o
-[ 74%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/accelerator.cpp.o
-[ 74%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/detector.cpp.o
-[ 74%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/clusterization.cpp.o
-[ 74%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/input_data.cpp.o
-[ 74%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/generation.cpp.o
-[ 74%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/output_data.cpp.o
-[ 74%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/performance.cpp.o
-[ 75%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/program_options.cpp.o
-[ 75%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/telescope_detector.cpp.o
-[ 75%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/threading.cpp.o
-[ 75%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/throughput.cpp.o
-[ 75%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/track_finding.cpp.o
-[ 75%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/track_fitting.cpp.o
-[ 75%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/track_propagation.cpp.o
-[ 77%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/track_resolution.cpp.o
-[ 77%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/track_seeding.cpp.o
-[ 77%] Building CXX object examples/options/CMakeFiles/traccc_options.dir/src/truth_finding.cpp.o
-[ 77%] Linking CXX static library ../lib/libtraccc_tests_common.a
-[ 77%] Built target traccc_tests_common
-[ 77%] Building CXX object tests/core/CMakeFiles/traccc_test_core.dir/test_algorithm.cpp.o
-[ 77%] Building CXX object tests/core/CMakeFiles/traccc_test_core.dir/test_pvalue.cpp.o
-[ 77%] Building CXX object tests/core/CMakeFiles/traccc_test_core.dir/test_module_map.cpp.o
-[ 77%] Building CXX object tests/core/CMakeFiles/traccc_test_core.dir/particle.cpp.o
-[ 77%] Building CXX object tests/io/CMakeFiles/traccc_test_io.dir/test_binary.cpp.o
-[ 77%] Building CXX object tests/io/CMakeFiles/traccc_test_io.dir/test_csv.cpp.o
-[ 77%] Building CXX object tests/io/CMakeFiles/traccc_test_io.dir/test_event_data.cpp.o
-[ 78%] Building CXX object tests/io/CMakeFiles/traccc_test_io.dir/test_json.cpp.o
-[ 78%] Linking CXX shared library ../../lib/libtraccc_options.so
-[ 79%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/compare_with_acts_seeding.cpp.o
-[ 79%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/seq_single_module.cpp.o
-[ 79%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_cca.cpp.o
-[ 79%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_ckf_combinatorics_telescope.cpp.o
-[ 79%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_ckf_sparse_tracks_telescope.cpp.o
-[ 79%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_clusterization_resolution.cpp.o
-[ 79%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_copy.cpp.o
-[ 81%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_kalman_fitter_hole_count.cpp.o
-[ 81%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_kalman_fitter_momentum_resolution.cpp.o
-[ 81%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_kalman_fitter_telescope.cpp.o
-[ 81%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_kalman_fitter_wire_chamber.cpp.o
-[ 81%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_ranges.cpp.o
-[ 81%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_seeding.cpp.o
-[ 81%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_simulation.cpp.o
-[ 82%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_spacepoint_formation.cpp.o
-[ 82%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_track_params_estimation.cpp.o
-[ 82%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_sanity_ordered_on.cpp.o
-[ 82%] Building CXX object tests/cpu/CMakeFiles/traccc_test_cpu.dir/test_sanity_contiguous_on.cpp.o
-[ 82%] Built target traccc_options
-[ 82%] Building CXX object examples/run/cpu/CMakeFiles/traccc_seq_example.dir/seq_example.cpp.o
-[ 83%] Building CXX object examples/run/cpu/CMakeFiles/traccc_seeding_example.dir/seeding_example.cpp.o
-[ 83%] Building CXX object examples/run/cpu/CMakeFiles/traccc_truth_finding_example.dir/truth_finding_example.cpp.o
-[ 83%] Building CXX object examples/run/cpu/CMakeFiles/traccc_truth_fitting_example.dir/truth_fitting_example.cpp.o
-[ 83%] Building CXX object examples/run/cpu/CMakeFiles/traccc_throughput_st.dir/throughput_st.cpp.o
-[ 84%] Building CXX object examples/run/cpu/CMakeFiles/traccc_throughput_mt.dir/throughput_mt.cpp.o
-[ 84%] Building CXX object examples/io/CMakeFiles/traccc_create_binaries.dir/create_binaries.cpp.o
-[ 84%] Building CXX object examples/simulation/CMakeFiles/traccc_simulate.dir/simulate.cpp.o
-[ 84%] Building CXX object examples/simulation/CMakeFiles/traccc_simulate_telescope.dir/simulate_telescope.cpp.o
-[ 86%] Building CXX object examples/simulation/CMakeFiles/traccc_simulate_toy_detector.dir/simulate_toy_detector.cpp.o
-[ 86%] Building CXX object examples/simulation/CMakeFiles/traccc_simulate_wire_chamber.dir/simulate_wire_chamber.cpp.o
-[ 86%] Building CXX object tests/examples/CMakeFiles/traccc_test_examples.dir/test_options.cpp.o
-[ 86%] Linking CXX executable ../../bin/traccc_test_core
-[ 86%] Built target traccc_test_core
-[ 86%] Linking CXX executable ../../bin/traccc_test_examples
-[ 86%] Built target traccc_test_examples
-[ 86%] Linking CXX executable ../../../bin/traccc_truth_finding_example
-[ 86%] Built target traccc_truth_finding_example
-[ 86%] Linking CXX executable ../../../bin/traccc_seeding_example
-[ 86%] Built target traccc_seeding_example
-[ 86%] Linking CXX executable ../../bin/traccc_create_binaries
-[ 86%] Built target traccc_create_binaries
-[ 86%] Linking CXX executable ../../../bin/traccc_throughput_st
-[ 86%] Built target traccc_throughput_st
-[ 86%] Linking CXX executable ../../../bin/traccc_throughput_mt
-[ 86%] Built target traccc_throughput_mt
-[ 86%] Linking CXX executable ../../../bin/traccc_seq_example
-[ 86%] Built target traccc_seq_example
-[ 87%] Linking CXX executable ../../bin/traccc_benchmark_cpu
-[ 87%] Built target traccc_benchmark_cpu
-[ 87%] Linking CXX executable ../../bin/traccc_simulate_telescope
-[ 87%] Built target traccc_simulate_telescope
-[ 87%] Linking CXX executable ../../bin/traccc_simulate_toy_detector
-[ 87%] Built target traccc_simulate_toy_detector
-[ 87%] Linking CXX executable ../../bin/traccc_simulate_wire_chamber
-[ 87%] Built target traccc_simulate_wire_chamber
-[ 87%] Linking CXX executable ../../../bin/traccc_truth_fitting_example
-[ 87%] Linking CXX executable ../../bin/traccc_test_io
-[ 87%] Built target traccc_truth_fitting_example
-[ 87%] Built target traccc_test_io
-[ 87%] Linking CXX executable ../../bin/traccc_simulate
-[ 87%] Built target traccc_simulate
-[ 87%] Linking CXX executable ../../bin/traccc_test_cpu
-[ 87%] Built target traccc_test_cpu
 gmake[1]: *** [CMakeFiles/Makefile2:4704: device/cuda/CMakeFiles/traccc_cuda.dir/all] Error 2
 gmake: *** [Makefile:166: all] Error 2

@@ -1,7 +1,14 @@
-137:[ 24%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_error_handling.cpp.o
-138-[ 24%] Built target benchmark
-139-[ 24%] Building CXX object _deps/vecmem-build/cuda/CMakeFiles/vecmem_cuda.dir/src/utils/cuda_wrappers.cpp.o
---
-387:[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/cuda_error_handling.cpp.o
-388-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/stream.cpp.o
-389-[ 65%] Building CXX object device/cuda/CMakeFiles/traccc_cuda.dir/src/utils/opaque_stream.cpp.o
+49:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor.hpp(66): error: identifier "traccc::fitting::trained::kRndInt8" is undefined in device code
+50-
+51:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor.hpp(66): error: identifier "traccc::fitting::trained::kRndInt8" is undefined in device code
+52-
+53:2 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/finding/kernels/specializations/find_tracks_default_detector.cu".
+54-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:345: device/cuda/CMakeFiles/traccc_cuda.dir/src/finding/kernels/specializations/find_tracks_default_detector.cu.o] Error 1
+55-gmake[2]: *** Waiting for unfinished jobs....
+56:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor.hpp(66): error: identifier "traccc::fitting::trained::kRndInt8" is undefined in device code
+57-
+58:/home/noah/project/traccc/core/include/traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor.hpp(66): error: identifier "traccc::fitting::trained::kRndInt8" is undefined in device code
+59-
+60:2 errors detected in the compilation of "/home/noah/project/traccc/device/cuda/src/fitting/fitting_algorithm.cu".
+61-gmake[2]: *** [device/cuda/CMakeFiles/traccc_cuda.dir/build.make:420: device/cuda/CMakeFiles/traccc_cuda.dir/src/fitting/fitting_algorithm.cu.o] Error 1
+62-gmake[1]: *** [CMakeFiles/Makefile2:4704: device/cuda/CMakeFiles/traccc_cuda.dir/all] Error 2
