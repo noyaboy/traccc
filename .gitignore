@@ -48,3 +48,4 @@ build/
 log/maxreg_iter.log
 ./nc_report/*/*.ncu-rep
 ./nc_report/*/*/*.ncu-rep
+data/dataset.npz
