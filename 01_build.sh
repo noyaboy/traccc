@@ -9,7 +9,7 @@ cmake -S $HOME/project/traccc -B $HOME/project/traccc/build \
     -DCMAKE_CXX_STANDARD=20 \
     -DTRACCC_USE_ROOT=ON | tee ./log/build01.log
 
-cmake --build $HOME/project/traccc/build -- -j16 2>&1 | tee ./log/build02.log
+cmake --build $HOME/project/traccc/build -- -j$(nproc) 2>&1 | tee ./log/build02.log
 
 grep -P "ptxas info.*Used" ./log/build02.log | \
   sed -e 's/^.*ptxas info/ptxas info/' | sort -u | tee ./log/ptxas.log

@@ -4,6 +4,8 @@
 #
 # Mozilla Public License Version 2.0
 
+*.npz
+*.pt
 # Prerequisites
 *.d
 
@@ -48,4 +50,3 @@ build/
 log/maxreg_iter.log
 ./nc_report/*/*.ncu-rep
 ./nc_report/*/*/*.ncu-rep
-data/dataset.npz
