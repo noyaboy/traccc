@@ -111,12 +111,41 @@ struct gain_matrix_updater {
         [[maybe_unused]] const matrix_type<D, D> M =
             H * predicted_cov * matrix::transpose(H) + V;
 
-        /* Kalman gain via兩層 GRU KalmanNet surrogate（INT8 TensorCore 版）：
-         *   kalman_int8_gru_gain_predictor<>::eval(...)
-         *   靜態函式呼叫，避免在 device 函式中動態初始化。           */
-        const matrix_type<6, D> K =
-            traccc::fitting::kalman_int8_gru_gain_predictor<algebra_t, D>::eval(
-                predicted_vec);
+        /* Kalman gain via 兩層 GRU KalmanNet surrogate（INT8 TensorCore 版）—
+         * 使用攤平並串接 predicted_vec、predicted_cov、H、V 作為輸入 */
+        matrix_type<6, D> K;
+        {
+            using Predictor = traccc::fitting::kalman_int8_gru_gain_predictor<algebra_t, D>;
+            constexpr auto N = Predictor::InputSize;
+            // 建立 1×N 的輸入向量
+            typename Predictor::template matrix_type<1, N> gru_input{};
+            size_type idx = 0;
+            // 1) Predicted state vector (6 elements)
+            for (size_type i = 0; i < 6; ++i) {
+                gru_input[0][idx] = predicted_vec[0][i];
+                idx = idx + 1;
+            }
+            // 2) Predicted covariance P (6×6 elements, row-major)
+            for (size_type r = 0; r < 6; ++r) 
+                for (size_type c = 0; c < 6; ++c) {
+                    gru_input[0][idx] = predicted_cov[r][c];
+                    idx = idx + 1;
+                }
+            // 3) Projector matrix H (D×6 elements, row-major)
+            for (size_type r = 0; r < D; ++r)
+                for (size_type c = 0; c < 6; ++c) {
+                    gru_input[0][idx] = H[c][r];
+                    idx = idx + 1;
+                }
+            // 4) Measurement covariance V (D×D elements, row-major)
+            for (size_type r = 0; r < D; ++r)
+                for (size_type c = 0; c < D; ++c) {
+                    gru_input[0][idx] = V[r][c];
+                    idx = idx + 1;
+                }
+            // 呼叫 GRU predictor
+            K = Predictor::eval(gru_input);
+        }
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =

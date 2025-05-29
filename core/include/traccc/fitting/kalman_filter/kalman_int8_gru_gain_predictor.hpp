@@ -42,7 +42,11 @@ struct kalman_int8_gru_gain_predictor {
     template <size_type R, size_type C>
     using matrix_type = detray::dmatrix<algebra_t, R, C>;
 
-    static constexpr size_type InputSize  = 6;
+    // InputSize = 6（predicted_vec） + 6×6（P） + D×6（H） + D×D（V）
+    static constexpr size_type InputSize  = 6      // predicted_vec
+                                          + 6*6    // P covariance
+                                          + 6*D    // H projector
+                                          + D*D;   // V measurement cov
     static constexpr size_type HiddenSize = 32;
     static constexpr float     kScale     = 127.0f;
 
