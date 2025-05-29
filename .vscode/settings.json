@@ -85,6 +85,13 @@
       "cinttypes": "cpp",
       "simd": "cpp",
       "inplace_vector": "cpp",
-      "annotated_ptr": "cpp"
+      "annotated_ptr": "cpp",
+      "hash_map": "cpp",
+      "scoped_allocator": "cpp",
+      "__hash_table": "cpp",
+      "__split_buffer": "cpp",
+      "__tree": "cpp",
+      "queue": "cpp",
+      "stack": "cpp"
    }
 }
