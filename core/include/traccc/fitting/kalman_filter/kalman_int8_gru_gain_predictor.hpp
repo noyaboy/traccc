@@ -47,7 +47,8 @@ struct kalman_int8_gru_gain_predictor {
                                           + 6*6    // P covariance
                                           + 6*D    // H projector
                                           + D*D;   // V measurement cov
-    static constexpr size_type HiddenSize = 32;
+    static constexpr size_type HiddenSize1 = 64;
+    static constexpr size_type HiddenSize2 = 32;
     static constexpr float     kScale     = 127.0f;
 
     /* ────────────── compile-time 隨機權重產生 ────────────── */
@@ -69,9 +70,9 @@ struct kalman_int8_gru_gain_predictor {
 
     /* 簡易 INT32 tanh 近似：y = x / (1 + |x|) (右移 7 位近似除以 128) */
     TRACCC_HOST_DEVICE static inline
-    accum_t itanh(accum_t x) {
-        const accum_t ax = x >= 0 ? x : -x;
-        return x / (1 + (ax >> 7));
+    accum_t relu(accum_t x) {
+        const accum_t ax = x >= 0 ? x : 0;
+        return ax;
     }
 
     /* ─────────────── forward ─────────────── */
@@ -92,11 +93,11 @@ struct kalman_int8_gru_gain_predictor {
         }
 
         /* (2) GRU-0 linear */
-        qscalar h0_q[HiddenSize];
+        qscalar h0_q[HiddenSize1];
 #ifdef __CUDA_ARCH__
 #pragma unroll
 #endif
-        for (size_type i = 0; i < HiddenSize; ++i) {
+        for (size_type i = 0; i < HiddenSize1; ++i) {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             for (size_type j = 0; j < InputSize; j += 4) {
@@ -112,32 +113,32 @@ struct kalman_int8_gru_gain_predictor {
                 acc += static_cast<accum_t>(qrnd(i*InputSize + j)) *
                        static_cast<accum_t>(x_q[j]);
 #endif
-            const accum_t act = itanh(acc);
+            const accum_t act = relu(acc);
             h0_q[i] = static_cast<qscalar>(std::clamp(act >> 7, -128, 127));
         }
 
         /* (3) GRU-1 linear */
-        qscalar h1_q[HiddenSize];
+        qscalar h1_q[HiddenSize2];
 #ifdef __CUDA_ARCH__
 #pragma unroll
 #endif
-        for (size_type i = 0; i < HiddenSize; ++i) {
+        for (size_type i = 0; i < HiddenSize2; ++i) {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
-            for (size_type j = 0; j < HiddenSize; j += 4) {
-                const accum_t w = (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize+j    ))      ) |
-                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize+j+1)) <<  8) |
-                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize+j+2)) << 16) |
-                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize+j+3)) << 24);
+            for (size_type j = 0; j < HiddenSize1; j += 4) {
+                const accum_t w = (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize1+j    ))      ) |
+                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize1+j+1)) <<  8) |
+                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize1+j+2)) << 16) |
+                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize1+j+3)) << 24);
                 const accum_t v = *reinterpret_cast<const int*>(&h0_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
-            for (size_type j = 0; j < HiddenSize; ++j)
-                acc += static_cast<accum_t>(qrnd(5000 + i*HiddenSize + j)) *
+            for (size_type j = 0; j < HiddenSize1; ++j)
+                acc += static_cast<accum_t>(qrnd(5000 + i*HiddenSize1 + j)) *
                        static_cast<accum_t>(h0_q[j]);
 #endif
-            const accum_t act = itanh(acc);
+            const accum_t act = relu(acc);
             h1_q[i] = static_cast<qscalar>(std::clamp(act >> 7, -128, 127));
         }
 
@@ -154,17 +155,17 @@ struct kalman_int8_gru_gain_predictor {
                 const size_type o = r * D + c;
                 accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
-                for (size_type j = 0; j < HiddenSize; j += 4) {
-                    const accum_t w = (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize+j    ))      ) |
-                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize+j+1)) <<  8) |
-                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize+j+2)) << 16) |
-                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize+j+3)) << 24);
+                for (size_type j = 0; j < HiddenSize2; j += 4) {
+                    const accum_t w = (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize2+j    ))      ) |
+                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize2+j+1)) <<  8) |
+                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize2+j+2)) << 16) |
+                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize2+j+3)) << 24);
                     const accum_t v = *reinterpret_cast<const int*>(&h1_q[j]);
                     acc = __dp4a(w, v, acc);
                 }
 #else
-                for (size_type j = 0; j < HiddenSize; ++j)
-                    acc += static_cast<accum_t>(qrnd(40000 + o*HiddenSize + j)) *
+                for (size_type j = 0; j < HiddenSize2; ++j)
+                    acc += static_cast<accum_t>(qrnd(40000 + o*HiddenSize2 + j)) *
                            static_cast<accum_t>(h1_q[j]);
 #endif
                 K[c][r] = static_cast<float>(acc) / (kScale * kScale);
