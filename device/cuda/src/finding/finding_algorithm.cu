@@ -17,6 +17,10 @@
 #include "./kernels/find_tracks.cuh"
 #include "./kernels/make_barcode_sequence.cuh"
 #include "./kernels/propagate_to_next_surface.hpp"
+#include "./kernels/propagate_to_next_surface.cuh"
+#include "./kernels/propagate_stage1.cuh"
+#include "./kernels/propagate_stage2.cuh"
+#include "./kernels/prune_tracks.cuh"
 #include "traccc/cuda/finding/finding_algorithm.hpp"
 #include "traccc/definitions/primitives.hpp"
 #include "traccc/definitions/qualifiers.hpp"
@@ -361,6 +365,7 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                 const unsigned int nThreads = m_warp_size * 2;
                 const unsigned int nBlocks =
                     (n_candidates + nThreads - 1) / nThreads;
+<<<<<<< HEAD
                 propagate_to_next_surface<std::decay_t<propagator_type>,
                                           std::decay_t<bfield_type>>(
                     nBlocks, nThreads, 0, stream, m_cfg,
@@ -378,9 +383,64 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                         .n_in_params = n_candidates,
                         .tips_view = tips_buffer,
                         .tip_lengths_view = tip_length_buffer});
+=======
+                /* ---------- Propagate (coarse + covariance) — single cooperative kernel ---------- */
+
+                device::propagate_to_next_surface_payload<
+                    std::decay_t<propagator_type>, std::decay_t<bfield_type>>
+                    payload{
+                        .det_data               = det_view,
+                        .field_data             = field_view,
+                        .params_view            = in_params_buffer,
+                        .params_liveness_view   = param_liveness_buffer,
+                        .param_ids_view         = param_ids_buffer,
+                        .links_view             = links_buffer,
+                        .prev_links_idx         = step_to_link_idx_map[step],
+                        .step                   = step,
+                        .n_in_params            = n_candidates,
+                        .tips_view              = tips_buffer,
+                        .n_tracks_per_seed_view = n_tracks_per_seed_buffer};
+
+                /*  runtime-API 需要 void**，
+                    而 m_cfg 為 const finding_config，必須顯式去掉 const。
+                    payload 為 non-const，則可直接隱式轉成 void*                                  */
+                void* coopArgs[] = {
+                    const_cast<void*>(static_cast<const void*>(&m_cfg)),
+                    &payload };
+
+                TRACCC_CUDA_ERROR_CHECK(cudaLaunchCooperativeKernel(
+                    reinterpret_cast<void*>(
+                        kernels::propagate_stage1<
+                            std::decay_t<propagator_type>,
+                            std::decay_t<bfield_type>>),
+                    dim3(nBlocks), dim3(nThreads), coopArgs,
+                    /*sharedMem*/ 0, stream));
+
+>>>>>>> 44190425
                 TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
+                /* 保持語義：確保外推完成後才進入下一迴圈 / 下一步驟 */
                 m_stream.synchronize();
+
+                /* ---------- Stage-2：Covariance 更新 ---------- */
+                kernels::propagate_stage2<
+                    std::decay_t<propagator_type>, std::decay_t<bfield_type>>
+                    <<<nBlocks, nThreads, 0, details::get_stream(m_stream)>>>(
+                        m_cfg,
+                        typename device::propagate_to_next_surface_payload<
+                            std::decay_t<propagator_type>, std::decay_t<bfield_type>>{
+                            .det_data               = det_view,
+                            .field_data             = field_view,
+                            .params_view            = in_params_buffer,
+                            .params_liveness_view   = param_liveness_buffer,
+                            .param_ids_view         = param_ids_buffer,
+                            .links_view             = links_buffer,
+                            .prev_links_idx         = step_to_link_idx_map[step],
+                            .step                   = step,
+                            .n_in_params            = n_candidates,
+                            .tips_view              = tips_buffer,
+                            .n_tracks_per_seed_view = n_tracks_per_seed_buffer});
+                TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
             }
         }
 

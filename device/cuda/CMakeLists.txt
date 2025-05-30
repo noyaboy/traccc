@@ -97,6 +97,11 @@ traccc_add_library( traccc_cuda cuda TYPE SHARED
   "src/ambiguity_resolution/kernels/sort_updated_tracks.cuh"
   "src/ambiguity_resolution/kernels/update_vectors.cu"
   "src/ambiguity_resolution/kernels/update_vectors.cuh"
+  "src/finding/kernels/propagate_to_next_surface.cuh"
+  "src/finding/kernels/propagate_stage1.cuh"
+  "src/finding/kernels/propagate_stage2.cuh"
+  "src/finding/kernels/specializations/propagate_stage1_default_detector.cu"
+  "src/finding/kernels/specializations/propagate_stage2_default_detector.cu"
   # Fitting
   "include/traccc/cuda/fitting/fitting_algorithm.hpp"
   "src/fitting/fitting_algorithm.cu")
