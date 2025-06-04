@@ -66,8 +66,10 @@ track_state_container_types::host fit_tracks(
                 // Make a vector of track states for this track.
                 vecmem::vector<track_state<typename fitter_t::algebra_type> >
                     input_states{&mr};
+
                 input_states.reserve(track_candidates.get_items()[idx].size());
                 for (auto& measurement : track_candidates.get_items()[idx]) {
+
                     input_states.emplace_back(measurement);
                 }
 
@@ -90,6 +92,7 @@ track_state_container_types::host fit_tracks(
                 // Run the fitter.
                 kalman_fitter_status fit_status =
                     fitter.fit(track_candidates.get_headers()[idx].seed_params,
+
                                fitter_state);
 
                 if (fit_status == kalman_fitter_status::SUCCESS) {
@@ -97,6 +100,7 @@ track_state_container_types::host fit_tracks(
                     result.get_headers()[idx] =
                         std::move(fitter_state.m_fit_res);
                     result.get_items()[idx] = std::move(input_states);
+
                 } else {
                     // TODO: Print a warning here.
                 }
