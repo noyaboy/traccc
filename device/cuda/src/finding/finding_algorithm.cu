@@ -343,11 +343,20 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                 m_copy.memset(n_tracks_per_seed_buffer, 0)->ignore();
 
                 const unsigned int nThreads = m_warp_size * 2;
-                const unsigned int nBlocks =
-                    (n_candidates + nThreads - 1) / nThreads;
-                kernels::propagate_to_next_surface<
-                    std::decay_t<propagator_type>, std::decay_t<bfield_type>>
-                    <<<nBlocks, nThreads, 0, stream>>>(
+                constexpr unsigned int chunkSize = 4096;
+
+                for (unsigned int start = 0; start < n_candidates;
+                     start += chunkSize) {
+                    unsigned int chunk =
+                        std::min(chunkSize, n_candidates - start);
+
+                    const unsigned int nBlocks =
+                        (chunk + nThreads - 1) / nThreads;
+
+                    kernels::propagate_to_next_surface<
+                        std::decay_t<propagator_type>,
+                        std::decay_t<bfield_type>><<<nBlocks, nThreads, 0,
+                                                       stream>>>(
                         m_cfg,
                         device::propagate_to_next_surface_payload<
                             std::decay_t<propagator_type>,
@@ -360,13 +369,15 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                             .links_view = links_buffer,
                             .prev_links_idx = step_to_link_idx_map[step],
                             .step = step,
-                            .n_in_params = n_candidates,
+                            .n_in_params = chunk,
+                            .param_offset = start,
                             .tips_view = tips_buffer,
                             .n_tracks_per_seed_view =
                                 n_tracks_per_seed_buffer});
-                TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
+                    TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
-                m_stream.synchronize();
+                    m_stream.synchronize();
+                }
             }
         }
 

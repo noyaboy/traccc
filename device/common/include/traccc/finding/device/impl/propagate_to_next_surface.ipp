@@ -28,7 +28,8 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // Theta id
     vecmem::device_vector<const unsigned int> param_ids(payload.param_ids_view);
 
-    const unsigned int param_id = param_ids.at(globalIndex);
+    const unsigned int param_id =
+        param_ids.at(payload.param_offset + globalIndex);
 
     // Number of tracks per seed
     vecmem::device_vector<unsigned int> n_tracks_per_seed(
