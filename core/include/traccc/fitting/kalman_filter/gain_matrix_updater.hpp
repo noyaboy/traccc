@@ -15,6 +15,9 @@
 
 // Detray inlcude(s)
 #include <detray/geometry/shapes/line.hpp>
+#ifdef __CUDACC__
+#include "traccc/cuda/utils/tiled_matmul.cuh"
+#endif
 
 namespace traccc {
 
@@ -105,12 +108,22 @@ struct gain_matrix_updater {
         const matrix_type<D, D> V =
             trk_state.template measurement_covariance<D>();
 
-        const matrix_type<D, D> M =
-            H * predicted_cov * matrix::transpose(H) + V;
-
-        // Kalman gain matrix
+        matrix_type<D, D> M;
+#ifdef __CUDA_ARCH__
+        matrix_type<6, D> tmp1;
+        matrix_type<D, D> tmp2;
+        cuda::details::tiled_matmul<6, 6, D>(predicted_cov,
+                                             matrix::transpose(H), tmp1);
+        cuda::details::tiled_matmul<D, 6, D>(H, tmp1, tmp2);
+        M = tmp2 + V;
+        matrix_type<D, D> M_inv = matrix::inverse(M);
+        matrix_type<6, D> K;
+        cuda::details::tiled_matmul<6, D, D>(tmp1, M_inv, K);
+#else
+        M = H * predicted_cov * matrix::transpose(H) + V;
         const matrix_type<6, D> K =
             predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+#endif
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
