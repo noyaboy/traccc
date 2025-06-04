@@ -16,6 +16,10 @@
 #include <vecmem/memory/memory_resource.hpp>
 #include <vecmem/utils/copy.hpp>
 
+// TBB include(s).
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+
 namespace traccc::host::details {
 
 /// Templated implementation of the track fitting algorithm.
@@ -42,48 +46,62 @@ track_state_container_types::host fit_tracks(
     const track_candidate_container_types::const_view& track_candidates_view,
     vecmem::memory_resource& mr, vecmem::copy& copy) {
 
-    // Create the output container.
-    track_state_container_types::host result{&mr};
-
-    // Iterate over the tracks,
+    // Create the output container and prepare space for all tracks.
     const track_candidate_container_types::const_device track_candidates{
         track_candidates_view};
-    for (track_candidate_container_types::const_device::size_type i = 0;
-         i < track_candidates.size(); ++i) {
+    const auto n_tracks = track_candidates.size();
+    track_state_container_types::host result{&mr};
+    result.get_headers().resize(n_tracks);
+    result.get_items().resize(n_tracks);
 
-        // Make a vector of track states for this track.
-        vecmem::vector<track_state<typename fitter_t::algebra_type> >
-            input_states{&mr};
-        input_states.reserve(track_candidates.get_items()[i].size());
-        for (auto& measurement : track_candidates.get_items()[i]) {
-            input_states.emplace_back(measurement);
-        }
+    // Iterate over the tracks in parallel
+    tbb::parallel_for(
+        tbb::blocked_range<std::size_t>(0, n_tracks),
+        [&](const tbb::blocked_range<std::size_t>& r) {
+            for (std::size_t i = r.begin(); i != r.end(); ++i) {
+                using size_type = typename track_candidate_container_types::
+                    const_device::size_type;
+                const size_type idx = static_cast<size_type>(i);
 
-        vecmem::data::vector_buffer<detray::geometry::barcode> seqs_buffer{
-            static_cast<vecmem::data::vector_buffer<
-                detray::geometry::barcode>::size_type>(
-                std::max(input_states.size() *
-                             fitter.config().barcode_sequence_size_factor,
-                         fitter.config().min_barcode_sequence_capacity)),
-            mr, vecmem::data::buffer_type::resizable};
-        copy.setup(seqs_buffer)->wait();
+                // Make a vector of track states for this track.
+                vecmem::vector<track_state<typename fitter_t::algebra_type> >
+                    input_states{&mr};
+                input_states.reserve(track_candidates.get_items()[idx].size());
+                for (auto& measurement : track_candidates.get_items()[idx]) {
+                    input_states.emplace_back(measurement);
+                }
 
-        // Make a fitter state
-        typename fitter_t::state fitter_state(vecmem::get_data(input_states),
-                                              seqs_buffer);
+                vecmem::data::vector_buffer<detray::geometry::barcode>
+                    seqs_buffer{
+                        static_cast<vecmem::data::vector_buffer<
+                            detray::geometry::barcode>::size_type>(
+                            std::max(
+                                input_states.size() *
+                                    fitter.config()
+                                        .barcode_sequence_size_factor,
+                                fitter.config().min_barcode_sequence_capacity)),
+                        mr, vecmem::data::buffer_type::resizable};
+                copy.setup(seqs_buffer)->wait();
 
-        // Run the fitter.
-        kalman_fitter_status fit_status = fitter.fit(
-            track_candidates.get_headers()[i].seed_params, fitter_state);
+                // Make a fitter state
+                typename fitter_t::state fitter_state(
+                    vecmem::get_data(input_states), seqs_buffer);
 
-        if (fit_status == kalman_fitter_status::SUCCESS) {
-            // Save the results into the output container.
-            result.push_back(std::move(fitter_state.m_fit_res),
-                             std::move(input_states));
-        } else {
-            // TODO: Print a warning here.
-        }
-    }
+                // Run the fitter.
+                kalman_fitter_status fit_status =
+                    fitter.fit(track_candidates.get_headers()[idx].seed_params,
+                               fitter_state);
+
+                if (fit_status == kalman_fitter_status::SUCCESS) {
+                    // Save the results into the output container at index i.
+                    result.get_headers()[idx] =
+                        std::move(fitter_state.m_fit_res);
+                    result.get_items()[idx] = std::move(input_states);
+                } else {
+                    // TODO: Print a warning here.
+                }
+            }
+        });
 
     // Return the fitted track states.
     return result;
