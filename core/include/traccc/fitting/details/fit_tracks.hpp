@@ -79,6 +79,7 @@ track_state_container_types::host fit_tracks(
             input_states.emplace_back(measurement);
         }
 
+
         auto required_size = static_cast<typename vecmem::data::vector_buffer<
             detray::geometry::barcode>::size_type>(
             std::max(input_states.size() *
@@ -90,6 +91,7 @@ track_state_container_types::host fit_tracks(
             copy.setup(seqs_buffer)->wait();
         }
         *seqs_buffer.size_ptr() = required_size;
+
 
         // Make a fitter state
         typename fitter_t::state fitter_state(vecmem::get_data(input_states),
