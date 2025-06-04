@@ -16,6 +16,10 @@
 // Detray inlcude(s)
 #include <detray/geometry/shapes/line.hpp>
 
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 700)
+#include "traccc/cuda/utils/wmma_matrix_multiply.hpp"
+#endif
+
 namespace traccc {
 
 /// Type unrolling functor for Kalman updating
@@ -109,8 +113,17 @@ struct gain_matrix_updater {
             H * predicted_cov * matrix::transpose(H) + V;
 
         // Kalman gain matrix
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 700)
+        const auto HT = matrix::transpose(H);
+        const auto temp =
+            cuda::utils::wmma_multiply<algebra_t, 6, 6, D>(predicted_cov, HT);
+        const matrix_type<6, D> K =
+            cuda::utils::wmma_multiply<algebra_t, 6, D, D>(temp,
+                                                           matrix::inverse(M));
+#else
         const matrix_type<6, D> K =
             predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+#endif
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
