@@ -23,9 +23,9 @@ __device__ inline detray::dmatrix<algebra_t, M, N> wmma_multiply(
     const detray::dmatrix<algebra_t, K, N>& B) {
     constexpr int TILE = 16;
 
-    __shared__ __align__(16) half Ah[TILE * TILE];
-    __shared__ __align__(16) half Bh[TILE * TILE];
-    __shared__ __align__(16) float Ch[TILE * TILE];
+    __align__(16) half Ah[TILE * TILE];
+    __align__(16) half Bh[TILE * TILE];
+    __align__(16) float Ch[TILE * TILE];
 
 
     for (int idx = 0; idx < TILE * TILE; ++idx) {
