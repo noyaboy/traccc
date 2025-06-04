@@ -23,12 +23,10 @@ __device__ inline detray::dmatrix<algebra_t, M, N> wmma_multiply(
     const detray::dmatrix<algebra_t, K, N>& B) {
     constexpr int TILE = 16;
 
+    __shared__ half Ah[TILE * TILE];
+    __shared__ half Bh[TILE * TILE];
+    __shared__ float Ch[TILE * TILE];
 
-    wmma::fragment<wmma::matrix_a, TILE, TILE, TILE, half, wmma::row_major>
-        a_frag;
-    wmma::fragment<wmma::matrix_b, TILE, TILE, TILE, half, wmma::row_major>
-        b_frag;
-    wmma::fragment<wmma::accumulator, TILE, TILE, TILE, float> c_frag;
 
 
     // Fill the fragments with zeros
