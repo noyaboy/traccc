@@ -98,7 +98,8 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
     // Calculate the number of threads and thread blocks to run the track
     // fitting
     if (n_tracks > 0) {
-        const unsigned int nThreads = m_warp_size * 2;
+        const unsigned int nThreads =
+            m_cfg.threads_per_block ? m_cfg.threads_per_block : m_warp_size * 2;
         const unsigned int nBlocks = (n_tracks + nThreads - 1) / nThreads;
 
         vecmem::data::vector_buffer<device::sort_key> keys_buffer(n_tracks,

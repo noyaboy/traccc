@@ -35,6 +35,10 @@ struct fitting_config {
     std::size_t min_barcode_sequence_capacity = 100;
     traccc::scalar backward_filter_mask_tolerance =
         5.f * traccc::unit<scalar>::mm;
+
+    /// Number of CUDA threads per block used by the fitting kernel.
+    /// A value of 0 selects the implementation default.
+    unsigned int threads_per_block = 0;
 };
 
 }  // namespace traccc
