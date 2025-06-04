@@ -21,8 +21,18 @@ __global__ void propagate_to_next_surface(
     const finding_config cfg,
     device::propagate_to_next_surface_payload<propagator_t, bfield_t> payload) {
 
+    // Load the configuration once per block into shared memory to reduce
+    // repeated global memory accesses.
+    __shared__ finding_config shared_cfg;
+    if (threadIdx.x == 0) {
+        shared_cfg = cfg;
+    }
+
+    // Ensure all threads see the initialized config before continuing.
+    __syncthreads();
+
     device::propagate_to_next_surface<propagator_t, bfield_t>(
-        details::global_index1(), cfg, payload);
+        details::global_index1(), shared_cfg, payload);
 }
 
 }  // namespace traccc::cuda::kernels
