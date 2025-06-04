@@ -52,7 +52,9 @@ __device__ inline detray::dmatrix<algebra_t, M, N> wmma_multiply(
     detray::dmatrix<algebra_t, M, N> C;
     for (int i = 0; i < M; ++i) {
         for (int j = 0; j < N; ++j) {
-            getter::element(C, i, j) = static_cast<algebra_t>(Ch[i * TILE + j]);
+
+            getter::element(C, i, j) = Ch[i * TILE + j];
+
         }
     }
     return C;
