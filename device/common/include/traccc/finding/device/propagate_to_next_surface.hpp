@@ -71,6 +71,11 @@ struct propagate_to_next_surface_payload {
     unsigned int n_in_params;
 
     /**
+     * @brief Offset into the parameter ID array for split processing
+     */
+    unsigned int param_offset;
+
+    /**
      * @brief View object to the vector of tips
      */
     vecmem::data::vector_view<unsigned int> tips_view;

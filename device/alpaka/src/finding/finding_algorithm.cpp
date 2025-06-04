@@ -366,6 +366,7 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                     .prev_links_idx = step_to_link_idx_map[step],
                     .step = step,
                     .n_in_params = n_candidates,
+                    .param_offset = 0,
                     .tips_view = vecmem::get_data(tips_buffer),
                     .n_tracks_per_seed_view =
                         vecmem::get_data(n_tracks_per_seed_buffer)};
