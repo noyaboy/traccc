@@ -21,8 +21,18 @@ __global__ void propagate_to_next_surface(
     const finding_config cfg,
     device::propagate_to_next_surface_payload<propagator_t, bfield_t> payload) {
 
-    device::propagate_to_next_surface<propagator_t, bfield_t>(
-        details::global_index1(), cfg, payload);
+    const device::global_index_t globalIndex = details::global_index1();
+
+    bool active = globalIndex < payload.n_in_params;
+
+    __syncthreads();
+
+    if (!active) {
+        return;
+    }
+
+    device::propagate_to_next_surface<propagator_t, bfield_t>(globalIndex, cfg,
+                                                              payload);
 }
 
 }  // namespace traccc::cuda::kernels
