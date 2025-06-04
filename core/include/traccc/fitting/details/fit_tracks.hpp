@@ -42,31 +42,54 @@ track_state_container_types::host fit_tracks(
     const track_candidate_container_types::const_view& track_candidates_view,
     vecmem::memory_resource& mr, vecmem::copy& copy) {
 
-    // Create the output container.
+    // Create the output container and reserve memory for the tracks.
     track_state_container_types::host result{&mr};
-
-    // Iterate over the tracks,
     const track_candidate_container_types::const_device track_candidates{
         track_candidates_view};
+    result.reserve(track_candidates.size());
+
+    using item_size_type = typename track_candidate_container_types::
+        const_device::item_vector::value_type::size_type;
+    item_size_type max_candidate_size = 0;
+    for (track_candidate_container_types::const_device::size_type i = 0;
+         i < track_candidates.size(); ++i) {
+        max_candidate_size = std::max(max_candidate_size,
+                                      track_candidates.get_items()[i].size());
+    }
+    auto seqs_capacity = static_cast<typename vecmem::data::vector_buffer<
+        detray::geometry::barcode>::size_type>(
+        std::max(
+            max_candidate_size * fitter.config().barcode_sequence_size_factor,
+            fitter.config().min_barcode_sequence_capacity));
+    vecmem::data::vector_buffer<detray::geometry::barcode> seqs_buffer{
+        seqs_capacity, mr, vecmem::data::buffer_type::resizable};
+    copy.setup(seqs_buffer)->wait();
+
+    // Temporary buffers reused for each track
+    vecmem::vector<track_state<typename fitter_t::algebra_type>> input_states{
+        &mr};
+
+    // Iterate over the tracks
     for (track_candidate_container_types::const_device::size_type i = 0;
          i < track_candidates.size(); ++i) {
 
-        // Make a vector of track states for this track.
-        vecmem::vector<track_state<typename fitter_t::algebra_type> >
-            input_states{&mr};
+        input_states.clear();
         input_states.reserve(track_candidates.get_items()[i].size());
         for (auto& measurement : track_candidates.get_items()[i]) {
             input_states.emplace_back(measurement);
         }
 
-        vecmem::data::vector_buffer<detray::geometry::barcode> seqs_buffer{
-            static_cast<vecmem::data::vector_buffer<
-                detray::geometry::barcode>::size_type>(
-                std::max(input_states.size() *
-                             fitter.config().barcode_sequence_size_factor,
-                         fitter.config().min_barcode_sequence_capacity)),
-            mr, vecmem::data::buffer_type::resizable};
-        copy.setup(seqs_buffer)->wait();
+        auto required_size = static_cast<typename vecmem::data::vector_buffer<
+            detray::geometry::barcode>::size_type>(
+            std::max(input_states.size() *
+                         fitter.config().barcode_sequence_size_factor,
+                     fitter.config().min_barcode_sequence_capacity));
+        if (required_size > seqs_buffer.capacity()) {
+            seqs_buffer = {required_size, mr,
+                           vecmem::data::buffer_type::resizable};
+            copy.setup(seqs_buffer)->wait();
+        }
+        *seqs_buffer.size_ptr() = required_size;
 
         // Make a fitter state
         typename fitter_t::state fitter_state(vecmem::get_data(input_states),
