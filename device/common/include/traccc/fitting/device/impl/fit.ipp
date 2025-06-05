@@ -12,7 +12,7 @@
 namespace traccc::device {
 
 template <typename fitter_t>
-TRACCC_HOST_DEVICE TRACCC_FORCE_INLINE void fit(
+TRACCC_HOST_DEVICE inline void fit(
     const global_index_t globalIndex, const typename fitter_t::config_type cfg,
     const fit_payload<fitter_t>& payload) {
 
@@ -42,7 +42,6 @@ TRACCC_HOST_DEVICE TRACCC_FORCE_INLINE void fit(
 
     // Track states per track
     auto track_states_per_track = track_states.at(param_id).items;
-    track_states_per_track.reserve(track_candidates_per_track.size());
     for (const auto& cand : track_candidates_per_track) {
         track_states_per_track.emplace_back(cand);
     }
