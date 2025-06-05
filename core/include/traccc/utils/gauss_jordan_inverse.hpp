@@ -28,6 +28,7 @@ TRACCC_HOST_DEVICE inline matrix_t gauss_jordan_inverse(matrix_t mat) {
             return static_cast<size_type>(std::tuple_size<matrix_t>::value);
         }
     }();
+
     matrix_t inv = matrix::identity<matrix_t>();
     for (size_type i = 0; i < N; ++i) {
         size_type pivot_row = i;
