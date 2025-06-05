@@ -12,6 +12,7 @@
 #include "traccc/definitions/track_parametrization.hpp"
 #include "traccc/edm/track_state.hpp"
 #include "traccc/fitting/status_codes.hpp"
+#include "traccc/utils/matrix_inline_ops.hpp"
 
 // Detray inlcude(s)
 #include <detray/geometry/shapes/line.hpp>
@@ -105,25 +106,36 @@ struct gain_matrix_updater {
         const matrix_type<D, D> V =
             trk_state.template measurement_covariance<D>();
 
-        const matrix_type<D, D> M =
-            H * predicted_cov * matrix::transpose(H) + V;
+        const matrix_type<D, D> M = detail::add_inline(
+            detail::matmul_inline(detail::matmul_inline(H, predicted_cov),
+                                  matrix::transpose(H)),
+            V);
 
         // Kalman gain matrix
-        const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+        const matrix_type<6, D> K = detail::matmul_inline(
+            predicted_cov,
+            detail::matmul_inline(matrix::transpose(H), matrix::inverse(M)));
 
         // Calculate the filtered track parameters
-        const matrix_type<6, 1> filtered_vec =
-            predicted_vec + K * (meas_local - H * predicted_vec);
-        const matrix_type<6, 6> filtered_cov = (I66 - K * H) * predicted_cov;
+        const matrix_type<6, 1> filtered_vec = detail::add_inline(
+            predicted_vec,
+            detail::matvec_inline(
+                K, detail::sub_inline(
+                       meas_local, detail::matvec_inline(H, predicted_vec))));
+        const matrix_type<6, 6> filtered_cov = detail::matmul_inline(
+            detail::sub_inline(I66, detail::matmul_inline(K, H)),
+            predicted_cov);
 
         // Residual between measurement and (projected) filtered vector
-        const matrix_type<D, 1> residual = meas_local - H * filtered_vec;
+        const matrix_type<D, 1> residual = detail::sub_inline(
+            meas_local, detail::matvec_inline(H, filtered_vec));
 
         // Calculate the chi square
-        const matrix_type<D, D> R = (I_m - H * K) * V;
-        const matrix_type<1, 1> chi2 =
-            matrix::transpose(residual) * matrix::inverse(R) * residual;
+        const matrix_type<D, D> R = detail::matmul_inline(
+            detail::sub_inline(I_m, detail::matmul_inline(H, K)), V);
+        const matrix_type<1, 1> chi2 = detail::matmul_inline(
+            matrix::transpose(residual),
+            detail::matmul_inline(matrix::inverse(R), residual));
 
         // Return false if track is parallel to z-axis or phi is not finite
         const scalar theta = bound_params.theta();
