@@ -137,8 +137,8 @@ struct gain_matrix_updater {
         // Kalman gain matrix
         const matrix_type<6, D> K = PH * M_inv;
 
-        const matrix_type<D, 1> proj_predicted = H * predicted_vec;
 
+        const matrix_type<D, 1> proj_predicted = H * predicted_vec;
         matrix_type<6, 1> filtered_vec{};
         matrix_type<6, 6> filtered_cov{};
         matrix_type<D, 1> residual{};
