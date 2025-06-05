@@ -9,6 +9,7 @@
 
 #include "traccc/definitions/qualifiers.hpp"
 #include <cmath>
+#include <tuple>
 #include "traccc/definitions/primitives.hpp"
 
 namespace traccc {
@@ -18,9 +19,16 @@ namespace traccc {
 /// by Sharma et al., Computers & Structures 2013.
 template <typename matrix_t>
 TRACCC_HOST_DEVICE inline matrix_t gauss_jordan_inverse(matrix_t mat) {
-    using algebra_t = typename matrix_t::algebra_type;
-    using size_type = detray::dsize_type<algebra_t>;
-    constexpr size_type N = matrix_t::RowsAtCompileTime;
+    using size_type = std::size_t;
+    // Determine matrix dimension either via a static member or tuple_size
+    constexpr size_type N = [] {
+        if constexpr (requires { matrix_t::RowsAtCompileTime; }) {
+            return static_cast<size_type>(matrix_t::RowsAtCompileTime);
+        } else {
+            return static_cast<size_type>(std::tuple_size<matrix_t>::value);
+        }
+    }();
+
     matrix_t inv = matrix::identity<matrix_t>();
     for (size_type i = 0; i < N; ++i) {
         size_type pivot_row = i;
