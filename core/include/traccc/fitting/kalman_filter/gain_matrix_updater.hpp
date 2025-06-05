@@ -29,6 +29,31 @@ struct gain_matrix_updater {
     using bound_vector_type = traccc::bound_vector<algebra_t>;
     using bound_matrix_type = traccc::bound_matrix<algebra_t>;
 
+    template <size_type N>
+    TRACCC_HOST_DEVICE static inline matrix_type<N, N> inverse_fast(
+        const matrix_type<N, N>& m) {
+        if constexpr (N == 1u) {
+            matrix_type<1u, 1u> inv;
+            getter::element(inv, 0u, 0u) =
+                scalar(1) / getter::element(m, 0u, 0u);
+            return inv;
+        } else if constexpr (N == 2u) {
+            const scalar a = getter::element(m, 0u, 0u);
+            const scalar b = getter::element(m, 0u, 1u);
+            const scalar c = getter::element(m, 1u, 0u);
+            const scalar d = getter::element(m, 1u, 1u);
+            const scalar det = a * d - b * c;
+            matrix_type<2u, 2u> inv;
+            getter::element(inv, 0u, 0u) = d / det;
+            getter::element(inv, 0u, 1u) = -b / det;
+            getter::element(inv, 1u, 0u) = -c / det;
+            getter::element(inv, 1u, 1u) = a / det;
+            return inv;
+        } else {
+            return matrix::inverse(m);
+        }
+    }
+
     /// Gain matrix updater operation
     ///
     /// @brief Based on "Application of Kalman filtering to track and vertex
@@ -76,7 +101,6 @@ struct gain_matrix_updater {
 
         // Some identity matrices
         // @TODO: Make constexpr work
-        const auto I66 = matrix::identity<bound_matrix_type>();
         const auto I_m = matrix::identity<matrix_type<D, D>>();
 
         matrix_type<D, e_bound_size> H = meas.subs.template projector<D>();
@@ -88,7 +112,7 @@ struct gain_matrix_updater {
         // Predicted vector of bound track parameters
         const bound_vector_type& predicted_vec = bound_params.vector();
 
-        // Predicted covaraince of bound track parameters
+        // Predicted covariance of bound track parameters
         const bound_matrix_type& predicted_cov = bound_params.covariance();
 
         // Flip the sign of projector matrix element in case the first element
@@ -105,25 +129,28 @@ struct gain_matrix_updater {
         const matrix_type<D, D> V =
             trk_state.template measurement_covariance<D>();
 
-        const matrix_type<D, D> M =
-            H * predicted_cov * matrix::transpose(H) + V;
+        const auto HT = matrix::transpose(H);
+        const matrix_type<6, D> PH = predicted_cov * HT;
+        const matrix_type<D, D> M = H * PH + V;
+        const auto M_inv = inverse_fast(M);
 
         // Kalman gain matrix
-        const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+        const matrix_type<6, D> K = PH * M_inv;
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
             predicted_vec + K * (meas_local - H * predicted_vec);
-        const matrix_type<6, 6> filtered_cov = (I66 - K * H) * predicted_cov;
+        const matrix_type<D, 6> HPC = matrix::transpose(PH);
+        const matrix_type<6, 6> filtered_cov = predicted_cov - K * HPC;
 
         // Residual between measurement and (projected) filtered vector
         const matrix_type<D, 1> residual = meas_local - H * filtered_vec;
 
         // Calculate the chi square
         const matrix_type<D, D> R = (I_m - H * K) * V;
+        const matrix_type<D, D> R_inv = inverse_fast(R);
         const matrix_type<1, 1> chi2 =
-            matrix::transpose(residual) * matrix::inverse(R) * residual;
+            matrix::transpose(residual) * R_inv * residual;
 
         // Return false if track is parallel to z-axis or phi is not finite
         const scalar theta = bound_params.theta();
