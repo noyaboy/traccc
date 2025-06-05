@@ -31,3 +31,12 @@
 #else
 #define TRACCC_ALIGN(x) alignas(x)
 #endif
+
+/// Force the compiler to inline the decorated function
+#if defined(__CUDA_ARCH__) || defined(__HIP__)
+#define TRACCC_FORCE_INLINE __forceinline__
+#elif defined(__GNUC__) || defined(__clang__)
+#define TRACCC_FORCE_INLINE __attribute__((always_inline)) inline
+#else
+#define TRACCC_FORCE_INLINE inline
+#endif
