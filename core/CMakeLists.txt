@@ -1,11 +1,16 @@
-# TRACCC library, part of the ACTS project (R&D line)
+#TRACCC library, part of the ACTS project(R& D line)
 #
-# (c) 2021-2025 CERN for the benefit of the ACTS project
+#(c) 2021 - 2025 CERN for the benefit of the ACTS project
 #
-# Mozilla Public License Version 2.0
+#Mozilla Public License Version 2.0
+
+#Project include(s).
+include(traccc - compiler - options - cpp)
+
 
 # Project include(s).
 include(traccc-compiler-options-cpp)
+
 
 # Set up the "build" of the traccc::core library.
 traccc_add_library( traccc_core core TYPE SHARED
@@ -122,10 +127,7 @@ target_link_libraries( traccc_core
   PUBLIC Eigen3::Eigen vecmem::core detray::core detray::detectors
          traccc::algebra ActsCore )
 
-# Prevent Eigen from getting confused when building code for a
-# CUDA or HIP backend with SYCL.
-target_compile_definitions( traccc_core
-  PUBLIC $<$<COMPILE_LANGUAGE:SYCL>:EIGEN_NO_CUDA EIGEN_NO_HIP> )
+
 
 # Set the algebra-plugins plugin to use.
 message(STATUS "Building with plugin type: " ${TRACCC_ALGEBRA_PLUGINS})
@@ -133,3 +135,4 @@ target_compile_definitions(
   traccc_core
   PUBLIC "ALGEBRA_PLUGINS_INCLUDE_${TRACCC_ALGEBRA_PLUGINS}"
 )
+
