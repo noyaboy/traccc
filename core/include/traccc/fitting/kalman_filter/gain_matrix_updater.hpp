@@ -101,7 +101,6 @@ struct gain_matrix_updater {
 
         // Some identity matrices
         // @TODO: Make constexpr work
-        const auto I66 = matrix::identity<bound_matrix_type>();
         const auto I_m = matrix::identity<matrix_type<D, D>>();
 
         matrix_type<D, e_bound_size> H = meas.subs.template projector<D>();
