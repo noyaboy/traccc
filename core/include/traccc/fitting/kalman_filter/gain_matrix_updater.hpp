@@ -137,20 +137,55 @@ struct gain_matrix_updater {
         // Kalman gain matrix
         const matrix_type<6, D> K = PH * M_inv;
 
-        // Calculate the filtered track parameters
-        const matrix_type<6, 1> filtered_vec =
-            predicted_vec + K * (meas_local - H * predicted_vec);
-        const matrix_type<D, 6> HPC = matrix::transpose(PH);
-        const matrix_type<6, 6> filtered_cov = predicted_cov - K * HPC;
 
-        // Residual between measurement and (projected) filtered vector
-        const matrix_type<D, 1> residual = meas_local - H * filtered_vec;
+        const matrix_type<D, 1> proj_predicted = H * predicted_vec;
+        matrix_type<6, 1> filtered_vec{};
+        matrix_type<6, 6> filtered_cov{};
+        matrix_type<D, 1> residual{};
+        matrix_type<1, 1> chi2{};
 
-        // Calculate the chi square
-        const matrix_type<D, D> R = (I_m - H * K) * V;
-        const matrix_type<D, D> R_inv = inverse_fast(R);
-        const matrix_type<1, 1> chi2 =
-            matrix::transpose(residual) * R_inv * residual;
+        if constexpr (D == 1u) {
+            const scalar meas_val = getter::element(meas_local, 0u, 0u);
+            scalar pred_meas = scalar(0);
+            for (size_type i = 0u; i < e_bound_size; ++i) {
+                pred_meas += getter::element(H, 0u, i) *
+                             getter::element(predicted_vec, i, 0u);
+            }
+            const scalar res_pred = meas_val - pred_meas;
+            scalar hk = scalar(0);
+            for (size_type i = 0u; i < e_bound_size; ++i) {
+                getter::element(filtered_vec, i, 0u) =
+                    getter::element(predicted_vec, i, 0u) +
+                    getter::element(K, i, 0u) * res_pred;
+                hk += getter::element(H, 0u, i) * getter::element(K, i, 0u);
+            }
+            for (size_type i = 0u; i < e_bound_size; ++i) {
+                for (size_type j = 0u; j < e_bound_size; ++j) {
+                    getter::element(filtered_cov, i, j) =
+                        getter::element(predicted_cov, i, j) -
+                        getter::element(K, i, 0u) * getter::element(PH, j, 0u);
+                }
+            }
+            scalar pred_meas_f = scalar(0);
+            for (size_type i = 0u; i < e_bound_size; ++i) {
+                pred_meas_f += getter::element(H, 0u, i) *
+                               getter::element(filtered_vec, i, 0u);
+            }
+            const scalar res = meas_val - pred_meas_f;
+            const scalar R_val = (scalar(1) - hk) * getter::element(V, 0u, 0u);
+            const scalar inv_R = scalar(1) / R_val;
+            getter::element(residual, 0u, 0u) = res;
+            getter::element(chi2, 0u, 0u) = res * res * inv_R;
+        } else {
+            const matrix_type<6, D> diff = K * (meas_local - proj_predicted);
+            filtered_vec = predicted_vec + diff;
+            const matrix_type<D, 6> HPC = matrix::transpose(PH);
+            filtered_cov = predicted_cov - K * HPC;
+            residual = meas_local - H * filtered_vec;
+            const matrix_type<D, D> R = (I_m - H * K) * V;
+            const matrix_type<D, D> R_inv = inverse_fast(R);
+            chi2 = matrix::transpose(residual) * R_inv * residual;
+        }
 
         // Return false if track is parallel to z-axis or phi is not finite
         const scalar theta = bound_params.theta();
