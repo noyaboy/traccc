@@ -177,7 +177,12 @@ struct gain_matrix_updater {
             getter::element(residual, 0u, 0u) = res;
             getter::element(chi2, 0u, 0u) = res * res * inv_R;
         } else {
-            const matrix_type<6, D> diff = K * (meas_local - proj_predicted);
+            // The Kalman gain K multiplies the residual which has the same
+            // dimensionality as the measurement. The resulting correction is
+            // therefore a 6x1 vector irrespective of the measurement dimension
+            // D. Using a fixed column size avoids mismatched matrix additions
+            // when updating the state vector.
+            const matrix_type<6, 1> diff = K * (meas_local - proj_predicted);
             filtered_vec = predicted_vec + diff;
             const matrix_type<D, 6> HPC = matrix::transpose(PH);
             filtered_cov = predicted_cov - K * HPC;
