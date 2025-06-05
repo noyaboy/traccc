@@ -12,6 +12,7 @@
 #include "traccc/definitions/track_parametrization.hpp"
 #include "traccc/edm/track_state.hpp"
 #include "traccc/fitting/status_codes.hpp"
+#include "traccc/utils/gauss_jordan_inverse.hpp"
 
 // Detray inlcude(s)
 #include <detray/geometry/shapes/line.hpp>
@@ -110,7 +111,7 @@ struct gain_matrix_updater {
 
         // Kalman gain matrix
         const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+            predicted_cov * matrix::transpose(H) * gauss_jordan_inverse(M);
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
@@ -123,7 +124,7 @@ struct gain_matrix_updater {
         // Calculate the chi square
         const matrix_type<D, D> R = (I_m - H * K) * V;
         const matrix_type<1, 1> chi2 =
-            matrix::transpose(residual) * matrix::inverse(R) * residual;
+            matrix::transpose(residual) * gauss_jordan_inverse(R) * residual;
 
         // Return false if track is parallel to z-axis or phi is not finite
         const scalar theta = bound_params.theta();
