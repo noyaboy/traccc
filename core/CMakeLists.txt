@@ -5,7 +5,7 @@
 # Mozilla Public License Version 2.0
 
 # Project include(s).
-include( traccc-compiler-options-cpp )
+include(traccc-compiler-options-cpp)
 
 # Set up the "build" of the traccc::core library.
 traccc_add_library( traccc_core core TYPE SHARED
@@ -73,6 +73,7 @@ traccc_add_library( traccc_core core TYPE SHARED
   "src/finding/combinatorial_kalman_filter_algorithm_constant_field_telescope_detector.cpp"
   # Fitting algorithmic code
   "include/traccc/fitting/kalman_filter/gain_matrix_updater.hpp"
+  "include/traccc/utils/matrix_inline_ops.hpp"
   "include/traccc/fitting/kalman_filter/kalman_actor.hpp"
   "include/traccc/fitting/kalman_filter/kalman_fitter.hpp"
   "include/traccc/fitting/kalman_filter/kalman_step_aborter.hpp"
@@ -128,4 +129,7 @@ target_compile_definitions( traccc_core
 
 # Set the algebra-plugins plugin to use.
 message(STATUS "Building with plugin type: " ${TRACCC_ALGEBRA_PLUGINS})
-target_compile_definitions(traccc_core PUBLIC ALGEBRA_PLUGINS_INCLUDE_${TRACCC_ALGEBRA_PLUGINS})
+target_compile_definitions(
+  traccc_core
+  PUBLIC "ALGEBRA_PLUGINS_INCLUDE_${TRACCC_ALGEBRA_PLUGINS}"
+)
