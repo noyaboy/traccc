@@ -17,7 +17,7 @@
 namespace traccc::device {
 
 template <typename propagator_t, typename bfield_t>
-TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
+TRACCC_HOST_DEVICE TRACCC_FORCE_INLINE void propagate_to_next_surface(
     const global_index_t globalIndex, const finding_config& cfg,
     const propagate_to_next_surface_payload<propagator_t, bfield_t>& payload) {
 
@@ -25,30 +25,23 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
         return;
     }
 
-    // Theta id
-    vecmem::device_vector<const unsigned int> param_ids(payload.param_ids_view);
+    const auto* param_ids = payload.param_ids_view.ptr();
+    const unsigned int param_id = param_ids[globalIndex];
 
-    const unsigned int param_id = param_ids.at(globalIndex);
+    auto* params_liveness = payload.params_liveness_view.ptr();
+    if (params_liveness[param_id] == 0u) {
+        return;
+    }
 
-    // Number of tracks per seed
-    vecmem::device_vector<unsigned int> n_tracks_per_seed(
-        payload.n_tracks_per_seed_view);
+    auto* links = payload.links_view.ptr();
+    const unsigned int link_idx = payload.prev_links_idx + param_id;
+    const candidate_link& link = links[link_idx];
 
-    // Links
-    vecmem::device_vector<const candidate_link> links(payload.links_view);
-
-    // Seed id
-    unsigned int orig_param_id =
-        links.at(payload.prev_links_idx + param_id).seed_idx;
-
-    // Count the number of tracks per seed
+    auto* n_tracks_per_seed = payload.n_tracks_per_seed_view.ptr();
     vecmem::device_atomic_ref<unsigned int> num_tracks_per_seed(
-        n_tracks_per_seed.at(orig_param_id));
+        n_tracks_per_seed[link.seed_idx]);
 
     const unsigned int s_pos = num_tracks_per_seed.fetch_add(1);
-    vecmem::device_vector<unsigned int> params_liveness(
-        payload.params_liveness_view);
-
     if (s_pos >= cfg.max_num_branches_per_seed) {
         params_liveness[param_id] = 0u;
         return;
@@ -57,10 +50,9 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // tips
     vecmem::device_vector<unsigned int> tips(payload.tips_view);
 
-    if (links.at(payload.prev_links_idx + param_id).n_skipped >
-        cfg.max_num_skipping_per_cand) {
+    if (link.n_skipped > cfg.max_num_skipping_per_cand) {
         params_liveness[param_id] = 0u;
-        tips.push_back(payload.prev_links_idx + param_id);
+        tips.push_back(link_idx);
         return;
     }
 
@@ -70,12 +62,7 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // Parameters
     bound_track_parameters_collection_types::device params(payload.params_view);
 
-    if (params_liveness.at(param_id) == 0u) {
-        return;
-    }
-
-    // Input bound track parameter
-    const bound_track_parameters<> in_par = params.at(param_id);
+    const bound_track_parameters<>& in_par = params.at(param_id);
 
     // Create propagator
     propagator_t propagator(cfg.propagation);
@@ -111,7 +98,7 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
         params[param_id] = propagation._stepping.bound_params();
 
         if (payload.step == cfg.max_track_candidates_per_track - 1) {
-            tips.push_back(payload.prev_links_idx + param_id);
+            tips.push_back(link_idx);
             params_liveness[param_id] = 0u;
         } else {
             params_liveness[param_id] = 1u;
@@ -120,7 +107,7 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
         params_liveness[param_id] = 0u;
 
         if (payload.step >= cfg.min_track_candidates_per_track - 1) {
-            tips.push_back(payload.prev_links_idx + param_id);
+            tips.push_back(link_idx);
         }
     }
 }

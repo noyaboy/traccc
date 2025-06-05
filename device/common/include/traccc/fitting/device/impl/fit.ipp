@@ -12,26 +12,26 @@
 namespace traccc::device {
 
 template <typename fitter_t>
-TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
-                                   const typename fitter_t::config_type cfg,
-                                   const fit_payload<fitter_t>& payload) {
+TRACCC_HOST_DEVICE TRACCC_FORCE_INLINE void fit(
+    const global_index_t globalIndex, const typename fitter_t::config_type cfg,
+    const fit_payload<fitter_t>& payload) {
 
     typename fitter_t::detector_type det(payload.det_data);
 
     track_candidate_container_types::const_device track_candidates(
         payload.track_candidates_view);
 
-    vecmem::device_vector<const unsigned int> param_ids(payload.param_ids_view);
+    const auto* param_ids = payload.param_ids_view.ptr();
 
     track_state_container_types::device track_states(payload.track_states_view);
-
-    fitter_t fitter(det, payload.field_data, cfg);
 
     if (globalIndex >= track_states.size()) {
         return;
     }
 
-    const unsigned int param_id = param_ids.at(globalIndex);
+    const unsigned int param_id = param_ids[globalIndex];
+
+    fitter_t fitter(det, payload.field_data, cfg);
 
     // Track candidates per track
     const auto& track_candidates_per_track =
@@ -42,8 +42,8 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
 
     // Track states per track
     auto track_states_per_track = track_states.at(param_id).items;
-
-    for (auto& cand : track_candidates_per_track) {
+    track_states_per_track.reserve(track_candidates_per_track.size());
+    for (const auto& cand : track_candidates_per_track) {
         track_states_per_track.emplace_back(cand);
     }
 
