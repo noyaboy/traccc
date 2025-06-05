@@ -10,6 +10,7 @@
 // Project include(s).
 #include "traccc/definitions/primitives.hpp"
 #include "traccc/definitions/qualifiers.hpp"
+#include "traccc/definitions/hints.hpp"
 #include "traccc/definitions/track_parametrization.hpp"
 
 // System include(s).
@@ -43,10 +44,12 @@ struct subspace {
     /// @param indices Unique, ordered indices
     TRACCC_HOST_DEVICE
     constexpr subspace(const std::array<size_type, kSize>& indices) {
+        TRACCC_PRAGMA_UNROLL
         for (size_type i = 0u; i < kSize; ++i) {
             assert((indices[i] < kFullSize) and
                    "Axis indices must be within the full space");
         }
+        TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < kSize; ++i) {
             m_axes[i] = static_cast<size_type>(indices[i]);
         }
@@ -77,6 +80,7 @@ struct subspace {
 
         auto proj = matrix::zero<matrix_type<D, kFullSize>>();
 
+        TRACCC_PRAGMA_UNROLL
         for (size_type i = 0u; i < D; ++i) {
             getter::element(proj, i, m_axes[i]) = 1;
         }
@@ -92,6 +96,7 @@ struct subspace {
 
         auto expn = matrix::zero<matrix_type<kFullSize, D>>();
 
+        TRACCC_PRAGMA_UNROLL
         for (size_type i = 0u; i < kSize; ++i) {
             getter::element(expn, m_axes[i], i) = 1;
         }

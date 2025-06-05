@@ -8,6 +8,7 @@
 #pragma once
 
 #include "traccc/fitting/status_codes.hpp"
+#include "traccc/definitions/hints.hpp"
 
 namespace traccc::device {
 
@@ -43,6 +44,7 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
     // Track states per track
     auto track_states_per_track = track_states.at(param_id).items;
 
+    TRACCC_PRAGMA_UNROLL
     for (auto& cand : track_candidates_per_track) {
         track_states_per_track.emplace_back(cand);
     }
