@@ -46,9 +46,10 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
     const auto nTrackCand = track_candidates_per_track.size();
     track_states_per_track.resize(nTrackCand);
 
+    using track_state_t = typename decltype(track_states_per_track)::value_type;
     for (unsigned int i = 0; i < nTrackCand; ++i) {
-        track_states_per_track[i] = typename track_state_container_types::
-            device::item_vector::value_type(track_candidates_per_track.at(i));
+        track_states_per_track[i] =
+            track_state_t(track_candidates_per_track.at(i));
     }
 
     typename fitter_t::state fitter_state(
