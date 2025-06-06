@@ -33,22 +33,22 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
 
     const unsigned int param_id = param_ids.at(globalIndex);
 
-    // Track candidates per track
-    const auto& track_candidates_per_track =
-        track_candidates.at(param_id).items;
+    // Track candidates and states for this track
+    const auto track_candidate_track = track_candidates.at(param_id);
+    const auto& track_candidates_per_track = track_candidate_track.items;
 
     // Seed parameter
-    const auto& seed_param = track_candidates.at(param_id).header.seed_params;
+    const auto& seed_param = track_candidate_track.header.seed_params;
 
-    // Track states per track
-    auto track_states_per_track = track_states.at(param_id).items;
+    auto track_states_track = track_states.at(param_id);
+    auto track_states_per_track = track_states_track.items;
 
     for (auto& cand : track_candidates_per_track) {
         track_states_per_track.emplace_back(cand);
     }
 
-    typename fitter_t::state fitter_state(
-        track_states_per_track, *(payload.barcodes_view.ptr() + param_id));
+    const auto barcode = *(payload.barcodes_view.ptr() + param_id);
+    typename fitter_t::state fitter_state(track_states_per_track, barcode);
 
     // Run fitting
     [[maybe_unused]] kalman_fitter_status fit_status =
@@ -59,7 +59,7 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
     }
 
     // Get the final fitting information
-    track_states.at(param_id).header = fitter_state.m_fit_res;
+    track_states_track.header = fitter_state.m_fit_res;
 }
 
 }  // namespace traccc::device
