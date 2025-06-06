@@ -33,17 +33,19 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
 
     const unsigned int param_id = param_ids.at(globalIndex);
 
+    const auto& track_candidate = track_candidates.at(param_id);
+
     // Track candidates per track
-    const auto& track_candidates_per_track =
-        track_candidates.at(param_id).items;
+    const auto& track_candidates_per_track = track_candidate.items;
 
     // Seed parameter
-    const auto& seed_param = track_candidates.at(param_id).header.seed_params;
+    const auto& seed_param = track_candidate.header.seed_params;
 
     // Track states per track
     auto track_states_per_track = track_states.at(param_id).items;
+    track_states_per_track.reserve(track_candidates_per_track.size());
 
-    for (auto& cand : track_candidates_per_track) {
+    for (const auto& cand : track_candidates_per_track) {
         track_states_per_track.emplace_back(cand);
     }
 
