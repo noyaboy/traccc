@@ -30,24 +30,29 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
 
     const unsigned int param_id = param_ids.at(globalIndex);
 
+    vecmem::device_vector<unsigned int> params_liveness(
+        payload.params_liveness_view);
+
+    if (params_liveness.at(param_id) == 0u) {
+        return;
+    }
+
     // Number of tracks per seed
     vecmem::device_vector<unsigned int> n_tracks_per_seed(
         payload.n_tracks_per_seed_view);
 
     // Links
     vecmem::device_vector<const candidate_link> links(payload.links_view);
+    const candidate_link link = links.at(payload.prev_links_idx + param_id);
 
     // Seed id
-    unsigned int orig_param_id =
-        links.at(payload.prev_links_idx + param_id).seed_idx;
+    unsigned int orig_param_id = link.seed_idx;
 
     // Count the number of tracks per seed
     vecmem::device_atomic_ref<unsigned int> num_tracks_per_seed(
         n_tracks_per_seed.at(orig_param_id));
 
     const unsigned int s_pos = num_tracks_per_seed.fetch_add(1);
-    vecmem::device_vector<unsigned int> params_liveness(
-        payload.params_liveness_view);
 
     if (s_pos >= cfg.max_num_branches_per_seed) {
         params_liveness[param_id] = 0u;
