@@ -75,10 +75,6 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // Parameters
     bound_track_parameters_collection_types::device params(payload.params_view);
 
-    if (params_liveness.at(param_id) == 0u) {
-        return;
-    }
-
     // Input bound track parameter
     const bound_track_parameters<> in_par = params.at(param_id);
 
