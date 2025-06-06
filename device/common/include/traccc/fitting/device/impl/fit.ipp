@@ -47,8 +47,8 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
         track_states_per_track.emplace_back(cand);
     }
 
-    typename fitter_t::state fitter_state(
-        track_states_per_track, *(payload.barcodes_view.ptr() + param_id));
+    const auto barcode = *(payload.barcodes_view.ptr() + param_id);
+    typename fitter_t::state fitter_state(track_states_per_track, barcode);
 
     // Run fitting
     [[maybe_unused]] kalman_fitter_status fit_status =
