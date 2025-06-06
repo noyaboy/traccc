@@ -26,35 +26,41 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     }
 
     // Theta id
-    vecmem::device_vector<const unsigned int> param_ids(payload.param_ids_view);
+    const unsigned int* param_ids = payload.param_ids_view.ptr();
 
-    const unsigned int param_id = param_ids.at(globalIndex);
+    const unsigned int param_id = *(param_ids + globalIndex);
 
-    vecmem::device_vector<unsigned int> params_liveness(
-        payload.params_liveness_view);
+    unsigned int* params_liveness = payload.params_liveness_view.ptr();
 
-    unsigned int& param_live_ref = params_liveness.at(param_id);
+    unsigned int& param_live_ref = *(params_liveness + param_id);
     unsigned int param_live = param_live_ref;
 
     if (param_live == 0u) {
         return;
     }
 
-    // Number of tracks per seed
-    vecmem::device_vector<unsigned int> n_tracks_per_seed(
-        payload.n_tracks_per_seed_view);
-
     // Links
-    vecmem::device_vector<const candidate_link> links(payload.links_view);
+    const candidate_link* links = payload.links_view.ptr();
     const unsigned link_idx = payload.prev_links_idx + param_id;
-    const candidate_link link = links.at(link_idx);
+    const candidate_link link = *(links + link_idx);
+
+    // Check skipping before atomic operations
+    if (link.n_skipped > cfg.max_num_skipping_per_cand) {
+        param_live_ref = 0u;
+        vecmem::device_vector<unsigned int> tips(payload.tips_view);
+        tips.push_back(link_idx);
+        return;
+    }
+
+    // Number of tracks per seed
+    unsigned int* n_tracks_per_seed = payload.n_tracks_per_seed_view.ptr();
 
     // Seed id
     unsigned int orig_param_id = link.seed_idx;
 
     // Count the number of tracks per seed
     vecmem::device_atomic_ref<unsigned int> num_tracks_per_seed(
-        n_tracks_per_seed.at(orig_param_id));
+        *(n_tracks_per_seed + orig_param_id));
 
     const unsigned int s_pos = num_tracks_per_seed.fetch_add(1);
 
@@ -65,12 +71,6 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
 
     // tips
     vecmem::device_vector<unsigned int> tips(payload.tips_view);
-
-    if (link.n_skipped > cfg.max_num_skipping_per_cand) {
-        param_live_ref = 0u;
-        tips.push_back(link_idx);
-        return;
-    }
 
     // Detector
     typename propagator_t::detector_type det(payload.det_data);
