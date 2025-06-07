@@ -57,11 +57,25 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // tips
     vecmem::device_vector<unsigned int> tips(payload.tips_view);
 
+    __shared__ unsigned int tip_count;
+    __shared__ unsigned int tip_base;
+    __shared__ unsigned int tip_values[64];
+
+    if (threadIdx.x == 0) {
+        tip_count = 0u;
+        tip_base = 0u;
+    }
+    __syncthreads();
+
+    bool write_tip = false;
+    bool abort_prop = false;
+    unsigned int tip_link = payload.prev_links_idx + param_id;
+
     if (links.at(payload.prev_links_idx + param_id).n_skipped >
         cfg.max_num_skipping_per_cand) {
         params_liveness[param_id] = 0u;
-        tips.push_back(payload.prev_links_idx + param_id);
-        return;
+        write_tip = true;
+        abort_prop = true;
     }
 
     // Detector
@@ -70,23 +84,24 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // Parameters
     bound_track_parameters_collection_types::device params(payload.params_view);
 
-    if (params_liveness.at(param_id) == 0u) {
+    if (params_liveness.at(param_id) == 0u && !abort_prop) {
         return;
     }
 
     // Input bound track parameter
     const bound_track_parameters<> in_par = params.at(param_id);
 
-    // Create propagator
-    propagator_t propagator(cfg.propagation);
+    if (!abort_prop) {
+        // Create propagator
+        propagator_t propagator(cfg.propagation);
 
-    // Create propagator state
-    typename propagator_t::state propagation(in_par, payload.field_data, det);
-    propagation.set_particle(
-        detail::correct_particle_hypothesis(cfg.ptc_hypothesis, in_par));
-    propagation._stepping
-        .template set_constraint<detray::step::constraint::e_accuracy>(
-            cfg.propagation.stepping.step_constraint);
+        // Create propagator state
+        typename propagator_t::state propagation(in_par, payload.field_data, det);
+        propagation.set_particle(
+            detail::correct_particle_hypothesis(cfg.ptc_hypothesis, in_par));
+        propagation._stepping
+            .template set_constraint<detray::step::constraint::e_accuracy>(
+                cfg.propagation.stepping.step_constraint);
 
     // Actor state
     // @TODO: simplify the syntax here
@@ -111,7 +126,7 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
         params[param_id] = propagation._stepping.bound_params();
 
         if (payload.step == cfg.max_track_candidates_per_track - 1) {
-            tips.push_back(payload.prev_links_idx + param_id);
+            write_tip = true;
             params_liveness[param_id] = 0u;
         } else {
             params_liveness[param_id] = 1u;
@@ -120,8 +135,36 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
         params_liveness[param_id] = 0u;
 
         if (payload.step >= cfg.min_track_candidates_per_track - 1) {
-            tips.push_back(payload.prev_links_idx + param_id);
+            write_tip = true;
         }
+    }
+    }
+
+    unsigned int mask = __ballot_sync(0xffffffff, write_tip);
+    unsigned int lane = threadIdx.x % warpSize;
+    unsigned int local_idx = __popc(mask & ((1u << lane) - 1));
+    unsigned int warp_count = __popc(mask);
+    unsigned int warp_base = 0;
+    if (lane == 0 && warp_count > 0) {
+        warp_base = atomicAdd(&tip_count, warp_count);
+    }
+    warp_base = __shfl_sync(0xffffffff, warp_base, 0);
+    unsigned int idx = warp_base + local_idx;
+
+    if (write_tip) {
+        tip_values[idx] = tip_link;
+    }
+
+    __syncthreads();
+
+    if (threadIdx.x == 0 && tip_count > 0) {
+        vecmem::device_atomic_ref<unsigned int> tips_size(tips.size());
+        tip_base = tips_size.fetch_add(tip_count);
+    }
+    __syncthreads();
+
+    if (write_tip) {
+        tips.at(tip_base + idx) = tip_link;
     }
 }
 
