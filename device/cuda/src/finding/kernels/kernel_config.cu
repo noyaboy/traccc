@@ -1,7 +1,7 @@
 #include "kernel_config.cuh"
 
 namespace traccc::cuda::kernels {
-__device__ __constant__ finding_config g_finding_cfg;
+__device__ finding_config g_finding_cfg;
 
 void load_finding_config(const finding_config& cfg) {
     cudaMemcpyToSymbol(g_finding_cfg, &cfg, sizeof(finding_config));
