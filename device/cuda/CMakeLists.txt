@@ -64,6 +64,8 @@ traccc_add_library( traccc_cuda cuda TYPE SHARED
   "src/finding/kernels/build_tracks.cu"
   "src/finding/kernels/build_tracks.cuh"
   "src/finding/kernels/find_tracks.cuh"
+  "src/finding/kernels/kernel_config.cu"
+  "src/finding/kernels/kernel_config.cuh"
   "src/finding/kernels/propagate_to_next_surface.cuh"
   "src/finding/kernels/specializations/find_tracks_default_detector.cu"
   "src/finding/kernels/specializations/apply_interaction_default_detector.cu"
