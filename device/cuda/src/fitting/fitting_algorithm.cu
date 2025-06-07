@@ -155,7 +155,7 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
         m_copy.setup(cand_lv_buffer)->ignore();
         m_copy.setup(offset_buffer)->ignore();
         vecmem::data::vector_view<const unsigned int> offsets_view(
-            offsets.data(), offsets.size());
+            offsets.size(), offsets.data());
         m_copy(offsets_view, offset_buffer,
                 vecmem::copy::type::host_to_device)
             ->ignore();
