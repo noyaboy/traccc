@@ -44,6 +44,8 @@ traccc_add_library( traccc_cuda cuda TYPE SHARED
   "src/seeding/seeding_algorithm.cpp"
   "include/traccc/cuda/seeding/spacepoint_formation_algorithm.hpp"
   "src/seeding/spacepoint_formation_algorithm.cu"
+  "src/seeding/kernel_config.cu"
+  "src/seeding/kernel_config.cuh"
   # Clusterization
   "include/traccc/cuda/clusterization/clusterization_algorithm.hpp"
   "src/clusterization/clusterization_algorithm.cu"
