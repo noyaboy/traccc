@@ -49,6 +49,8 @@ traccc_add_library( traccc_cuda cuda TYPE SHARED
   "src/clusterization/clusterization_algorithm.cu"
   "include/traccc/cuda/clusterization/measurement_sorting_algorithm.hpp"
   "src/clusterization/measurement_sorting_algorithm.cu"
+  "src/clusterization/kernels/kernel_config.cu"
+  "src/clusterization/kernels/kernel_config.cuh"
   "src/clusterization/kernels/ccl_kernel.cu"
   "src/clusterization/kernels/ccl_kernel.cuh"
   # Finding
@@ -72,6 +74,8 @@ traccc_add_library( traccc_cuda cuda TYPE SHARED
   "src/finding/kernels/specializations/propagate_to_next_surface_default_detector.cu"
   # Fitting
   "include/traccc/cuda/fitting/fitting_algorithm.hpp"
+  "src/fitting/kernel_config.cu"
+  "src/fitting/kernel_config.cuh"
   "src/fitting/fitting_algorithm.cu")
 
 if(TRACCC_ENABLE_NVTX_PROFILING)

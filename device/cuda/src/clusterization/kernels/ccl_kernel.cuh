@@ -10,11 +10,11 @@
 #include "traccc/clusterization/clustering_config.hpp"
 #include "traccc/clusterization/device/ccl_kernel_definitions.hpp"
 #include "traccc/cuda/clusterization/clusterization_algorithm.hpp"
+#include "kernel_config.cuh"
 
 namespace traccc::cuda::kernels {
 
 __global__ void ccl_kernel(
-    const clustering_config cfg,
     const edm::silicon_cell_collection::const_view cells_view,
     const silicon_detector_description::const_view det_descr_view,
     measurement_collection_types::view measurements_view,

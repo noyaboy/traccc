@@ -15,6 +15,7 @@
 #include "traccc/fitting/kalman_filter/kalman_fitter.hpp"
 #include "traccc/geometry/detector.hpp"
 #include "traccc/utils/detector_type_utils.hpp"
+#include "kernel_config.cuh"
 
 // Thrust include(s).
 #include <thrust/sort.h>
@@ -37,10 +38,9 @@ __global__ void fill_sort_keys(
 }
 
 template <typename fitter_t>
-__global__ void fit(const typename fitter_t::config_type cfg,
-                    const device::fit_payload<fitter_t> payload) {
+__global__ void fit(const device::fit_payload<fitter_t> payload) {
 
-    device::fit<fitter_t>(details::global_index1(), cfg, payload);
+    device::fit<fitter_t>(details::global_index1(), g_fit_cfg, payload);
 }
 
 }  // namespace kernels
@@ -122,8 +122,9 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                             param_ids_device.begin());
 
         // Run the track fitting
+        kernels::load_fitting_config(m_cfg);
         kernels::fit<fitter_t><<<nBlocks, nThreads, 0, stream>>>(
-            m_cfg, device::fit_payload<fitter_t>{
+            device::fit_payload<fitter_t>{
                        .det_data = det_view,
                        .field_data = field_view,
                        .track_candidates_view = track_candidates_view,
