@@ -160,26 +160,27 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                 vecmem::copy::type::host_to_device)
             ->ignore();
 
+        // Convert device buffers into views that can be used by the kernel
+        auto cand_lv_view = vecmem::get_data(cand_lv_buffer);
+        auto offset_view = vecmem::get_data(offset_buffer);
+
         kernels::fill_candidate_soa<<<nBlocks, nThreads, 0, stream>>>(
-            track_candidates_view, vecmem::get_data(cand_lv_buffer),
-            vecmem::get_data(offset_buffer));
+            track_candidates_view, cand_lv_view, offset_view);
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
         // Run the track fitting
-        kernels::fit<fitter_t><<<nBlocks, nThreads, 0, stream>>>(
-            m_cfg, device::fit_payload<fitter_t>{
-                       .det_data = det_view,
-                       .field_data = field_view,
-                       .track_candidates_view = track_candidates_view,
-                       .param_ids_view = param_ids_buffer,
-                       .candidate_soa = {vecmem::get_data(cand_lv_buffer).ptr(),
-                                        vecmem::get_data(offset_buffer).ptr()},
-                       .state_soa = {nullptr, nullptr},
-                       .track_states_view = track_states_buffer,
-                       .barcodes_view = seqs_buffer,
-                       .candidate_soa = {vecmem::get_data(cand_lv_buffer),
-                                        vecmem::get_data(offset_buffer)},
-                       .state_soa = {nullptr, nullptr}});
+        device::fit_payload<fitter_t> payload{};
+        payload.det_data = det_view;
+        payload.field_data = field_view;
+        payload.track_candidates_view = track_candidates_view;
+        payload.param_ids_view = param_ids_buffer;
+        payload.candidate_soa.loc_var = cand_lv_view.ptr();
+        payload.candidate_soa.offsets = offset_view.ptr();
+        payload.track_states_view = track_states_buffer;
+        payload.barcodes_view = seqs_buffer;
+
+        kernels::fit<fitter_t><<<nBlocks, nThreads, 0, stream>>>(m_cfg,
+                                                                payload);
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
     }
 
