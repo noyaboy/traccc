@@ -185,8 +185,10 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
         vecmem::data::buffer_type::resizable};
     m_copy.setup(tips_buffer)->wait();
 
-    std::map<unsigned int, unsigned int> step_to_link_idx_map;
-    step_to_link_idx_map[0] = 0;
+    // Pre-compute link index boundaries for each step. Using a vector avoids
+    // costly tree-based lookups during the iterative finding loop.
+    std::vector<unsigned int> step_to_link_idx_map(
+        m_cfg.max_track_candidates_per_track + 1, 0u);
 
     unsigned int n_in_params = n_seeds;
 
