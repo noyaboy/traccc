@@ -169,15 +169,15 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
         // Run the track fitting
-        device::fit_payload<fitter_t> payload{};
-        payload.det_data = det_view;
-        payload.field_data = field_view;
-        payload.track_candidates_view = track_candidates_view;
-        payload.param_ids_view = param_ids_buffer;
-        payload.candidate_soa.loc_var = cand_lv_view.ptr();
-        payload.candidate_soa.offsets = offset_view.ptr();
-        payload.track_states_view = track_states_buffer;
-        payload.barcodes_view = seqs_buffer;
+        const device::fit_payload<fitter_t> payload{
+            det_view,
+            field_view,
+            track_candidates_view,
+            param_ids_buffer,
+            {cand_lv_view.ptr(), offset_view.ptr()},
+            {},
+            track_states_buffer,
+            seqs_buffer};
 
         kernels::fit<fitter_t><<<nBlocks, nThreads, 0, stream>>>(m_cfg,
                                                                 payload);
