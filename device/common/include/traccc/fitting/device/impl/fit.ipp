@@ -44,7 +44,6 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
     auto track_states_track = track_states.at(param_id);
     auto& track_states_per_track = track_states_track.items;
 
-    track_states_per_track.reserve(track_candidates_per_track.size());
     for (auto& cand : track_candidates_per_track) {
         track_states_per_track.emplace_back(cand);
     }
