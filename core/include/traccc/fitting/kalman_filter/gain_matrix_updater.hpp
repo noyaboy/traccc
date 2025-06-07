@@ -105,25 +105,34 @@ struct gain_matrix_updater {
         const matrix_type<D, D> V =
             trk_state.template measurement_covariance<D>();
 
-        const matrix_type<D, D> M =
-            H * predicted_cov * matrix::transpose(H) + V;
+        const auto H_t = matrix::transpose(H);
+
+        const auto predicted_cov_Ht = predicted_cov * H_t;
+        const auto H_predicted_cov_Ht = H * predicted_cov_Ht;
+
+        const matrix_type<D, D> M = H_predicted_cov_Ht + V;
+        const matrix_type<D, D> M_inv = matrix::inverse(M);
 
         // Kalman gain matrix
-        const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+        const matrix_type<6, D> K = predicted_cov_Ht * M_inv;
+
+        const auto meas_pred = H * predicted_vec;
+        const auto meas_residual = meas_local - meas_pred;
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
-            predicted_vec + K * (meas_local - H * predicted_vec);
+            predicted_vec + K * meas_residual;
         const matrix_type<6, 6> filtered_cov = (I66 - K * H) * predicted_cov;
 
         // Residual between measurement and (projected) filtered vector
         const matrix_type<D, 1> residual = meas_local - H * filtered_vec;
 
         // Calculate the chi square
-        const matrix_type<D, D> R = (I_m - H * K) * V;
-        const matrix_type<1, 1> chi2 =
-            matrix::transpose(residual) * matrix::inverse(R) * residual;
+        const matrix_type<D, D> H_K = H_predicted_cov_Ht * M_inv;
+        const matrix_type<D, D> R = (I_m - H_K) * V;
+        const auto R_inv = matrix::inverse(R);
+        const auto residual_t = matrix::transpose(residual);
+        const matrix_type<1, 1> chi2 = residual_t * R_inv * residual;
 
         // Return false if track is parallel to z-axis or phi is not finite
         const scalar theta = bound_params.theta();

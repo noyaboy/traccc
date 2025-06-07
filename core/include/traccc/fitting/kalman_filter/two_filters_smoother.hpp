@@ -67,6 +67,7 @@ struct two_filters_smoother {
         const auto meas = trk_state.get_measurement();
 
         matrix_type<D, e_bound_size> H = meas.subs.template projector<D>();
+        const auto H_t = matrix::transpose(H);
 
         // Measurement data on surface
         const matrix_type<D, 1>& meas_local =
@@ -95,9 +96,11 @@ struct two_filters_smoother {
 
         // Eq (3.38) of "Pattern Recognition, Tracking and Vertex
         // Reconstruction in Particle Detectors"
+        const auto filtered_inv_vec =
+            filtered_cov_inv * trk_state.filtered().vector();
+        const auto predicted_inv_vec = predicted_cov_inv * predicted_vec;
         const matrix_type<e_bound_size, 1u> smoothed_vec =
-            smoothed_cov * (filtered_cov_inv * trk_state.filtered().vector() +
-                            predicted_cov_inv * predicted_vec);
+            smoothed_cov * (filtered_inv_vec + predicted_inv_vec);
 
         trk_state.smoothed().set_vector(smoothed_vec);
         trk_state.smoothed().set_covariance(smoothed_cov);
@@ -110,14 +113,14 @@ struct two_filters_smoother {
 
         // Eq (3.39) of "Pattern Recognition, Tracking and Vertex
         // Reconstruction in Particle Detectors"
-        const matrix_type<D, D> R_smt =
-            V - H * smoothed_cov * matrix::transpose(H);
+        const matrix_type<D, D> R_smt = V - H * smoothed_cov * H_t;
+        const auto R_smt_inv = matrix::inverse(R_smt);
+        const auto residual_smt_t = matrix::transpose(residual_smt);
 
         // Eq (3.40) of "Pattern Recognition, Tracking and Vertex
         // Reconstruction in Particle Detectors"
-        const matrix_type<1, 1> chi2_smt = matrix::transpose(residual_smt) *
-                                           matrix::inverse(R_smt) *
-                                           residual_smt;
+        const matrix_type<1, 1> chi2_smt =
+            residual_smt_t * R_smt_inv * residual_smt;
 
         if (getter::element(chi2_smt, 0, 0) < 0.f) {
             return kalman_fitter_status::ERROR_SMOOTHER_CHI2_NEGATIVE;
@@ -147,25 +150,32 @@ struct two_filters_smoother {
             matrix::identity<matrix_type<e_bound_size, e_bound_size>>();
         const auto I_m = matrix::identity<matrix_type<D, D>>();
 
-        const matrix_type<D, D> M =
-            H * predicted_cov * matrix::transpose(H) + V;
+        const auto predicted_cov_Ht = predicted_cov * H_t;
+        const auto H_predicted_cov_Ht = H * predicted_cov_Ht;
+
+        const matrix_type<D, D> M = H_predicted_cov_Ht + V;
+        const matrix_type<D, D> M_inv = matrix::inverse(M);
 
         // Kalman gain matrix
-        const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+        const matrix_type<6, D> K = predicted_cov_Ht * M_inv;
+
+        const auto meas_pred = H * predicted_vec;
+        const auto meas_residual = meas_local - meas_pred;
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
-            predicted_vec + K * (meas_local - H * predicted_vec);
+            predicted_vec + K * meas_residual;
         const matrix_type<6, 6> filtered_cov = (I66 - K * H) * predicted_cov;
 
         // Residual between measurement and (projected) filtered vector
         const matrix_type<D, 1> residual = meas_local - H * filtered_vec;
 
         // Calculate backward chi2
-        const matrix_type<D, D> R = (I_m - H * K) * V;
-        const matrix_type<1, 1> chi2 =
-            matrix::transpose(residual) * matrix::inverse(R) * residual;
+        const matrix_type<D, D> H_K = H_predicted_cov_Ht * M_inv;
+        const matrix_type<D, D> R = (I_m - H_K) * V;
+        const auto R_inv = matrix::inverse(R);
+        const auto residual_t = matrix::transpose(residual);
+        const matrix_type<1, 1> chi2 = residual_t * R_inv * residual;
 
         // Update the bound track parameters
         bound_params.set_vector(filtered_vec);
