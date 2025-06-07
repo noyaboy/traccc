@@ -161,7 +161,8 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     __syncthreads();
 
     if (threadIdx.x == 0 && tip_count > 0) {
-        vecmem::device_atomic_ref<unsigned int> tips_size(tips.size());
+        vecmem::device_atomic_ref<unsigned int> tips_size(
+            *payload.tips_view.size_ptr());
         tip_base = tips_size.fetch_add(tip_count);
     }
     __syncthreads();
