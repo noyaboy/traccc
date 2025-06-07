@@ -9,13 +9,12 @@
 
 // Project include(s).
 #include "traccc/finding/device/apply_interaction.hpp"
-#include "traccc/finding/finding_config.hpp"
+#include "kernel_config.cuh"
 
 namespace traccc::cuda::kernels {
 
 template <typename detector_t>
 __global__ void apply_interaction(
-    const finding_config cfg,
     device::apply_interaction_payload<detector_t> payload);
 
 }  // namespace traccc::cuda::kernels
