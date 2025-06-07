@@ -105,16 +105,22 @@ struct gain_matrix_updater {
         const matrix_type<D, D> V =
             trk_state.template measurement_covariance<D>();
 
+        const auto H_t = matrix::transpose(H);
+
+        const auto predicted_cov_Ht = predicted_cov * H_t;
+
         const matrix_type<D, D> M =
-            H * predicted_cov * matrix::transpose(H) + V;
+            H * predicted_cov_Ht + V;
 
         // Kalman gain matrix
         const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+            predicted_cov_Ht * matrix::inverse(M);
+
+        const auto meas_pred = H * predicted_vec;
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
-            predicted_vec + K * (meas_local - H * predicted_vec);
+            predicted_vec + K * (meas_local - meas_pred);
         const matrix_type<6, 6> filtered_cov = (I66 - K * H) * predicted_cov;
 
         // Residual between measurement and (projected) filtered vector
