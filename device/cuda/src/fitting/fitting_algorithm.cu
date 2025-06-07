@@ -17,6 +17,7 @@
 #include "traccc/utils/detector_type_utils.hpp"
 
 // Thrust include(s).
+#include <cooperative_groups.h>
 #include <thrust/sort.h>
 
 // System include(s).
@@ -27,18 +28,31 @@ namespace traccc::cuda {
 
 namespace kernels {
 
-__global__ void fill_sort_keys(
-    track_candidate_container_types::const_view track_candidates_view,
-    vecmem::data::vector_view<device::sort_key> keys_view,
-    vecmem::data::vector_view<unsigned int> ids_view) {
-
-    device::fill_sort_keys(details::global_index1(), track_candidates_view,
-                           keys_view, ids_view);
-}
-
 template <typename fitter_t>
 __global__ void fit(const typename fitter_t::config_type cfg,
-                    const device::fit_payload<fitter_t> payload) {
+                    device::fit_payload<fitter_t> payload,
+                    vecmem::data::vector_view<device::sort_key> keys_view,
+                    vecmem::data::vector_view<unsigned int> ids_view) {
+
+    namespace cg = cooperative_groups;
+    cg::grid_group grid = cg::this_grid();
+
+    device::fill_sort_keys(details::global_index1(),
+                           payload.track_candidates_view, keys_view, ids_view);
+
+    grid.sync();
+
+    if (grid.thread_rank() == 0) {
+        vecmem::device_vector<device::sort_key> keys_device(keys_view);
+        vecmem::device_vector<unsigned int> ids_device(ids_view);
+        thrust::sort_by_key(thrust::device, keys_device.begin(),
+                            keys_device.end(), ids_device.begin());
+    }
+
+    grid.sync();
+
+    payload.param_ids_view =
+        vecmem::data::vector_view<const unsigned int>(ids_view);
 
     device::fit<fitter_t>(details::global_index1(), cfg, payload);
 }
@@ -106,30 +120,20 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
         vecmem::data::vector_buffer<unsigned int> param_ids_buffer(n_tracks,
                                                                    m_mr.main);
 
-        // Get key and value for sorting
-        kernels::fill_sort_keys<<<nBlocks, nThreads, 0, stream>>>(
-            track_candidates_view, keys_buffer, param_ids_buffer);
-        TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
+        // Run the track fitting with fused sort key generation
+        device::fit_payload<fitter_t> payload{
+            .det_data = det_view,
+            .field_data = field_view,
+            .track_candidates_view = track_candidates_view,
+            .param_ids_view = param_ids_buffer,
+            .track_states_view = track_states_buffer,
+            .barcodes_view = seqs_buffer};
 
-        // Sort the key to get the sorted parameter ids
-        vecmem::device_vector<device::sort_key> keys_device(keys_buffer);
-        vecmem::device_vector<unsigned int> param_ids_device(param_ids_buffer);
+        void* args[] = {&m_cfg, &payload, &keys_buffer, &param_ids_buffer};
 
-        thrust::sort_by_key(thrust::cuda::par_nosync(
-                                std::pmr::polymorphic_allocator(&m_mr.main))
-                                .on(stream),
-                            keys_device.begin(), keys_device.end(),
-                            param_ids_device.begin());
-
-        // Run the track fitting
-        kernels::fit<fitter_t><<<nBlocks, nThreads, 0, stream>>>(
-            m_cfg, device::fit_payload<fitter_t>{
-                       .det_data = det_view,
-                       .field_data = field_view,
-                       .track_candidates_view = track_candidates_view,
-                       .param_ids_view = param_ids_buffer,
-                       .track_states_view = track_states_buffer,
-                       .barcodes_view = seqs_buffer});
+        TRACCC_CUDA_ERROR_CHECK(cudaLaunchCooperativeKernel(
+            reinterpret_cast<void*>(kernels::fit<fitter_t>), dim3(nBlocks),
+            dim3(nThreads), args, 0, stream));
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
     }
 
