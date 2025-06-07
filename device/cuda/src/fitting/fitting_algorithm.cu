@@ -176,7 +176,10 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                                         vecmem::get_data(offset_buffer).ptr()},
                        .state_soa = {nullptr, nullptr},
                        .track_states_view = track_states_buffer,
-                       .barcodes_view = seqs_buffer});
+                       .barcodes_view = seqs_buffer,
+                       .candidate_soa = {vecmem::get_data(cand_lv_buffer),
+                                        vecmem::get_data(offset_buffer)},
+                       .state_soa = {nullptr, nullptr}});
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
     }
 
