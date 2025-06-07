@@ -19,7 +19,8 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
     track_candidate_container_types::const_device track_candidates(
         payload.track_candidates_view);
 
-    const unsigned int* param_ids = payload.param_ids_view.ptr();
+    const unsigned int* TRACCC_RESTRICT param_ids =
+        payload.param_ids_view.ptr();
 
     track_state_container_types::device track_states(payload.track_states_view);
 
@@ -43,6 +44,7 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
     auto track_states_track = track_states.at(param_id);
     auto& track_states_per_track = track_states_track.items;
 
+    track_states_per_track.reserve(track_candidates_per_track.size());
     for (auto& cand : track_candidates_per_track) {
         track_states_per_track.emplace_back(cand);
     }
