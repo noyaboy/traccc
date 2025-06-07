@@ -37,32 +37,30 @@ namespace traccc::device {
 /// @param[in] tid      The thread index
 /// @param[in] blckDim  The block size
 /// @param[inout] f     array holding the parent cell ID for the current
-///                     iteration.
-/// @param[inout] gf    array holding grandparent cell ID from the previous
-///                     iteration.
+///                     iteration. The array lives in shared memory and is
+///                     compressed in-place.
 /// @param[in] barrier  A generic object for block-wide synchronisation
 ///
 template <device::concepts::barrier barrier_t,
           device::concepts::thread_id1 thread_id_t>
-TRACCC_DEVICE void fast_sv_1(const thread_id_t& thread_id,
-                             vecmem::device_vector<details::index_t>& f,
-                             vecmem::device_vector<details::index_t>& gf,
-                             unsigned char* adjc, details::index_t* adjv,
-                             details::index_t thread_cell_count,
-                             barrier_t& barrier) {
+TRACCC_DEVICE void fast_sv_shared(const thread_id_t& thread_id,
+                                  vecmem::device_vector<details::index_t>& f,
+                                  unsigned char* adjc, details::index_t* adjv,
+                                  details::index_t thread_cell_count,
+                                  barrier_t& barrier) {
     /*
      * The algorithm finishes if an iteration leaves the arrays unchanged.
      * This varible will be set if a change is made, and dictates if another
      * loop is necessary.
      */
-    bool gf_changed;
+    bool changed;
 
     do {
         /*
          * Reset the end-parameter to false, so we can set it to true if we
-         * make a change to the gf array.
+         * make a change to the parent array.
          */
-        gf_changed = false;
+        changed = false;
 
         /*
          * The algorithm executes in a loop of three distinct parallel
@@ -77,11 +75,11 @@ TRACCC_DEVICE void fast_sv_1(const thread_id_t& thread_id,
 
             TRACCC_ASSUME(adjc[tst] <= 8);
             for (unsigned char k = 0; k < adjc[tst]; ++k) {
-                details::index_t q = gf.at(adjv[8 * tst + k]);
+                details::index_t q = f.at(adjv[8 * tst + k]);
 
-                if (gf.at(cid) > q) {
-                    f.at(f.at(cid)) = q;
+                if (f.at(cid) > q) {
                     f.at(cid) = q;
+                    changed = true;
                 }
             }
         }
@@ -100,8 +98,9 @@ TRACCC_DEVICE void fast_sv_1(const thread_id_t& thread_id,
              * allows us to look at any shortcuts in the cluster IDs that we
              * can merge without adjacency information.
              */
-            if (f.at(cid) > gf.at(cid)) {
-                f.at(cid) = gf.at(cid);
+            if (f.at(cid) != f.at(f.at(cid))) {
+                f.at(cid) = f.at(f.at(cid));
+                changed = true;
             }
         }
 
@@ -110,19 +109,6 @@ TRACCC_DEVICE void fast_sv_1(const thread_id_t& thread_id,
          */
         barrier.blockBarrier();
 
-        for (details::index_t tst = 0; tst < thread_cell_count; ++tst) {
-            const auto cid = static_cast<details::index_t>(
-                tst * thread_id.getBlockDimX() + thread_id.getLocalThreadIdX());
-            /*
-             * Update the array for the next generation, keeping track of any
-             * changes we make.
-             */
-            if (gf.at(cid) != f.at(f.at(cid))) {
-                gf.at(cid) = f.at(f.at(cid));
-                gf_changed = true;
-            }
-        }
-
         /*
          * To determine whether we need another iteration, we use block
          * voting mechanics. Each thread checks if it has made any changes
@@ -130,7 +116,7 @@ TRACCC_DEVICE void fast_sv_1(const thread_id_t& thread_id,
          * will return a true value and go to the next iteration. Only if
          * all threads return false will the loop exit.
          */
-    } while (barrier.blockOr(gf_changed));
+    } while (barrier.blockOr(changed));
 }
 
 template <device::concepts::barrier barrier_t,
@@ -189,7 +175,13 @@ TRACCC_DEVICE inline void ccl_core(
      * Run FastSV algorithm, which will update the father index to that of
      * the cell belonging to the same cluster with the lowest index.
      */
-    fast_sv_1(thread_id, f, gf, adjc, adjv, thread_cell_count, barrier);
+    fast_sv_shared(thread_id, f, adjc, adjv, thread_cell_count, barrier);
+
+    for (details::index_t tst = 0; tst < thread_cell_count; ++tst) {
+        const auto cid = static_cast<details::index_t>(
+            tst * thread_id.getBlockDimX() + thread_id.getLocalThreadIdX());
+        gf.at(cid) = f.at(cid);
+    }
 
     barrier.blockBarrier();
 
