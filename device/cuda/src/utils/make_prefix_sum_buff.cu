@@ -47,14 +47,15 @@ vecmem::data::vector_buffer<device::prefix_sum_element_t> make_prefix_sum_buff(
         totalSize, mr.main);
     copy.setup(prefix_sum_buff)->wait();
 
-    // Fill the prefix sum vector
-    static const unsigned int threadsPerBlock = 32;
+    // Fill the prefix sum vector. Use a larger block size for better
+    // occupancy. The kernel itself does not depend on the block size,
+    // so increasing it does not modify the results.
+    static const unsigned int threadsPerBlock = 256;
     const unsigned int blocks =
         (sizes_sum_view.size() + threadsPerBlock - 1) / threadsPerBlock;
     kernels::fill_prefix_sum<<<blocks, threadsPerBlock>>>(sizes_sum_view,
                                                           prefix_sum_buff);
     TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
-    TRACCC_CUDA_ERROR_CHECK(cudaDeviceSynchronize());
 
     return prefix_sum_buff;
 }
@@ -79,7 +80,7 @@ vecmem::data::vector_buffer<device::prefix_sum_element_t> make_prefix_sum_buff(
     copy.setup(prefix_sum_buff)->ignore();
 
     // Fill the prefix sum vector
-    static const unsigned int threadsPerBlock = 32;
+    static const unsigned int threadsPerBlock = 256;
     const unsigned int blocks =
         (sizes_sum_view.size() + threadsPerBlock - 1) / threadsPerBlock;
     kernels::fill_prefix_sum<<<blocks, threadsPerBlock, 0,
