@@ -110,8 +110,8 @@ struct two_filters_smoother {
 
         // Eq (3.39) of "Pattern Recognition, Tracking and Vertex
         // Reconstruction in Particle Detectors"
-        const matrix_type<D, D> R_smt =
-            V - H * smoothed_cov * matrix::transpose(H);
+        const auto Ht_smt = matrix::transpose(H);
+        const matrix_type<D, D> R_smt = V - H * smoothed_cov * Ht_smt;
 
         // Eq (3.40) of "Pattern Recognition, Tracking and Vertex
         // Reconstruction in Particle Detectors"
@@ -147,16 +147,17 @@ struct two_filters_smoother {
             matrix::identity<matrix_type<e_bound_size, e_bound_size>>();
         const auto I_m = matrix::identity<matrix_type<D, D>>();
 
-        const matrix_type<D, D> M =
-            H * predicted_cov * matrix::transpose(H) + V;
+        const auto Ht = matrix::transpose(H);
+        const matrix_type<D, D> M = H * predicted_cov * Ht + V;
 
         // Kalman gain matrix
-        const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+        const auto pcHt = predicted_cov * Ht;
+        const matrix_type<6, D> K = pcHt * matrix::inverse(M);
 
         // Calculate the filtered track parameters
+        const auto residual_pred = meas_local - H * predicted_vec;
         const matrix_type<6, 1> filtered_vec =
-            predicted_vec + K * (meas_local - H * predicted_vec);
+            predicted_vec + K * residual_pred;
         const matrix_type<6, 6> filtered_cov = (I66 - K * H) * predicted_cov;
 
         // Residual between measurement and (projected) filtered vector
