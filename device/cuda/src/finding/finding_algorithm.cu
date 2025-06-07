@@ -114,7 +114,6 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
             thrust::unique_copy(thrust_policy, measurements.ptr(),
                                 measurements.ptr() + n_measurements,
                                 uniques.begin(), measurement_equal_comp());
-        m_stream.synchronize();
         n_modules = static_cast<unsigned int>(uniques_end - uniques.begin());
     }
 
@@ -291,8 +290,6 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
             std::swap(in_params_buffer, updated_params_buffer);
             std::swap(param_liveness_buffer, updated_liveness_buffer);
 
-            m_stream.synchronize();
-
             step_to_link_idx_map[step + 1] = m_copy.get_size(links_buffer);
             n_candidates =
                 step_to_link_idx_map[step + 1] - step_to_link_idx_map[step];
@@ -332,8 +329,6 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                 thrust::sort_by_key(thrust_policy, keys_device.begin(),
                                     keys_device.end(),
                                     param_ids_device.begin());
-
-                m_stream.synchronize();
             }
 
             /*****************************************************************
@@ -366,8 +361,6 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                             .n_tracks_per_seed_view =
                                 n_tracks_per_seed_buffer});
                 TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
-
-                m_stream.synchronize();
             }
         }
 
