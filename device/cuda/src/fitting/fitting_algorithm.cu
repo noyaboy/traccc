@@ -48,9 +48,11 @@ __global__ void fill_candidate_soa(
     track_candidate_container_types::const_view track_candidates_view,
     float4* __restrict__ lv,
     const unsigned int* __restrict__ offsets) {
+    const track_candidate_container_types::const_device track_candidates(
+        track_candidates_view);
     unsigned int idx = details::global_index1();
-    if (idx >= track_candidates_view.size()) return;
-    auto cands = track_candidates_view.at(idx).items;
+    if (idx >= track_candidates.size()) return;
+    auto cands = track_candidates.at(idx).items;
     unsigned int off = offsets[idx];
     for (unsigned int i = 0; i < cands.size(); ++i) {
         const auto& c = cands[i];
@@ -148,11 +150,13 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                                                                 m_mr.main);
         m_copy.setup(cand_lv_buffer)->ignore();
         m_copy.setup(offset_buffer)->ignore();
-        m_copy.copy(offsets.data(), offset_buffer).ignore();
+        m_copy(offsets.data(), offset_buffer,
+                vecmem::copy::type::host_to_device)
+            ->ignore();
 
         kernels::fill_candidate_soa<<<nBlocks, nThreads, 0, stream>>>(
-            track_candidates_view, vecmem::get_data(cand_lv_buffer),
-            vecmem::get_data(offset_buffer));
+            track_candidates_view, vecmem::get_data(cand_lv_buffer).ptr(),
+            vecmem::get_data(offset_buffer).ptr());
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
         // Run the track fitting
@@ -162,6 +166,9 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                        .field_data = field_view,
                        .track_candidates_view = track_candidates_view,
                        .param_ids_view = param_ids_buffer,
+                       .candidate_soa = {vecmem::get_data(cand_lv_buffer).ptr(),
+                                        vecmem::get_data(offset_buffer).ptr()},
+                       .state_soa = {nullptr, nullptr},
                        .track_states_view = track_states_buffer,
                        .barcodes_view = seqs_buffer,
                        .candidate_soa = {vecmem::get_data(cand_lv_buffer),
