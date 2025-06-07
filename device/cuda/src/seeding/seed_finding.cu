@@ -47,7 +47,7 @@ __global__ void count_doublets(
     device::doublet_counter_collection_types::view doublet_counter,
     unsigned int& nMidBot, unsigned int& nMidTop) {
 
-    device::count_doublets(details::global_index1(), g_seedfinder_cfg,
+    device::count_doublets(details::global_index1(), get_seedfinder_cfg(),
                            spacepoints, sp_grid, sp_prefix_sum, doublet_counter,
                            nMidBot, nMidTop);
 }
@@ -60,7 +60,7 @@ __global__ void find_doublets(
     device::device_doublet_collection_types::view mb_doublets,
     device::device_doublet_collection_types::view mt_doublets) {
 
-    device::find_doublets(details::global_index1(), g_seedfinder_cfg,
+    device::find_doublets(details::global_index1(), get_seedfinder_cfg(),
                           spacepoints, sp_grid, doublet_counter, mb_doublets,
                           mt_doublets);
 }
@@ -75,7 +75,7 @@ __global__ void count_triplets(
     device::triplet_counter_spM_collection_types::view spM_counter,
     device::triplet_counter_collection_types::view midBot_counter) {
 
-    device::count_triplets(details::global_index1(), g_seedfinder_cfg,
+    device::count_triplets(details::global_index1(), get_seedfinder_cfg(),
                            spacepoints, sp_grid, doublet_counter, mb_doublets,
                            mt_doublets, spM_counter, midBot_counter);
 }
@@ -100,7 +100,7 @@ __global__ void find_triplets(
     device::triplet_counter_collection_types::const_view midBot_tc,
     device::device_triplet_collection_types::view triplet_view) {
 
-    device::find_triplets(details::global_index1(), g_seedfinder_cfg,
+    device::find_triplets(details::global_index1(), get_seedfinder_cfg(),
                           g_seedfilter_cfg, spacepoints, sp_grid,
                           doublet_counter, mt_doublets, spM_tc, midBot_tc,
                           triplet_view);
