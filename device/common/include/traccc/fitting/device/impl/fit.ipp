@@ -36,6 +36,11 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
     // Track candidates per track
     const auto& track_candidates_per_track =
         track_candidates.at(param_id).items;
+    const unsigned int cand_offset =
+        payload.candidate_soa.offsets
+            ? payload.candidate_soa.offsets[param_id]
+            : 0u;
+    const float4* __restrict__ cand_ptr = payload.candidate_soa.loc_var;
 
     // Seed parameter
     const auto& seed_param = track_candidates.at(param_id).header.seed_params;
@@ -43,8 +48,21 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
     // Track states per track
     auto track_states_per_track = track_states.at(param_id).items;
 
-    for (auto& cand : track_candidates_per_track) {
-        track_states_per_track.emplace_back(cand);
+    if (cand_ptr) {
+        const unsigned int nCand = track_candidates_per_track.size();
+        for (unsigned int i = 0; i < nCand; ++i) {
+            float4 lv = cand_ptr[cand_offset + i];
+            track_candidate cand = track_candidates_per_track[i];
+            cand.local[0] = lv.x;
+            cand.local[1] = lv.y;
+            cand.variance[0] = lv.z;
+            cand.variance[1] = lv.w;
+            track_states_per_track.emplace_back(cand);
+        }
+    } else {
+        for (auto& cand : track_candidates_per_track) {
+            track_states_per_track.emplace_back(cand);
+        }
     }
 
     typename fitter_t::state fitter_state(

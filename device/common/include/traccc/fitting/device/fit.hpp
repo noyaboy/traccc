@@ -14,6 +14,7 @@
 #include "traccc/definitions/qualifiers.hpp"
 #include "traccc/edm/track_candidate.hpp"
 #include "traccc/edm/track_state.hpp"
+#include "traccc/fitting/device/soa_types.hpp"
 
 namespace traccc::device {
 
@@ -39,6 +40,12 @@ struct fit_payload {
      * @brief View object to the input track parameters
      */
     vecmem::data::vector_view<const unsigned int> param_ids_view;
+
+    /// Optional SoA views of track candidates
+    track_candidate_soa candidate_soa{};
+
+    /// Optional SoA views of track states
+    track_state_soa state_soa{};
 
     /**
      * @brief View object to the output track states
