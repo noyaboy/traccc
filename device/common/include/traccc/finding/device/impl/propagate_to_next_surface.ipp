@@ -57,6 +57,11 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // tips
     vecmem::device_vector<unsigned int> tips(payload.tips_view);
 
+    bool write_tip = false;
+    bool abort_prop = false;
+    unsigned int tip_link = payload.prev_links_idx + param_id;
+
+#ifdef __CUDA_ARCH__
     __shared__ unsigned int tip_count;
     __shared__ unsigned int tip_base;
     __shared__ unsigned int tip_values[64];
@@ -66,10 +71,7 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
         tip_base = 0u;
     }
     __syncthreads();
-
-    bool write_tip = false;
-    bool abort_prop = false;
-    unsigned int tip_link = payload.prev_links_idx + param_id;
+#endif
 
     if (links.at(payload.prev_links_idx + param_id).n_skipped >
         cfg.max_num_skipping_per_cand) {
@@ -140,6 +142,7 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     }
     }
 
+#ifdef __CUDA_ARCH__
     unsigned int mask = __ballot_sync(0xffffffff, write_tip);
     unsigned int lane = threadIdx.x % warpSize;
     unsigned int local_idx = __popc(mask & ((1u << lane) - 1));
@@ -166,6 +169,11 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     if (write_tip) {
         tips.at(tip_base + idx) = tip_link;
     }
+#else
+    if (write_tip) {
+        tips.push_back(tip_link);
+    }
+#endif
 }
 
 }  // namespace traccc::device
