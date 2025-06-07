@@ -12,7 +12,7 @@ cmake_minimum_required( VERSION 3.26 )
 
 # Find the CUDA toolkit
 find_package( CUDAToolkit REQUIRED )
-
+set( CMAKE_CUDA_SEPARABLE_COMPILATION ON )
 # Project include(s).
 include( traccc-compiler-options-cpp )
 include( traccc-compiler-options-cuda )
@@ -117,10 +117,14 @@ thrust_create_target( traccc::cuda_thrust
 target_link_libraries( traccc::cuda_thrust INTERFACE CUDA::cudart )
 target_link_libraries( traccc_cuda PRIVATE traccc::cuda_thrust )
 
-# For CUDA 11 turn on separable compilation. This is necessary for using
-# Thrust 2.1.0.
-if( ( "${CMAKE_CUDA_COMPILER_ID}" STREQUAL "NVIDIA" ) AND
-    ( "${CMAKE_CUDA_COMPILER_VERSION}" VERSION_LESS "12.0" ) )
-  set_target_properties( traccc_cuda PROPERTIES
-    CUDA_SEPARABLE_COMPILATION ON )
-endif()
+# Always enable separable compilation (relocatable device code)
+set_target_properties( traccc_cuda PROPERTIES
+  CUDA_SEPARABLE_COMPILATION ON
+)
+# Propagate the -rdc=true flag to both compile and link stages.
+target_compile_options( traccc_cuda PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
+)
+target_link_options( traccc_cuda PRIVATE
+  $<$<COMPILE_LANGUAGE:CUDA>:-rdc=true>
+)
