@@ -1,8 +1,16 @@
 #pragma once
-#include "traccc/finding/finding_config.hpp"
 #include <cuda_runtime.h>
 
+#include "traccc/finding/finding_config.hpp"
+
 namespace traccc::cuda::kernels {
-extern __constant__ finding_config g_finding_cfg;
+
+#ifdef TRACCC_DEFINE_FINDING_CONFIG
+__device__ __constant__ finding_config g_finding_cfg;
+#else
+extern __device__ __constant__ finding_config g_finding_cfg;
+#endif
+
 void load_finding_config(const finding_config& cfg);
-}
+
+}  // namespace traccc::cuda::kernels
