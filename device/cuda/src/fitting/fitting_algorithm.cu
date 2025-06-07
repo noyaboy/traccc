@@ -12,6 +12,7 @@
 #include "traccc/cuda/fitting/fitting_algorithm.hpp"
 #include "traccc/fitting/device/fill_sort_keys.hpp"
 #include "traccc/fitting/device/fit.hpp"
+#include <vecmem/containers/data/vector_view.hpp>
 #include "traccc/fitting/device/soa_types.hpp"
 #include "traccc/fitting/kalman_filter/kalman_fitter.hpp"
 #include "traccc/geometry/detector.hpp"
@@ -46,18 +47,21 @@ __global__ void fit(const typename fitter_t::config_type cfg,
 
 __global__ void fill_candidate_soa(
     track_candidate_container_types::const_view track_candidates_view,
-    float4* __restrict__ lv,
-    const unsigned int* __restrict__ offsets) {
+    vecmem::data::vector_view<float4> lv,
+    vecmem::data::vector_view<const unsigned int> offsets) {
     const track_candidate_container_types::const_device track_candidates(
         track_candidates_view);
+    vecmem::device_vector<float4> lv_dev(lv);
+    vecmem::device_vector<const unsigned int> off_dev(offsets);
+
     unsigned int idx = details::global_index1();
     if (idx >= track_candidates.size()) return;
     auto cands = track_candidates.at(idx).items;
-    unsigned int off = offsets[idx];
+    unsigned int off = off_dev[idx];
     for (unsigned int i = 0; i < cands.size(); ++i) {
         const auto& c = cands[i];
-        lv[off + i] = make_float4(c.local[0], c.local[1], c.variance[0],
-                                  c.variance[1]);
+        lv_dev[off + i] =
+            make_float4(c.local[0], c.local[1], c.variance[0], c.variance[1]);
     }
 }
 
@@ -150,13 +154,15 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                                                                 m_mr.main);
         m_copy.setup(cand_lv_buffer)->ignore();
         m_copy.setup(offset_buffer)->ignore();
-        m_copy(offsets.data(), offset_buffer,
+        vecmem::data::vector_view<const unsigned int> offsets_view(
+            offsets.data(), offsets.size());
+        m_copy(offsets_view, offset_buffer,
                 vecmem::copy::type::host_to_device)
             ->ignore();
 
         kernels::fill_candidate_soa<<<nBlocks, nThreads, 0, stream>>>(
-            track_candidates_view, vecmem::get_data(cand_lv_buffer).ptr(),
-            vecmem::get_data(offset_buffer).ptr());
+            track_candidates_view, vecmem::get_data(cand_lv_buffer),
+            vecmem::get_data(offset_buffer));
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
         // Run the track fitting
