@@ -26,11 +26,13 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     }
 
     // Theta id
-    const unsigned int* param_ids = payload.param_ids_view.ptr();
+    const unsigned int* TRACCC_RESTRICT param_ids =
+        payload.param_ids_view.ptr();
 
     const unsigned int param_id = *(param_ids + globalIndex);
 
-    unsigned int* params_liveness = payload.params_liveness_view.ptr();
+    unsigned int* TRACCC_RESTRICT params_liveness =
+        payload.params_liveness_view.ptr();
 
     unsigned int& param_live_ref = *(params_liveness + param_id);
     unsigned int param_live = param_live_ref;
@@ -40,7 +42,7 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     }
 
     // Links
-    const candidate_link* links = payload.links_view.ptr();
+    const candidate_link* TRACCC_RESTRICT links = payload.links_view.ptr();
     const unsigned link_idx = payload.prev_links_idx + param_id;
     const candidate_link link = *(links + link_idx);
 
@@ -53,7 +55,8 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     }
 
     // Number of tracks per seed
-    unsigned int* n_tracks_per_seed = payload.n_tracks_per_seed_view.ptr();
+    unsigned int* TRACCC_RESTRICT n_tracks_per_seed =
+        payload.n_tracks_per_seed_view.ptr();
 
     // Seed id
     unsigned int orig_param_id = link.seed_idx;
