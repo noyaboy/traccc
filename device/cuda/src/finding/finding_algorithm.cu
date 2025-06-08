@@ -347,6 +347,9 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                 const unsigned int nThreads = m_warp_size * 2;
                 const unsigned int nBlocks =
                     (n_candidates + nThreads - 1) / nThreads;
+
+                // Create propagator once on the host and pass it to the kernel
+                propagator_type propagator(m_cfg.propagation);
                 kernels::propagate_to_next_surface<
                     std::decay_t<propagator_type>, std::decay_t<bfield_type>>
                     <<<nBlocks, nThreads, 0, stream>>>(
@@ -355,6 +358,7 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                             std::decay_t<bfield_type>>{
                             .det_data = det_view,
                             .field_data = field_view,
+                            .propagator = propagator,
                             .params_view = in_params_buffer,
                             .params_liveness_view = param_liveness_buffer,
                             .param_ids_view = param_ids_buffer,
@@ -417,13 +421,13 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
 
         kernels::build_tracks<<<nBlocks, nThreads, 0, stream>>>(
             device::build_tracks_payload{
-                       .measurements_view = measurements,
-                       .seeds_view = seeds_buffer,
-                       .links_view = links_buffer,
-                       .tips_view = tips_buffer,
-                       .track_candidates_view = track_candidates_buffer,
-                       .valid_indices_view = valid_indices_buffer,
-                       .n_valid_tracks = n_valid_tracks_device.get()});
+                .measurements_view = measurements,
+                .seeds_view = seeds_buffer,
+                .links_view = links_buffer,
+                .tips_view = tips_buffer,
+                .track_candidates_view = track_candidates_buffer,
+                .valid_indices_view = valid_indices_buffer,
+                .n_valid_tracks = n_valid_tracks_device.get()});
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
         // Global counter object: Device -> Host

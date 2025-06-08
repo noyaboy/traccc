@@ -385,6 +385,7 @@ track_candidate_container_types::buffer find_tracks(
                         kernels::propagate_to_next_surface<kernel_t>>(
                         calculate1DimNdRange(n_candidates, 64),
                         [config, det, field,
+                         propagator = propagator_type(config.propagation),
                          in_params = vecmem::get_data(in_params_buffer),
                          param_liveness =
                              vecmem::get_data(param_liveness_buffer),
@@ -401,7 +402,8 @@ track_candidate_container_types::buffer find_tracks(
                                 details::global_index(item), config,
                                 {det, field, in_params, param_liveness,
                                  param_ids, links_view, prev_links_idx, step,
-                                 n_candidates, tips, n_tracks_per_seed});
+                                 n_candidates, tips, n_tracks_per_seed,
+                                 propagator});
                         });
                 })
                 .wait_and_throw();
