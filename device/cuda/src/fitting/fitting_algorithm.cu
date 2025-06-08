@@ -40,7 +40,19 @@ template <typename fitter_t>
 __global__ void fit(const typename fitter_t::config_type cfg,
                     const device::fit_payload<fitter_t> payload) {
 
-    device::fit<fitter_t>(details::global_index1(), cfg, payload);
+    extern __shared__ unsigned int s_param_ids[];
+    vecmem::device_vector<const unsigned int> param_ids(payload.param_ids_view);
+
+    const unsigned int global_idx = details::global_index1();
+    if (global_idx < param_ids.size()) {
+        s_param_ids[threadIdx.x] = param_ids.at(global_idx);
+    }
+    __syncthreads();
+
+    if (global_idx < param_ids.size()) {
+        device::fit<fitter_t>(details::global_index1(), cfg, payload,
+                              s_param_ids[threadIdx.x]);
+    }
 }
 
 }  // namespace kernels
@@ -122,7 +134,8 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                             param_ids_device.begin());
 
         // Run the track fitting
-        kernels::fit<fitter_t><<<nBlocks, nThreads, 0, stream>>>(
+        kernels::fit<fitter_t><<<nBlocks, nThreads,
+                                  nThreads * sizeof(unsigned int), stream>>>(
             m_cfg, device::fit_payload<fitter_t>{
                        .det_data = det_view,
                        .field_data = field_view,

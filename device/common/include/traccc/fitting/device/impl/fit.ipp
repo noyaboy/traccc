@@ -33,6 +33,28 @@ TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
 
     const unsigned int param_id = param_ids.at(globalIndex);
 
+    fit<fitter_t>(globalIndex, cfg, payload, param_id);
+}
+
+template <typename fitter_t>
+TRACCC_HOST_DEVICE inline void fit(const global_index_t globalIndex,
+                                   const typename fitter_t::config_type cfg,
+                                   const fit_payload<fitter_t>& payload,
+                                   unsigned int param_id) {
+
+    typename fitter_t::detector_type det(payload.det_data);
+
+    track_candidate_container_types::const_device track_candidates(
+        payload.track_candidates_view);
+
+    track_state_container_types::device track_states(payload.track_states_view);
+
+    fitter_t fitter(det, payload.field_data, cfg);
+
+    if (globalIndex >= track_states.size()) {
+        return;
+    }
+
     // Track candidates per track
     const auto& track_candidates_per_track =
         track_candidates.at(param_id).items;

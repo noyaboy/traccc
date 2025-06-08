@@ -349,7 +349,8 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                     (n_candidates + nThreads - 1) / nThreads;
                 kernels::propagate_to_next_surface<
                     std::decay_t<propagator_type>, std::decay_t<bfield_type>>
-                    <<<nBlocks, nThreads, 0, stream>>>(
+                    <<<nBlocks, nThreads,
+                       nThreads * sizeof(unsigned int), stream>>>(
                         device::propagate_to_next_surface_payload<
                             std::decay_t<propagator_type>,
                             std::decay_t<bfield_type>>{
