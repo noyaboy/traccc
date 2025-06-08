@@ -13,6 +13,7 @@
 // Local include(s).
 #include "../../../utils/barrier.hpp"
 #include "../../../utils/thread_id.hpp"
+#include "../kernel_config.cuh"
 
 // System include(s).
 #include <utility>
@@ -20,8 +21,8 @@
 namespace traccc::cuda::kernels {
 
 template <typename detector_t>
-__global__ void find_tracks(const finding_config cfg,
-                            device::find_tracks_payload<detector_t> payload) {
+__global__ void find_tracks(
+    device::find_tracks_payload<detector_t> payload) {
     __shared__ unsigned int shared_candidates_size;
     extern __shared__ unsigned int s[];
     unsigned int* shared_num_candidates = s;
@@ -33,7 +34,7 @@ __global__ void find_tracks(const finding_config cfg,
     details::thread_id1 thread_id;
 
     device::find_tracks<detector_t>(
-        thread_id, barrier, cfg, payload,
+        thread_id, barrier, g_finding_cfg, payload,
         {shared_num_candidates, shared_candidates, shared_candidates_size});
 }
 }  // namespace traccc::cuda::kernels

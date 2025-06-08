@@ -13,6 +13,5 @@
 
 namespace traccc::cuda::kernels {
 template __global__ void find_tracks<traccc::default_detector::device>(
-    const finding_config cfg,
     device::find_tracks_payload<traccc::default_detector::device> payload);
 }

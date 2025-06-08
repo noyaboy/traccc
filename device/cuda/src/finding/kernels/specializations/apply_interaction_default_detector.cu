@@ -12,7 +12,6 @@
 namespace traccc::cuda::kernels {
 
 template __global__ void apply_interaction<traccc::default_detector::device>(
-    const finding_config,
     device::apply_interaction_payload<traccc::default_detector::device>);
 
 }

@@ -9,11 +9,11 @@
 
 // Project include(s).
 #include "traccc/finding/device/find_tracks.hpp"
-#include "traccc/finding/finding_config.hpp"
+#include "kernel_config.cuh"
 
 namespace traccc::cuda::kernels {
 
 template <typename detector_t>
-__global__ void find_tracks(const finding_config cfg,
-                            device::find_tracks_payload<detector_t> payload);
+__global__ void find_tracks(
+    device::find_tracks_payload<detector_t> payload);
 }  // namespace traccc::cuda::kernels
