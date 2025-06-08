@@ -83,7 +83,7 @@ class kalman_fitter {
     TRACCC_HOST_DEVICE
     kalman_fitter(const detector_type& det, const bfield_type& field,
                   const config_type& cfg)
-        : m_detector(det), m_field(field), m_cfg(cfg) {}
+        : kalman_fitter(detray::get_data(det), field, cfg) {}
 
     /// Constructor using a detector view
     ///
