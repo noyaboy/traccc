@@ -41,6 +41,11 @@ __global__ void fit(const typename fitter_t::config_type cfg,
                     const device::fit_payload<fitter_t> payload) {
 
     device::fit<fitter_t>(details::global_index1(), cfg, payload);
+
+#ifdef __CUDA_ARCH__
+    // Block-level synchronization to release registers early
+    __syncthreads();
+#endif
 }
 
 }  // namespace kernels
