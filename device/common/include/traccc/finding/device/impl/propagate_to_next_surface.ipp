@@ -49,6 +49,10 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     vecmem::device_vector<unsigned int> params_liveness(
         payload.params_liveness_view);
 
+    if (params_liveness[param_id] == 0u) {
+        return;
+    }
+
     if (s_pos >= cfg.max_num_branches_per_seed) {
         params_liveness[param_id] = 0u;
         return;
