@@ -85,6 +85,14 @@ class kalman_fitter {
                   const config_type& cfg)
         : m_detector(det), m_field(field), m_cfg(cfg) {}
 
+    /// Constructor using a detector view
+    ///
+    /// @param det_view View of the detector object
+    TRACCC_HOST_DEVICE
+    kalman_fitter(const typename detector_type::view_type& det_view,
+                  const bfield_type& field, const config_type& cfg)
+        : m_detector(det_view), m_field(field), m_cfg(cfg) {}
+
     /// Kalman fitter state
     struct state {
 
@@ -206,8 +214,7 @@ class kalman_fitter {
             return res;
 
         // ---------- Stage 2 : update  ----------
-        if ((res = update_stage(fitter_state)) !=
-            kalman_fitter_status::SUCCESS)
+        if ((res = update_stage(fitter_state)) != kalman_fitter_status::SUCCESS)
             return res;
 
         // ---------- Stage 3 : finalize ----------
@@ -219,8 +226,7 @@ class kalman_fitter {
     //============================================================
     template <typename seed_parameters_t>
     [[nodiscard]] TRACCC_HOST_DEVICE kalman_fitter_status
-    predict_stage(const seed_parameters_t& seed_params,
-                  state&                     fitter_state) {
+    predict_stage(const seed_parameters_t& seed_params, state& fitter_state) {
 
         // Create propagator
         forward_propagator_type propagator(m_cfg.propagation);
@@ -243,10 +249,10 @@ class kalman_fitter {
         //  Run forward prediction
         propagator.propagate(propagation, fitter_state());
 
-        //  Block-level synchronization to release registers early
-        #ifdef __CUDA_ARCH__
-            __syncthreads();
-        #endif
+//  Block-level synchronization to release registers early
+#ifdef __CUDA_ARCH__
+        __syncthreads();
+#endif
         return kalman_fitter_status::SUCCESS;
     }
 
@@ -262,9 +268,9 @@ class kalman_fitter {
             return res;
         }
 
-        #ifdef __CUDA_ARCH__
-            __syncthreads();
-        #endif
+#ifdef __CUDA_ARCH__
+        __syncthreads();
+#endif
         return kalman_fitter_status::SUCCESS;
     }
 
@@ -433,7 +439,7 @@ class kalman_fitter {
 
     private:
     // Detector object
-    const detector_type& m_detector;
+    detector_type m_detector;
     // Field object
     const bfield_type m_field;
 
