@@ -139,6 +139,9 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
         thrust::sort_by_key(thrustExecPolicy, keys_device.begin(),
                             keys_device.end(), param_ids_device.begin());
 
+        // Construct fitter once on the host and pass it to the kernel
+        fitter_t fitter(det_view, field_view, m_cfg);
+
         // Prepare the payload for the track fitting
         device::fit_payload<fitter_t> payload{
             .det_data = det_view,
@@ -146,7 +149,8 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
             .track_candidates_view = track_candidates_view,
             .param_ids_view = vecmem::get_data(param_ids_buffer),
             .track_states_view = track_states_view,
-            .barcodes_view = vecmem::get_data(seqs_buffer)};
+            .barcodes_view = vecmem::get_data(seqs_buffer),
+            .fitter = fitter};
         auto bufHost_fitPayload =
             ::alpaka::allocBuf<device::fit_payload<fitter_t>, Idx>(devHost, 1u);
         device::fit_payload<fitter_t>* fitPayload =

@@ -49,6 +49,9 @@ struct fit_payload {
      * @brief View object to the output barcode sequence
      */
     vecmem::data::jagged_vector_view<detray::geometry::barcode> barcodes_view;
+
+    /// Pre-initialised fitter object used for the track fitting
+    fitter_t fitter;
 };
 
 /// Function used for fitting a track for a given track candidates
