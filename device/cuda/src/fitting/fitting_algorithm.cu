@@ -9,6 +9,7 @@
 #include "../utils/cuda_error_handling.hpp"
 #include "../utils/global_index.hpp"
 #include "../utils/utils.hpp"
+#include "kernels/kernel_config.cuh"
 #include "traccc/cuda/fitting/fitting_algorithm.hpp"
 #include "traccc/fitting/device/fill_sort_keys.hpp"
 #include "traccc/fitting/device/fit.hpp"
@@ -37,8 +38,7 @@ __global__ void fill_sort_keys(
 }
 
 template <typename fitter_t>
-__global__ void fit(const typename fitter_t::config_type cfg,
-                    const device::fit_payload<fitter_t> payload) {
+__global__ void fit(const device::fit_payload<fitter_t> payload) {
 
     extern __shared__ unsigned int s_param_ids[];
     vecmem::device_vector<const unsigned int> param_ids(payload.param_ids_view);
@@ -50,7 +50,7 @@ __global__ void fit(const typename fitter_t::config_type cfg,
     __syncthreads();
 
     if (global_idx < param_ids.size()) {
-        device::fit<fitter_t>(details::global_index1(), cfg, payload,
+        device::fit<fitter_t>(details::global_index1(), g_fitting_cfg, payload,
                               s_param_ids[threadIdx.x]);
     }
 }
@@ -77,6 +77,9 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
 
     // Get a convenience variable for the stream that we'll be using.
     cudaStream_t stream = details::get_stream(m_stream);
+
+    // Load config into constant memory
+    kernels::load_fitting_config(m_cfg);
 
     // Number of tracks
     const track_candidate_container_types::const_device::header_vector::
@@ -134,15 +137,15 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                             param_ids_device.begin());
 
         // Run the track fitting
-        kernels::fit<fitter_t><<<nBlocks, nThreads,
-                                  nThreads * sizeof(unsigned int), stream>>>(
-            m_cfg, device::fit_payload<fitter_t>{
-                       .det_data = det_view,
-                       .field_data = field_view,
-                       .track_candidates_view = track_candidates_view,
-                       .param_ids_view = param_ids_buffer,
-                       .track_states_view = track_states_buffer,
-                       .barcodes_view = seqs_buffer});
+        kernels::fit<fitter_t>
+            <<<nBlocks, nThreads, nThreads * sizeof(unsigned int), stream>>>(
+                device::fit_payload<fitter_t>{
+                    .det_data = det_view,
+                    .field_data = field_view,
+                    .track_candidates_view = track_candidates_view,
+                    .param_ids_view = param_ids_buffer,
+                    .track_states_view = track_states_buffer,
+                    .barcodes_view = seqs_buffer});
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
     }
 

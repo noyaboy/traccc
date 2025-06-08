@@ -13,6 +13,7 @@
 #include "../utils/thread_id.hpp"
 #include "../utils/utils.hpp"
 #include "./kernels/ccl_kernel.cuh"
+#include "./kernels/kernel_config.cuh"
 #include "traccc/clusterization/clustering_config.hpp"
 #include "traccc/clusterization/device/ccl_kernel_definitions.hpp"
 #include "traccc/cuda/clusterization/clusterization_algorithm.hpp"
@@ -53,6 +54,9 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
 
     // Get a convenience variable for the stream that we'll be using.
     cudaStream_t stream = details::get_stream(m_stream);
+
+    // Load config into constant memory
+    kernels::load_clustering_config(m_config);
 
     // Get the number of cells
     const edm::silicon_cell_collection::const_view::size_type num_cells =
@@ -95,9 +99,9 @@ clusterization_algorithm::output_type clusterization_algorithm::operator()(
     kernels::ccl_kernel<<<num_blocks, m_config.threads_per_partition,
                           2 * m_config.max_partition_size() *
                               sizeof(device::details::index_t),
-                          stream>>>(
-        m_config, cells, det_descr, measurements, cell_links, m_f_backup,
-        m_gf_backup, m_adjc_backup, m_adjv_backup, m_backup_mutex.get());
+                          stream>>>(cells, det_descr, measurements, cell_links,
+                                    m_f_backup, m_gf_backup, m_adjc_backup,
+                                    m_adjv_backup, m_backup_mutex.get());
     TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
     // Return the reconstructed measurements.
