@@ -121,6 +121,9 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                             keys_device.begin(), keys_device.end(),
                             param_ids_device.begin());
 
+        // Construct fitter once on the host and pass it to the kernel
+        fitter_t fitter(det_view, field_view, m_cfg);
+
         // Run the track fitting
         kernels::fit<fitter_t><<<nBlocks, nThreads, 0, stream>>>(
             m_cfg, device::fit_payload<fitter_t>{
@@ -129,7 +132,8 @@ track_state_container_types::buffer fitting_algorithm<fitter_t>::operator()(
                        .track_candidates_view = track_candidates_view,
                        .param_ids_view = param_ids_buffer,
                        .track_states_view = track_states_buffer,
-                       .barcodes_view = seqs_buffer});
+                       .barcodes_view = seqs_buffer,
+                       .fitter = fitter});
         TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
     }
 

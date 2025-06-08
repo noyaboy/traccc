@@ -147,8 +147,9 @@ track_state_container_types::buffer fit_tracks(
                      .track_candidates_view = track_candidates_view,
                      .param_ids_view = vecmem::get_data(param_ids_buffer),
                      .track_states_view = track_states_view,
-                     .barcodes_view = vecmem::get_data(
-                         seqs_buffer)}](::sycl::nd_item<1> item) {
+                     .barcodes_view = vecmem::get_data(seqs_buffer),
+                     .fitter = fitter_t(det_view, field_view, config)}](
+                    ::sycl::nd_item<1> item) {
                     device::fit<fitter_t>(details::global_index(item), config,
                                           payload);
                 });
