@@ -77,11 +77,11 @@ TRACCC_DEVICE void fast_sv_1(const thread_id_t& thread_id,
 
             TRACCC_ASSUME(adjc[tst] <= 8);
             for (unsigned char k = 0; k < adjc[tst]; ++k) {
-                details::index_t q = gf.at(adjv[8 * tst + k]);
+                details::index_t q = gf[adjv[8 * tst + k]];
 
-                if (gf.at(cid) > q) {
-                    f.at(f.at(cid)) = q;
-                    f.at(cid) = q;
+                if (f[cid] > q) {
+                    f[f[cid]] = q;
+                    f[cid] = q;
                 }
             }
         }
@@ -100,8 +100,8 @@ TRACCC_DEVICE void fast_sv_1(const thread_id_t& thread_id,
              * allows us to look at any shortcuts in the cluster IDs that we
              * can merge without adjacency information.
              */
-            if (f.at(cid) > gf.at(cid)) {
-                f.at(cid) = gf.at(cid);
+            if (f[cid] > gf[cid]) {
+                f[cid] = gf[cid];
             }
         }
 
@@ -117,8 +117,8 @@ TRACCC_DEVICE void fast_sv_1(const thread_id_t& thread_id,
              * Update the array for the next generation, keeping track of any
              * changes we make.
              */
-            if (gf.at(cid) != f.at(f.at(cid))) {
-                gf.at(cid) = f.at(f.at(cid));
+            if (gf[cid] != f[f[cid]]) {
+                gf[cid] = f[f[cid]];
                 gf_changed = true;
             }
         }
@@ -175,8 +175,8 @@ TRACCC_DEVICE inline void ccl_core(
          * At the start, the values of f and gf should be equal to the
          * ID of the cell.
          */
-        f.at(cid) = cid;
-        gf.at(cid) = cid;
+        f[cid] = cid;
+        gf[cid] = cid;
     }
 
     /*
@@ -196,7 +196,7 @@ TRACCC_DEVICE inline void ccl_core(
     for (details::index_t tst = 0; tst < thread_cell_count; ++tst) {
         const auto cid = static_cast<details::index_t>(
             tst * thread_id.getBlockDimX() + thread_id.getLocalThreadIdX());
-        if (f.at(cid) == cid) {
+        if (f[cid] == cid) {
             // Add a new measurement to the output buffer. Remembering its
             // position inside of the container.
             const measurement_collection_types::device::size_type meas_pos =
