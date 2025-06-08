@@ -15,13 +15,12 @@
 #include "traccc/edm/track_parameters.hpp"
 #include "traccc/finding/candidate_link.hpp"
 #include "traccc/finding/device/build_tracks.hpp"
-#include "traccc/finding/finding_config.hpp"
+#include "kernel_config.cuh"
 
 namespace traccc::cuda::kernels {
 
-__global__ void build_tracks(const finding_config cfg,
-                             device::build_tracks_payload payload) {
+__global__ void build_tracks(device::build_tracks_payload payload) {
 
-    device::build_tracks(details::global_index1(), cfg, payload);
+    device::build_tracks(details::global_index1(), g_finding_cfg, payload);
 }
 }  // namespace traccc::cuda::kernels
