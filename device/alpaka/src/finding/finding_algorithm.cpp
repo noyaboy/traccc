@@ -355,9 +355,12 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                     ::alpaka::allocBuf<PayloadType, Idx>(devHost, 1u);
                 PayloadType* payload = ::alpaka::getPtrNative(bufHost_payload);
 
+                propagator_type propagator(m_cfg.propagation);
+
                 new (payload) PayloadType{
                     .det_data = det_view,
                     .field_data = field_view,
+                    .propagator = propagator,
                     .params_view = vecmem::get_data(in_params_buffer),
                     .params_liveness_view =
                         vecmem::get_data(param_liveness_buffer),

@@ -81,8 +81,8 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // Input bound track parameter
     const bound_track_parameters<> in_par = params.at(param_id);
 
-    // Create propagator
-    propagator_t propagator(cfg.propagation);
+    // Use the pre-initialised propagator to avoid per-thread construction
+    const propagator_t& propagator = payload.propagator;
 
     // Create propagator state
     typename propagator_t::state propagation(in_par, payload.field_data, det);
