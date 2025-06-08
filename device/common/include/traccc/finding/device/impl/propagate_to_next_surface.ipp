@@ -30,6 +30,15 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
 
     const unsigned int param_id = param_ids.at(globalIndex);
 
+    propagate_to_next_surface(globalIndex, cfg, payload, param_id);
+}
+
+template <typename propagator_t, typename bfield_t>
+TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
+    const global_index_t globalIndex, const finding_config& cfg,
+    const propagate_to_next_surface_payload<propagator_t, bfield_t>& payload,
+    unsigned int param_id) {
+
     // Number of tracks per seed
     vecmem::device_vector<unsigned int> n_tracks_per_seed(
         payload.n_tracks_per_seed_view);

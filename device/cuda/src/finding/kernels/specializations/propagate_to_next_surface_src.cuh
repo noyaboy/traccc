@@ -21,8 +21,20 @@ template <typename propagator_t, typename bfield_t>
 __global__ void propagate_to_next_surface(
     device::propagate_to_next_surface_payload<propagator_t, bfield_t> payload) {
 
-    device::propagate_to_next_surface<propagator_t, bfield_t>(
-        details::global_index1(), g_finding_cfg, payload);
+    extern __shared__ unsigned int s_param_ids[];
+    vecmem::device_vector<const unsigned int> param_ids(payload.param_ids_view);
+
+    const unsigned int global_idx = details::global_index1();
+    if (global_idx < param_ids.size()) {
+        s_param_ids[threadIdx.x] = param_ids.at(global_idx);
+    }
+    __syncthreads();
+
+    if (global_idx < param_ids.size()) {
+        device::propagate_to_next_surface<propagator_t, bfield_t>(
+            details::global_index1(), g_finding_cfg, payload,
+            s_param_ids[threadIdx.x]);
+    }
 }
 
 }  // namespace traccc::cuda::kernels

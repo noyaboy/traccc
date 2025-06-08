@@ -64,6 +64,12 @@ TRACCC_HOST_DEVICE inline void fit(global_index_t globalIndex,
                                    const typename fitter_t::config_type cfg,
                                    const fit_payload<fitter_t>&);
 
+template <typename fitter_t>
+TRACCC_HOST_DEVICE inline void fit(global_index_t globalIndex,
+                                   const typename fitter_t::config_type cfg,
+                                   const fit_payload<fitter_t>&,
+                                   unsigned int param_id);
+
 }  // namespace traccc::device
 
 // Include the implementation.
