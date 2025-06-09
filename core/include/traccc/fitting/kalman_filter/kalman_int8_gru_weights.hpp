@@ -1,6 +1,11 @@
 #pragma once
 #include <cstdint>
+
 namespace traccc::fitting::detail {
+
+// Primary template - left undefined on purpose
+template <std::size_t D> struct gru_int8_weights;
+
 template <> struct gru_int8_weights<1> {
     static constexpr std::size_t InputSize = 49;
     static constexpr std::int8_t W0[64][49] = {
