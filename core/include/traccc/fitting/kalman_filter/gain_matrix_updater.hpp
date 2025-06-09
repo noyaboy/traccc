@@ -112,9 +112,10 @@ struct gain_matrix_updater {
             H * predicted_cov * matrix::transpose(H) + V;
 
         /* Kalman gain via 兩層 GRU KalmanNet surrogate（INT8 TensorCore 版）—
-         * 使用攤平並串接 predicted_vec、predicted_cov、H、V 作為輸入 */
-        matrix_type<6, D> K;
-        {
+         * 使用攤平並串接 predicted_vec、predicted_cov、H、V 作為輸入。
+         * 此 GRU 權重僅支援二維量測，否則回退至解析解計算。 */
+        matrix_type<6, D> K{};
+        if constexpr (D == 2u) {
             using Predictor = traccc::fitting::kalman_int8_gru_gain_predictor<algebra_t, D>;
             constexpr auto N = Predictor::InputSize;
             // 建立 1×N 的輸入向量
@@ -126,7 +127,7 @@ struct gain_matrix_updater {
                 idx = idx + 1;
             }
             // 2) Predicted covariance P (6×6 elements, row-major)
-            for (size_type r = 0; r < 6; ++r) 
+            for (size_type r = 0; r < 6; ++r)
                 for (size_type c = 0; c < 6; ++c) {
                     gru_input[0][idx] = predicted_cov[r][c];
                     idx = idx + 1;
@@ -145,6 +146,9 @@ struct gain_matrix_updater {
                 }
             // 呼叫 GRU predictor
             K = Predictor::eval(gru_input);
+        } else {
+            // 回退至解析解計算 Kalman 增益
+            K = predicted_cov * matrix::transpose(H) * matrix::inverse(M);
         }
 
         // Calculate the filtered track parameters
