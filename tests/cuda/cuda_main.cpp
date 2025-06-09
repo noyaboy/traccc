@@ -14,12 +14,21 @@ int main(int argc, char** argv) {
 
     int r = RUN_ALL_TESTS();
 
-    cudaError_t cErr = cudaDeviceReset();
+    // When Google Test is only listing the available tests, avoid calling
+    // ``cudaDeviceReset``. Some CUDA setups report an error code on this call
+    // without a device having been initialised, causing the test discovery
+    // phase in CMake to fail. Skipping the reset in this case prevents
+    // spurious errors while leaving normal test execution unchanged.
+    if (!testing::GTEST_FLAG(list_tests)) {
+        cudaError_t cErr = cudaDeviceReset();
 
-    if (cErr == cudaSuccess || cErr == cudaErrorNoDevice ||
-        cErr == cudaErrorInsufficientDriver) {
-        return r;
-    } else {
-        return static_cast<int>(cErr);
+        if (cErr == cudaSuccess || cErr == cudaErrorNoDevice ||
+            cErr == cudaErrorInsufficientDriver) {
+            return r;
+        } else {
+            return static_cast<int>(cErr);
+        }
     }
+
+    return r;
 }
