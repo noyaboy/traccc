@@ -13,72 +13,55 @@
  */
 #pragma once
 
-#include <cstdint>
-#include <cstddef>
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #ifdef __CUDACC__
-#include <cuda_runtime.h>   // __dp4a
+#include <cuda_runtime.h>  // __dp4a
 #endif
 #include "traccc/definitions/qualifiers.hpp"
+#include "traccc/fitting/kalman_filter/kalman_int8_gru_gain_weights.hpp"
 
 namespace traccc::fitting {
 
 #ifndef TRACCC_ALWAYS_INLINE
-#   if defined(__CUDA_ARCH__)
-#       define TRACCC_ALWAYS_INLINE __forceinline__
-#   elif defined(__GNUC__) || defined(__clang__)
-#       define TRACCC_ALWAYS_INLINE inline __attribute__((always_inline))
-#   else
-#       define TRACCC_ALWAYS_INLINE inline
-#   endif
+#if defined(__CUDA_ARCH__)
+#define TRACCC_ALWAYS_INLINE __forceinline__
+#elif defined(__GNUC__) || defined(__clang__)
+#define TRACCC_ALWAYS_INLINE inline __attribute__((always_inline))
+#else
+#define TRACCC_ALWAYS_INLINE inline
+#endif
 #endif
 
 template <typename algebra_t, std::size_t D>
 struct kalman_int8_gru_gain_predictor {
 
     using size_type = detray::dsize_type<algebra_t>;
-    using qscalar   = std::int8_t;     ///< INT8 quantised值
-    using accum_t   = std::int32_t;    ///< INT32 累加器
+    using qscalar = std::int8_t;   ///< INT8 quantised值
+    using accum_t = std::int32_t;  ///< INT32 累加器
     template <size_type R, size_type C>
     using matrix_type = detray::dmatrix<algebra_t, R, C>;
 
     // InputSize = 6（predicted_vec） + 6×6（P） + D×6（H） + D×D（V）
-    static constexpr size_type InputSize  = 6      // predicted_vec
-                                          + 6*6    // P covariance
-                                          + 6*D    // H projector
-                                          + D*D;   // V measurement cov
+    static constexpr size_type InputSize = 6         // predicted_vec
+                                           + 6 * 6   // P covariance
+                                           + 6 * D   // H projector
+                                           + D * D;  // V measurement cov
     static constexpr size_type HiddenSize1 = 64;
     static constexpr size_type HiddenSize2 = 32;
-    static constexpr float     kScale     = 127.0f;
-
-    /* ────────────── compile-time 隨機權重產生 ────────────── */
-    TRACCC_HOST_DEVICE constexpr static
-    float rnd(std::size_t i) {
-        float x = 0.f, denom = 1.f;
-        for (std::size_t n = i + 1; n; n >>= 1U) {
-            denom *= 2.f;
-            if (n & 1U) x += 1.f / denom;
-        }
-        return 0.1f * (x - 0.5f);
-    }
-    TRACCC_HOST_DEVICE constexpr static
-    qscalar qrnd(std::size_t i) {
-        const float q = rnd(i) * kScale;
-        return static_cast<qscalar>(q >= 0 ? (q > 127.f ? 127 : q + 0.5f)
-                                           : (q < -128.f ? -128 : q - 0.5f));
-    }
+    static constexpr float kScale = 127.0f;
 
     /* 簡易 INT32 tanh 近似：y = x / (1 + |x|) (右移 7 位近似除以 128) */
-    TRACCC_HOST_DEVICE static inline
-    accum_t relu(accum_t x) {
+    TRACCC_HOST_DEVICE static inline accum_t relu(accum_t x) {
         const accum_t ax = x >= 0 ? x : 0;
         return ax;
     }
 
     /* ─────────────── forward ─────────────── */
     template <typename vec6_t>
-    TRACCC_HOST_DEVICE TRACCC_ALWAYS_INLINE static
-    matrix_type<6, D> eval(const vec6_t& __restrict__ x_f32) {
+    TRACCC_HOST_DEVICE TRACCC_ALWAYS_INLINE static matrix_type<6, D> eval(
+        const vec6_t& __restrict__ x_f32) {
 
         /* (1) 量化輸入 */
         qscalar x_q[InputSize];
@@ -88,9 +71,14 @@ struct kalman_int8_gru_gain_predictor {
 #endif
         for (size_type i = 0; i < InputSize; ++i) {
             float q = x_f32[0][i] * kScale;
-            x_q[i] = static_cast<qscalar>(q >= 0 ? (q > 127.f ? 127 : q + 0.5f)
-                                                 : (q < -128.f ? -128 : q - 0.5f));
+            x_q[i] =
+                static_cast<qscalar>(q >= 0 ? (q > 127.f ? 127 : q + 0.5f)
+                                            : (q < -128.f ? -128 : q - 0.5f));
         }
+
+        const qscalar* W0 = (D == 1u) ? details::W0_D1 : details::W0_D2;
+        const qscalar* W1 = details::W1;
+        const qscalar* W2 = (D == 1u) ? details::W2_D1 : details::W2_D2;
 
         /* (2) GRU-0 linear */
         qscalar h0_q[HiddenSize1];
@@ -101,16 +89,14 @@ struct kalman_int8_gru_gain_predictor {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             for (size_type j = 0; j < InputSize; j += 4) {
-                const accum_t w = (static_cast<unsigned char>(qrnd(i*InputSize+j    ))      ) |
-                                  (static_cast<unsigned char>(qrnd(i*InputSize+j + 1)) <<  8) |
-                                  (static_cast<unsigned char>(qrnd(i*InputSize+j + 2)) << 16) |
-                                  (static_cast<unsigned char>(qrnd(i*InputSize+j + 3)) << 24);
+                const accum_t w =
+                    *reinterpret_cast<const int*>(&W0[i * InputSize + j]);
                 const accum_t v = *reinterpret_cast<const int*>(&x_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
             for (size_type j = 0; j < InputSize; ++j)
-                acc += static_cast<accum_t>(qrnd(i*InputSize + j)) *
+                acc += static_cast<accum_t>(W0[i * InputSize + j]) *
                        static_cast<accum_t>(x_q[j]);
 #endif
             const accum_t act = relu(acc);
@@ -126,16 +112,14 @@ struct kalman_int8_gru_gain_predictor {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             for (size_type j = 0; j < HiddenSize1; j += 4) {
-                const accum_t w = (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize1+j    ))      ) |
-                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize1+j+1)) <<  8) |
-                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize1+j+2)) << 16) |
-                                  (static_cast<unsigned char>(qrnd(5000 + i*HiddenSize1+j+3)) << 24);
+                const accum_t w =
+                    *reinterpret_cast<const int*>(&W1[i * HiddenSize1 + j]);
                 const accum_t v = *reinterpret_cast<const int*>(&h0_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
             for (size_type j = 0; j < HiddenSize1; ++j)
-                acc += static_cast<accum_t>(qrnd(5000 + i*HiddenSize1 + j)) *
+                acc += static_cast<accum_t>(W1[i * HiddenSize1 + j]) *
                        static_cast<accum_t>(h0_q[j]);
 #endif
             const accum_t act = relu(acc);
@@ -156,16 +140,14 @@ struct kalman_int8_gru_gain_predictor {
                 accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
                 for (size_type j = 0; j < HiddenSize2; j += 4) {
-                    const accum_t w = (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize2+j    ))      ) |
-                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize2+j+1)) <<  8) |
-                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize2+j+2)) << 16) |
-                                      (static_cast<unsigned char>(qrnd(40000 + o*HiddenSize2+j+3)) << 24);
+                    const accum_t w =
+                        *reinterpret_cast<const int*>(&W2[o * HiddenSize2 + j]);
                     const accum_t v = *reinterpret_cast<const int*>(&h1_q[j]);
                     acc = __dp4a(w, v, acc);
                 }
 #else
                 for (size_type j = 0; j < HiddenSize2; ++j)
-                    acc += static_cast<accum_t>(qrnd(40000 + o*HiddenSize2 + j)) *
+                    acc += static_cast<accum_t>(W2[o * HiddenSize2 + j]) *
                            static_cast<accum_t>(h1_q[j]);
 #endif
                 K[c][r] = static_cast<float>(acc) / (kScale * kScale);
@@ -174,4 +156,4 @@ struct kalman_int8_gru_gain_predictor {
     }
 };
 
-} // namespace traccc::fitting
+}  // namespace traccc::fitting
