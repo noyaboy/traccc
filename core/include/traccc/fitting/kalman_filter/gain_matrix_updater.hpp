@@ -12,6 +12,7 @@
 #include "traccc/definitions/track_parametrization.hpp"
 #include "traccc/edm/track_state.hpp"
 #include "traccc/fitting/status_codes.hpp"
+#include "traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor.hpp"
 
 // Detray inlcude(s)
 #include <detray/geometry/shapes/line.hpp>
@@ -105,12 +106,50 @@ struct gain_matrix_updater {
         const matrix_type<D, D> V =
             trk_state.template measurement_covariance<D>();
 
-        const matrix_type<D, D> M =
+        /* 以 KalmanNet-GRU 取代解析解後，M 僅供後續可能診斷，
+         * 加上 [[maybe_unused]] 以避免 -Werror=unused-variable。        */
+        [[maybe_unused]] const matrix_type<D, D> M =
             H * predicted_cov * matrix::transpose(H) + V;
 
-        // Kalman gain matrix
-        const matrix_type<6, D> K =
-            predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+        /* Kalman gain via 兩層 GRU KalmanNet surrogate（INT8 TensorCore 版）—
+         * 使用攤平並串接 predicted_vec、predicted_cov、H、V 作為輸入。
+         * 此 GRU 權重僅支援二維量測，否則回退至解析解計算。 */
+        matrix_type<6, D> K{};
+        if constexpr (D == 2u) {
+            using Predictor = traccc::fitting::kalman_int8_gru_gain_predictor<algebra_t, D>;
+            constexpr auto N = Predictor::InputSize;
+            // 建立 1×N 的輸入向量
+            typename Predictor::template matrix_type<1, N> gru_input{};
+            size_type idx = 0;
+            // 1) Predicted state vector (6 elements)
+            for (size_type i = 0; i < 6; ++i) {
+                gru_input[0][idx] = predicted_vec[0][i];
+                idx = idx + 1;
+            }
+            // 2) Predicted covariance P (6×6 elements, row-major)
+            for (size_type r = 0; r < 6; ++r)
+                for (size_type c = 0; c < 6; ++c) {
+                    gru_input[0][idx] = predicted_cov[r][c];
+                    idx = idx + 1;
+                }
+            // 3) Projector matrix H (D×6 elements, row-major)
+            for (size_type r = 0; r < D; ++r)
+                for (size_type c = 0; c < 6; ++c) {
+                    gru_input[0][idx] = H[c][r];
+                    idx = idx + 1;
+                }
+            // 4) Measurement covariance V (D×D elements, row-major)
+            for (size_type r = 0; r < D; ++r)
+                for (size_type c = 0; c < D; ++c) {
+                    gru_input[0][idx] = V[r][c];
+                    idx = idx + 1;
+                }
+            // 呼叫 GRU predictor
+            K = Predictor::eval(gru_input);
+        } else {
+            // 回退至解析解計算 Kalman 增益
+            K = predicted_cov * matrix::transpose(H) * matrix::inverse(M);
+        }
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
