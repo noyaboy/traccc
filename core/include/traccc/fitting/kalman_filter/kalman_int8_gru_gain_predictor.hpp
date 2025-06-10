@@ -19,8 +19,8 @@
 #ifdef __CUDACC__
 #include <cuda_runtime.h>  // __dp4a
 #endif
-#include "traccc/definitions/qualifiers.hpp"
 #include "traccc/definitions/hints.hpp"
+#include "traccc/definitions/qualifiers.hpp"
 #include "traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor_weights.hpp"
 
 namespace traccc::fitting {
@@ -51,6 +51,9 @@ struct kalman_int8_gru_gain_predictor {
                                            + D * D;  // V measurement cov
     static constexpr size_type HiddenSize1 = 64;
     static constexpr size_type HiddenSize2 = 32;
+    static constexpr size_type InputStep = InputSize / 4;
+    static constexpr size_type HiddenStep1 = HiddenSize1 / 4;
+    static constexpr size_type HiddenStep2 = HiddenSize2 / 4;
     static constexpr float kScale = 127.0f;
     static constexpr float kInvScaleSquared = 1.0f / (kScale * kScale);
 
@@ -60,6 +63,15 @@ struct kalman_int8_gru_gain_predictor {
     TRACCC_HOST_DEVICE static inline accum_t relu(accum_t x) {
         const accum_t ax = x >= 0 ? x : 0;
         return ax;
+    }
+
+    TRACCC_HOST_DEVICE static inline qscalar saturate(accum_t x) {
+        x >>= 7;
+        if (x > 127)
+            x = 127;
+        if (x < -128)
+            x = -128;
+        return static_cast<qscalar>(x);
     }
 
     /* ─────────────── forward ─────────────── */
@@ -92,12 +104,14 @@ struct kalman_int8_gru_gain_predictor {
 #endif
                 ;
             const auto* Wp = reinterpret_cast<const int*>(W);
+            TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < InputSize; j += 4) {
-                const accum_t w = Wp[i * (InputSize / 4) + j / 4];
+                const accum_t w = Wp[i * InputStep + j / 4];
                 const accum_t v = *reinterpret_cast<const int*>(&x_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
+            TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < InputSize; ++j)
                 acc +=
                     static_cast<accum_t>(kalman_int8_gru_gain_predictor_weights<
@@ -105,7 +119,7 @@ struct kalman_int8_gru_gain_predictor {
                     static_cast<accum_t>(x_q[j]);
 #endif
             const accum_t act = relu(acc);
-            h0_q[i] = static_cast<qscalar>(std::clamp(act >> 7, -128, 127));
+            h0_q[i] = saturate(act);
         }
 
         /* (3) GRU-1 linear */
@@ -122,12 +136,14 @@ struct kalman_int8_gru_gain_predictor {
 #endif
                 ;
             const auto* Wp = reinterpret_cast<const int*>(W);
+            TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < HiddenSize1; j += 4) {
-                const accum_t w = Wp[i * (HiddenSize1 / 4) + j / 4];
+                const accum_t w = Wp[i * HiddenStep1 + j / 4];
                 const accum_t v = *reinterpret_cast<const int*>(&h0_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
+            TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < HiddenSize1; ++j)
                 acc += static_cast<accum_t>(
                            kalman_int8_gru_gain_predictor_weights<
@@ -135,7 +151,7 @@ struct kalman_int8_gru_gain_predictor {
                        static_cast<accum_t>(h0_q[j]);
 #endif
             const accum_t act = relu(acc);
-            h1_q[i] = static_cast<qscalar>(std::clamp(act >> 7, -128, 127));
+            h1_q[i] = saturate(act);
         }
 
         /* (4) Dense → 6×D Kalman gain (fp32 反量化) */
@@ -155,12 +171,14 @@ struct kalman_int8_gru_gain_predictor {
 #endif
                 ;
             const auto* Wp = reinterpret_cast<const int*>(W);
+            TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < HiddenSize2; j += 4) {
-                const accum_t w = Wp[o * (HiddenSize2 / 4) + j / 4];
+                const accum_t w = Wp[o * HiddenStep2 + j / 4];
                 const accum_t v = *reinterpret_cast<const int*>(&h1_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
+            TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < HiddenSize2; ++j)
                 acc += static_cast<accum_t>(
                            kalman_int8_gru_gain_predictor_weights<
