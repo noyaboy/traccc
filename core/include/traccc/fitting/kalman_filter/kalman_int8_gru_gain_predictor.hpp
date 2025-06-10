@@ -49,8 +49,8 @@ struct kalman_int8_gru_gain_predictor {
                                            + 6 * 6   // P covariance
                                            + 6 * D   // H projector
                                            + D * D;  // V measurement cov
-    static constexpr size_type HiddenSize1 = 64;
-    static constexpr size_type HiddenSize2 = 32;
+    static constexpr size_type HiddenSize1 = 32;
+    static constexpr size_type HiddenSize2 = 16;
     static constexpr size_type InputStep = (InputSize + 3) / 4;
     static constexpr size_type HiddenStep1 = HiddenSize1 / 4;
     static constexpr size_type HiddenStep2 = HiddenSize2 / 4;
@@ -118,8 +118,8 @@ struct kalman_int8_gru_gain_predictor {
             TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < InputStep * 4; ++j)
                 acc += static_cast<accum_t>(
-                           kalman_int8_gru_gain_predictor_weights<algebra_t, D>::
-                               W0[i * InputStep * 4 + j]) *
+                           kalman_int8_gru_gain_predictor_weights<
+                               algebra_t, D>::W0[i * InputStep * 4 + j]) *
                        static_cast<accum_t>(x_q[j]);
 #endif
             const accum_t act = relu(acc);
