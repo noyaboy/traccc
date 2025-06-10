@@ -110,8 +110,8 @@ struct kalman_int8_gru_gain_predictor {
             const auto* Wp = reinterpret_cast<const int*>(W);
             TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < InputStep * 4; j += 4) {
-                const accum_t w = Wp[i * InputStep + j / 4];
-                const accum_t v = *reinterpret_cast<const int*>(&x_q[j]);
+                const int w = __ldg(&Wp[i * InputStep + j / 4]);
+                const int v = *reinterpret_cast<const int*>(&x_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
@@ -142,8 +142,8 @@ struct kalman_int8_gru_gain_predictor {
             const auto* Wp = reinterpret_cast<const int*>(W);
             TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < HiddenSize1; j += 4) {
-                const accum_t w = Wp[i * HiddenStep1 + j / 4];
-                const accum_t v = *reinterpret_cast<const int*>(&h0_q[j]);
+                const int w = __ldg(&Wp[i * HiddenStep1 + j / 4]);
+                const int v = *reinterpret_cast<const int*>(&h0_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
@@ -177,8 +177,8 @@ struct kalman_int8_gru_gain_predictor {
             const auto* Wp = reinterpret_cast<const int*>(W);
             TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < HiddenSize2; j += 4) {
-                const accum_t w = Wp[o * HiddenStep2 + j / 4];
-                const accum_t v = *reinterpret_cast<const int*>(&h1_q[j]);
+                const int w = __ldg(&Wp[o * HiddenStep2 + j / 4]);
+                const int v = *reinterpret_cast<const int*>(&h1_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else

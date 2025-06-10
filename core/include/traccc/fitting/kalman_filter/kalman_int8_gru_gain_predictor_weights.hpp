@@ -4,15 +4,17 @@
 #include "traccc/definitions/qualifiers.hpp"
 
 // ------------------------------------------------------------
-// ①  真正放在「CUDA 常量記憶體」的權重；在 Host 端就是一般 const 陣列
+// ①  Weights stored in global memory for GPU execution;
+//    on the host they act as regular constant arrays
 // ------------------------------------------------------------
 
 namespace traccc::fitting::detail {
 
 // ------------------------------------------------------------
-// ①  真正放在「CUDA 常量記憶體」的權重；在 Host 端就是一般 const 陣列
+// ①  Weights stored in global memory for GPU execution;
+//    on the host they act as regular constant arrays
 // ------------------------------------------------------------
-TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline std::int8_t W0[1920] = {
+TRACCC_DEVICE TRACCC_ALIGN(4) inline const std::int8_t W0[1920] = {
     0, -3, 3, -5, 2, -2, 5, -6, 1, -2, 4, -4, 2, -1, 6, -6, 0, -3, 4, -4, 2, -1,
     5, -5, 1, -2, 4, -4, 3, 0,  6, -6, 0, -3, 3, -5, 2, -1, 5, -5, 1, -2, 4, -4,
     3, -1, 6, -6, 1, -3, 4, -4, 2, -1, 5, -5, 1, -2, 5, -3, 3, 0,  6, -6, 0, -3,
@@ -103,7 +105,7 @@ TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline std::int8_t W0[1920] = {
     5, -3, 3, 0,  6, -6,
 };
 
-TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline std::int8_t W1[512] = {
+TRACCC_DEVICE TRACCC_ALIGN(4) inline const std::int8_t W1[512] = {
     1, -2, 4, -4, 2, -1, 6, -6, 0, -3, 4, -4, 2, -1, 5, -5, 1, -2, 4, -3, 3, 0,
     6, -6, 0, -3, 3, -4, 2, -1, 5, -5, 1, -2, 4, -4, 3, -1, 6, -6, 1, -2, 4, -4,
     2, -1, 5, -5, 1, -2, 5, -3, 3, 0,  6, -6, 0, -3, 3, -5, 2, -1, 5, -5, 1, -2,
@@ -130,7 +132,7 @@ TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline std::int8_t W1[512] = {
     3, -5, 2, -2, 5, -5,
 };
 
-TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline std::int8_t W2[192] = {
+TRACCC_DEVICE TRACCC_ALIGN(4) inline const std::int8_t W2[192] = {
     0, -3, 3, -5, 2, -1, 5, -5, 1, -2, 4, -4, 2, -1, 6, -6, 1, -3, 4, -4, 2, -1,
     5, -5, 1, -2, 4, -3, 3, 0,  6, -6, 0, -3, 3, -4, 2, -1, 5, -5, 1, -2, 4, -4,
     3, 0,  6, -6, 1, -2, 4, -4, 2, -1, 5, -5, 1, -2, 5, -3, 3, 0,  6, -6, 0, -3,
