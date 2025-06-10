@@ -51,6 +51,7 @@ struct kalman_int8_gru_gain_predictor {
     static constexpr size_type HiddenSize1 = 64;
     static constexpr size_type HiddenSize2 = 32;
     static constexpr float kScale = 127.0f;
+    static constexpr float kInvScaleSquared = 1.0f / (kScale * kScale);
 
     static_assert(D == 2, "Offline weights are generated for D=2");
 
@@ -66,11 +67,9 @@ struct kalman_int8_gru_gain_predictor {
         const vec6_t& __restrict__ x_f32) {
 
         /* (1) 量化輸入 */
-        qscalar x_q[InputSize];
+        TRACCC_ALIGN(16) qscalar x_q[InputSize];
 
-#ifdef __CUDA_ARCH__
-#pragma unroll
-#endif
+        TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < InputSize; ++i) {
             float q = x_f32[0][i] * kScale;
             x_q[i] =
@@ -79,10 +78,8 @@ struct kalman_int8_gru_gain_predictor {
         }
 
         /* (2) GRU-0 linear */
-        qscalar h0_q[HiddenSize1];
-#ifdef __CUDA_ARCH__
-#pragma unroll
-#endif
+        TRACCC_ALIGN(16) qscalar h0_q[HiddenSize1];
+        TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize1; ++i) {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
@@ -111,10 +108,8 @@ struct kalman_int8_gru_gain_predictor {
         }
 
         /* (3) GRU-1 linear */
-        qscalar h1_q[HiddenSize2];
-#ifdef __CUDA_ARCH__
-#pragma unroll
-#endif
+        TRACCC_ALIGN(16) qscalar h1_q[HiddenSize2];
+        TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize2; ++i) {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
@@ -144,39 +139,35 @@ struct kalman_int8_gru_gain_predictor {
 
         /* (4) Dense → 6×D Kalman gain (fp32 反量化) */
         matrix_type<6, D> K{};
-#ifdef __CUDA_ARCH__
-#pragma unroll
-#endif
+        TRACCC_PRAGMA_UNROLL
         for (size_type r = 0; r < 6; ++r)
-#ifdef __CUDA_ARCH__
-#pragma unroll
-#endif
-            for (size_type c = 0; c < D; ++c) {
-                const size_type o = r * D + c;
-                accum_t acc = 0;
+            TRACCC_PRAGMA_UNROLL
+        for (size_type c = 0; c < D; ++c) {
+            const size_type o = r * D + c;
+            accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
-                const auto* W =
+            const auto* W =
 #ifdef __CUDA_ARCH__
-                    ::traccc::fitting::detail::W2
+                ::traccc::fitting::detail::W2
 #else
-                    kalman_int8_gru_gain_predictor_weights<algebra_t, D>::W2
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::W2
 #endif
-                    ;
-                const auto* Wp = reinterpret_cast<const int*>(W);
-                for (size_type j = 0; j < HiddenSize2; j += 4) {
-                    const accum_t w = Wp[o * (HiddenSize2 / 4) + j / 4];
-                    const accum_t v = *reinterpret_cast<const int*>(&h1_q[j]);
-                    acc = __dp4a(w, v, acc);
-                }
-#else
-                for (size_type j = 0; j < HiddenSize2; ++j)
-                    acc += static_cast<accum_t>(
-                               kalman_int8_gru_gain_predictor_weights<
-                                   algebra_t, D>::W2[o * HiddenSize2 + j]) *
-                           static_cast<accum_t>(h1_q[j]);
-#endif
-                K[c][r] = static_cast<float>(acc) / (kScale * kScale);
+                ;
+            const auto* Wp = reinterpret_cast<const int*>(W);
+            for (size_type j = 0; j < HiddenSize2; j += 4) {
+                const accum_t w = Wp[o * (HiddenSize2 / 4) + j / 4];
+                const accum_t v = *reinterpret_cast<const int*>(&h1_q[j]);
+                acc = __dp4a(w, v, acc);
             }
+#else
+            for (size_type j = 0; j < HiddenSize2; ++j)
+                acc += static_cast<accum_t>(
+                           kalman_int8_gru_gain_predictor_weights<
+                               algebra_t, D>::W2[o * HiddenSize2 + j]) *
+                       static_cast<accum_t>(h1_q[j]);
+#endif
+            K[c][r] = static_cast<float>(acc) * kInvScaleSquared;
+        }
         return K;
     }
 };
