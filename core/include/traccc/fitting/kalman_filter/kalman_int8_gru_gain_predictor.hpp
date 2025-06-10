@@ -18,6 +18,12 @@
 #include <cstdint>
 #ifdef __CUDACC__
 #include <cuda_runtime.h>  // __dp4a
+#if __has_include(<mma.h>)
+#include <mma.h>
+#define TRACCC_HAS_WMMA 1
+#else
+#define TRACCC_HAS_WMMA 0
+#endif
 #endif
 #include "traccc/definitions/hints.hpp"
 #include "traccc/definitions/qualifiers.hpp"
@@ -74,6 +80,56 @@ struct kalman_int8_gru_gain_predictor {
         return static_cast<qscalar>(x);
     }
 
+#if defined(TRACCC_HAS_WMMA) && (TRACCC_HAS_WMMA)
+    template <int M, int K>
+    TRACCC_DEVICE static void wmma_linear(const qscalar* __restrict__ w,
+                                          const qscalar* __restrict__ x,
+                                          accum_t* __restrict__ out) {
+        using namespace nvcuda;
+        constexpr int WMMA_M = 16;
+        constexpr int WMMA_N = 16;
+        constexpr int WMMA_K = 16;
+
+        qscalar x_pad[((K + WMMA_K - 1) / WMMA_K) * WMMA_K]{};
+        for (int i = 0; i < K; ++i)
+            x_pad[i] = x[i];
+
+        for (int m = 0; m < M; m += WMMA_M) {
+            int32_t c_tile[WMMA_M * WMMA_N]{};
+            wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, accum_t>
+                c_frag;
+            wmma::fill_fragment(c_frag, 0);
+            for (int k = 0; k < K; k += WMMA_K) {
+                qscalar a_tile[WMMA_M * WMMA_K]{};
+                for (int i = 0; i < WMMA_M && m + i < M; ++i)
+                    for (int j = 0; j < WMMA_K && k + j < K; ++j)
+                        a_tile[i * WMMA_K + j] = w[(m + i) * K + k + j];
+
+                qscalar b_tile[WMMA_K * WMMA_N]{};
+                for (int r = 0; r < WMMA_K; ++r)
+                    for (int c = 0; c < WMMA_N; ++c)
+                        b_tile[r * WMMA_N + c] = x_pad[k + r];
+
+                wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, qscalar,
+                               wmma::row_major>
+                    a_frag;
+                wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, qscalar,
+                               wmma::col_major>
+                    b_frag;
+
+                wmma::load_matrix_sync(a_frag, a_tile, WMMA_K);
+                wmma::load_matrix_sync(b_frag, b_tile, WMMA_K);
+                wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+            }
+            wmma::store_matrix_sync(c_tile, c_frag, WMMA_N,
+                                    wmma::mem_row_major);
+            for (int i = 0; i < WMMA_M && m + i < M; ++i) {
+                out[m + i] = c_tile[i * WMMA_N];
+            }
+        }
+    }
+#endif
+
     /* ─────────────── forward ─────────────── */
     template <typename vec6_t>
     TRACCC_HOST_DEVICE TRACCC_ALWAYS_INLINE static matrix_type<6, D> eval(
@@ -96,6 +152,23 @@ struct kalman_int8_gru_gain_predictor {
 
         /* (2) GRU-0 linear */
         TRACCC_ALIGN(16) qscalar h0_q[HiddenSize1];
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 750) && (TRACCC_HAS_WMMA)
+        {
+            accum_t tmp[HiddenSize1];
+            wmma_linear<HiddenSize1, InputStep * 4>(
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::W0,
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::W0,
+#endif
+                x_q, tmp);
+            TRACCC_PRAGMA_UNROLL
+            for (size_type i = 0; i < HiddenSize1; ++i) {
+                const accum_t act = relu(tmp[i]);
+                h0_q[i] = saturate(act);
+            }
+        }
+#else
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize1; ++i) {
             accum_t acc = 0;
@@ -118,16 +191,34 @@ struct kalman_int8_gru_gain_predictor {
             TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < InputStep * 4; ++j)
                 acc += static_cast<accum_t>(
-                           kalman_int8_gru_gain_predictor_weights<algebra_t, D>::
-                               W0[i * InputStep * 4 + j]) *
+                           kalman_int8_gru_gain_predictor_weights<
+                               algebra_t, D>::W0[i * InputStep * 4 + j]) *
                        static_cast<accum_t>(x_q[j]);
 #endif
             const accum_t act = relu(acc);
             h0_q[i] = saturate(act);
         }
+#endif
 
         /* (3) GRU-1 linear */
         TRACCC_ALIGN(16) qscalar h1_q[HiddenSize2];
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 750) && (TRACCC_HAS_WMMA)
+        {
+            accum_t tmp[HiddenSize2];
+            wmma_linear<HiddenSize2, HiddenSize1>(
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::W1,
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::W1,
+#endif
+                h0_q, tmp);
+            TRACCC_PRAGMA_UNROLL
+            for (size_type i = 0; i < HiddenSize2; ++i) {
+                const accum_t act = relu(tmp[i]);
+                h1_q[i] = saturate(act);
+            }
+        }
+#else
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize2; ++i) {
             accum_t acc = 0;
@@ -157,9 +248,30 @@ struct kalman_int8_gru_gain_predictor {
             const accum_t act = relu(acc);
             h1_q[i] = saturate(act);
         }
+#endif
 
         /* (4) Dense → 6×D Kalman gain (fp32 反量化) */
         matrix_type<6, D> K{};
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 750) && (TRACCC_HAS_WMMA)
+        {
+            constexpr size_type OutSize = 6 * D;
+            accum_t tmp[OutSize];
+            wmma_linear<OutSize, HiddenSize2>(
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::W2,
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::W2,
+#endif
+                h1_q, tmp);
+            TRACCC_PRAGMA_UNROLL
+            for (size_type r = 0; r < 6; ++r)
+                TRACCC_PRAGMA_UNROLL
+            for (size_type c = 0; c < D; ++c) {
+                const size_type o = r * D + c;
+                K[c][r] = static_cast<float>(tmp[o]) * kInvScaleSquared;
+            }
+        }
+#else
         TRACCC_PRAGMA_UNROLL
         for (size_type r = 0; r < 6; ++r)
             TRACCC_PRAGMA_UNROLL
@@ -191,6 +303,7 @@ struct kalman_int8_gru_gain_predictor {
 #endif
             K[c][r] = static_cast<float>(acc) * kInvScaleSquared;
         }
+#endif
         return K;
     }
 };
