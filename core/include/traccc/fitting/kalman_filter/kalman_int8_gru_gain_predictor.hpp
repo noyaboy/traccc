@@ -81,6 +81,27 @@ struct kalman_int8_gru_gain_predictor {
 
         /* (1) 量化輸入 */
         TRACCC_ALIGN(16) qscalar x_q[InputStep * 4];
+#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
+        __shared__ int W0_s[HiddenSize1 * InputStep];
+        __shared__ int W1_s[HiddenSize2 * HiddenStep1];
+        __shared__ int W2_s[6 * D * HiddenStep2];
+
+        if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0) {
+            const int* W0p = reinterpret_cast<const int*>(::traccc::fitting::detail::W0);
+            const int* W1p = reinterpret_cast<const int*>(::traccc::fitting::detail::W1);
+            const int* W2p = reinterpret_cast<const int*>(::traccc::fitting::detail::W2);
+            for (size_type i = 0; i < HiddenSize1 * InputStep; ++i) {
+                W0_s[i] = W0p[i];
+            }
+            for (size_type i = 0; i < HiddenSize2 * HiddenStep1; ++i) {
+                W1_s[i] = W1p[i];
+            }
+            for (size_type i = 0; i < 6 * D * HiddenStep2; ++i) {
+                W2_s[i] = W2p[i];
+            }
+        }
+        __syncthreads();
+#endif
 
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < InputSize; ++i) {
@@ -100,17 +121,10 @@ struct kalman_int8_gru_gain_predictor {
         for (size_type i = 0; i < HiddenSize1; ++i) {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
-            const auto* W =
-#ifdef __CUDA_ARCH__
-                ::traccc::fitting::detail::W0
-#else
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::W0
-#endif
-                ;
-            const auto* Wp = reinterpret_cast<const int*>(W);
+            const int* Wp = W0_s;
             TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < InputStep * 4; j += 4) {
-                const int w = __ldg(&Wp[i * InputStep + j / 4]);
+                const int w = Wp[i * InputStep + j / 4];
                 const int v = *reinterpret_cast<const int*>(&x_q[j]);
                 acc = __dp4a(w, v, acc);
             }
@@ -132,17 +146,10 @@ struct kalman_int8_gru_gain_predictor {
         for (size_type i = 0; i < HiddenSize2; ++i) {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
-            const auto* W =
-#ifdef __CUDA_ARCH__
-                ::traccc::fitting::detail::W1
-#else
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::W1
-#endif
-                ;
-            const auto* Wp = reinterpret_cast<const int*>(W);
+            const int* Wp = W1_s;
             TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < HiddenSize1; j += 4) {
-                const int w = __ldg(&Wp[i * HiddenStep1 + j / 4]);
+                const int w = Wp[i * HiddenStep1 + j / 4];
                 const int v = *reinterpret_cast<const int*>(&h0_q[j]);
                 acc = __dp4a(w, v, acc);
             }
@@ -167,17 +174,10 @@ struct kalman_int8_gru_gain_predictor {
             const size_type o = r * D + c;
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
-            const auto* W =
-#ifdef __CUDA_ARCH__
-                ::traccc::fitting::detail::W2
-#else
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::W2
-#endif
-                ;
-            const auto* Wp = reinterpret_cast<const int*>(W);
+            const int* Wp = W2_s;
             TRACCC_PRAGMA_UNROLL
             for (size_type j = 0; j < HiddenSize2; j += 4) {
-                const int w = __ldg(&Wp[o * HiddenStep2 + j / 4]);
+                const int w = Wp[o * HiddenStep2 + j / 4];
                 const int v = *reinterpret_cast<const int*>(&h1_q[j]);
                 acc = __dp4a(w, v, acc);
             }
