@@ -1,9 +1,10 @@
 #pragma once
 #include <cstdint>
+#include "traccc/definitions/qualifiers.hpp"
 namespace traccc::fitting {
 template <typename algebra_t, std::size_t D>
 struct kalman_int8_gru_gain_predictor_weights {
-    static constexpr std::int8_t W0[3712] = {
+    TRACCC_DEVICE static constexpr std::int8_t W0[3712] = {
         0,         -3,         3,         -5,         2,         -2,         5,         -6,         1,         -2,         4,         -4,         2,         -1,         6,         -6,
         0,         -3,         4,         -4,         2,         -1,         5,         -5,         1,         -2,         4,         -4,         3,         0,         6,         -6,
         0,         -3,         3,         -5,         2,         -1,         5,         -5,         1,         -2,         4,         -4,         3,         -1,         6,         -6,
@@ -238,7 +239,7 @@ struct kalman_int8_gru_gain_predictor_weights {
         1,         -2,         4,         -4,         2,         -1,         5,         -5,         2,         -2,         5,         -3,         3,         0,         6,         -6,
 
     };
-    static constexpr std::int8_t W1[2048] = {
+    TRACCC_DEVICE static constexpr std::int8_t W1[2048] = {
         1,         -2,         4,         -4,         2,         -1,         6,         -6,         0,         -3,         4,         -4,         2,         -1,         5,         -5,
         1,         -2,         4,         -3,         3,         0,         6,         -6,         0,         -3,         3,         -4,         2,         -1,         5,         -5,
         1,         -2,         4,         -4,         3,         -1,         6,         -6,         1,         -2,         4,         -4,         2,         -1,         5,         -5,
@@ -369,7 +370,7 @@ struct kalman_int8_gru_gain_predictor_weights {
         2,         -2,         5,         -3,         3,         0,         6,         -6,         0,         -3,         3,         -5,         2,         -1,         5,         -5,
 
     };
-    static constexpr std::int8_t W2[384] = {
+    TRACCC_DEVICE static constexpr std::int8_t W2[384] = {
         0,         -3,         3,         -5,         2,         -1,         5,         -5,         1,         -2,         4,         -4,         2,         -1,         6,         -6,
         1,         -3,         4,         -4,         2,         -1,         5,         -5,         1,         -2,         4,         -3,         3,         0,         6,         -6,
         0,         -3,         3,         -4,         2,         -1,         5,         -5,         1,         -2,         4,         -4,         3,         0,         6,         -6,
