@@ -87,7 +87,11 @@ struct kalman_int8_gru_gain_predictor {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             for (size_type j = 0; j < InputSize; j += 4) {
-                const auto& W = kalman_int8_gru_gain_predictor_weights<algebra_t,D>::W0;
+                #ifdef __CUDA_ARCH__          // ← GPU 編譯：直指 constant memory
+                                const auto& W = ::traccc::fitting::detail::W0;
+                #else                         // ← Host 編譯：維持舊 alias
+                                const auto& W = kalman_int8_gru_gain_predictor_weights<algebra_t,D>::W0;
+                #endif
                 const accum_t w = (static_cast<unsigned char>(W[i*InputSize+j    ])      ) |
                                   (static_cast<unsigned char>(W[i*InputSize+j + 1]) <<  8) |
                                   (static_cast<unsigned char>(W[i*InputSize+j + 2]) << 16) |
@@ -113,7 +117,11 @@ struct kalman_int8_gru_gain_predictor {
             accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             for (size_type j = 0; j < HiddenSize1; j += 4) {
-                const auto& W = kalman_int8_gru_gain_predictor_weights<algebra_t,D>::W1;
+                #ifdef __CUDA_ARCH__
+                                const auto& W = ::traccc::fitting::detail::W1;
+                #else
+                                const auto& W = kalman_int8_gru_gain_predictor_weights<algebra_t,D>::W1;
+                #endif
                 const accum_t w = (static_cast<unsigned char>(W[i*HiddenSize1+j    ])      ) |
                                   (static_cast<unsigned char>(W[i*HiddenSize1+j+1]) <<  8) |
                                   (static_cast<unsigned char>(W[i*HiddenSize1+j+2]) << 16) |
@@ -144,7 +152,11 @@ struct kalman_int8_gru_gain_predictor {
                 accum_t acc = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
                 for (size_type j = 0; j < HiddenSize2; j += 4) {
-                    const auto& W = kalman_int8_gru_gain_predictor_weights<algebra_t,D>::W2;
+                    #ifdef __CUDA_ARCH__
+                                        const auto& W = ::traccc::fitting::detail::W2;
+                    #else
+                                        const auto& W = kalman_int8_gru_gain_predictor_weights<algebra_t,D>::W2;
+                    #endif
                     const accum_t w = (static_cast<unsigned char>(W[o*HiddenSize2+j    ])      ) |
                                       (static_cast<unsigned char>(W[o*HiddenSize2+j+1]) <<  8) |
                                       (static_cast<unsigned char>(W[o*HiddenSize2+j+2]) << 16) |
