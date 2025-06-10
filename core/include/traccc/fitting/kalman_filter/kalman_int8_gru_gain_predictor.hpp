@@ -51,7 +51,7 @@ struct kalman_int8_gru_gain_predictor {
                                            + D * D;  // V measurement cov
     static constexpr size_type HiddenSize1 = 64;
     static constexpr size_type HiddenSize2 = 32;
-    static constexpr size_type InputStep = InputSize / 4;
+    static constexpr size_type InputStep = (InputSize + 3) / 4;
     static constexpr size_type HiddenStep1 = HiddenSize1 / 4;
     static constexpr size_type HiddenStep2 = HiddenSize2 / 4;
     static constexpr float kScale = 127.0f;
@@ -80,7 +80,7 @@ struct kalman_int8_gru_gain_predictor {
         const vec6_t& __restrict__ x_f32) {
 
         /* (1) 量化輸入 */
-        TRACCC_ALIGN(16) qscalar x_q[InputSize];
+        TRACCC_ALIGN(16) qscalar x_q[InputStep * 4];
 
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < InputSize; ++i) {
@@ -88,6 +88,10 @@ struct kalman_int8_gru_gain_predictor {
             x_q[i] =
                 static_cast<qscalar>(q >= 0 ? (q > 127.f ? 127 : q + 0.5f)
                                             : (q < -128.f ? -128 : q - 0.5f));
+        }
+        TRACCC_PRAGMA_UNROLL
+        for (size_type i = InputSize; i < InputStep * 4; ++i) {
+            x_q[i] = 0;
         }
 
         /* (2) GRU-0 linear */
@@ -105,18 +109,18 @@ struct kalman_int8_gru_gain_predictor {
                 ;
             const auto* Wp = reinterpret_cast<const int*>(W);
             TRACCC_PRAGMA_UNROLL
-            for (size_type j = 0; j < InputSize; j += 4) {
+            for (size_type j = 0; j < InputStep * 4; j += 4) {
                 const accum_t w = Wp[i * InputStep + j / 4];
                 const accum_t v = *reinterpret_cast<const int*>(&x_q[j]);
                 acc = __dp4a(w, v, acc);
             }
 #else
             TRACCC_PRAGMA_UNROLL
-            for (size_type j = 0; j < InputSize; ++j)
-                acc +=
-                    static_cast<accum_t>(kalman_int8_gru_gain_predictor_weights<
-                                         algebra_t, D>::W0[i * InputSize + j]) *
-                    static_cast<accum_t>(x_q[j]);
+            for (size_type j = 0; j < InputStep * 4; ++j)
+                acc += static_cast<accum_t>(
+                           kalman_int8_gru_gain_predictor_weights<algebra_t, D>::
+                               W0[i * InputStep * 4 + j]) *
+                       static_cast<accum_t>(x_q[j]);
 #endif
             const accum_t act = relu(acc);
             h0_q[i] = saturate(act);
