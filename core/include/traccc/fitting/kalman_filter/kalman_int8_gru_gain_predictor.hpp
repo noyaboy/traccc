@@ -20,6 +20,7 @@
 #include <cuda_runtime.h>  // __dp4a
 #endif
 #include "traccc/definitions/qualifiers.hpp"
+#include "traccc/definitions/hints.hpp"
 #include "traccc/fitting/kalman_filter/kalman_int8_gru_gain_predictor_weights.hpp"
 
 namespace traccc::fitting {
