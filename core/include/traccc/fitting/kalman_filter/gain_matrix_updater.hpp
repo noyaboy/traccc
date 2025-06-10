@@ -113,8 +113,8 @@ struct gain_matrix_updater {
         const matrix_type<6, D> K =
             predicted_cov * matrix::transpose(H) * matrix::inverse(M);
 
-#ifdef TRACCC_ENABLE_GRU_DATA_COLLECTION
-        {
+
+
             std::vector<traccc::scalar> row;
             row.reserve(6 + 36 + 6 * D + D * D + 6 * D);
             for (size_type i = 0; i < 6; ++i) {
@@ -141,8 +141,8 @@ struct gain_matrix_updater {
                 }
             }
             gru_training_logger::write_row(row);
-        }
-#endif
+
+
 
         // Calculate the filtered track parameters
         const matrix_type<6, 1> filtered_vec =
