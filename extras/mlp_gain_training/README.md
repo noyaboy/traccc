@@ -12,6 +12,6 @@ The workflow implements two stages:
 
 The resulting model architecture matches the implementation in
 `kalman_int8_gru_gain_predictor.hpp` (hidden sizes 32 and 16).
-Training optimises the root mean squared error (RMSE) between the predicted
-and true Kalman gain. Run the script with `python3 train_mlp_gain.py --help`
-for usage information.
+Training minimises ``1 - R^2`` so as to maximise the coefficient of
+determination between the predicted and true Kalman gain. Run the script with
+`python3 train_mlp_gain.py --help` for usage information.
