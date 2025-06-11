@@ -21,6 +21,8 @@ import argparse
 import json
 from pathlib import Path
 from typing import Tuple
+import random
+import numpy as np
 
 import pandas as pd
 import torch
@@ -99,11 +101,12 @@ class R2Loss(nn.Module):
 class MLP(nn.Module):
     """Two-layer MLP with optional symmetric INT8 quantisation (scale=127)."""
 
-    def __init__(self, input_dim=58, hidden1=32, hidden2=16, output_dim=12, quant=False):
+    def __init__(self, input_dim=58, hidden1=32, hidden2=16, output_dim=12, quant=False, dropout=0.0):
         super().__init__()
         self.fc1 = nn.Linear(input_dim, hidden1, bias=False)
         self.fc2 = nn.Linear(hidden1, hidden2, bias=False)
         self.fc3 = nn.Linear(hidden2, output_dim, bias=False)
+        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
         self.quant = quant
 
     @staticmethod
@@ -120,6 +123,7 @@ class MLP(nn.Module):
             w1 = self.fc1.weight
         x = nn.functional.linear(x, w1)
         x = nn.functional.relu(x)
+        x = self.dropout(x)
 
         if self.quant:
             x = self._fake_quant(x)
@@ -128,6 +132,7 @@ class MLP(nn.Module):
             w2 = self.fc2.weight
         x = nn.functional.linear(x, w2)
         x = nn.functional.relu(x)
+        x = self.dropout(x)
 
         if self.quant:
             x = self._fake_quant(x)
@@ -142,22 +147,26 @@ class MLP(nn.Module):
 
 
 @torch.no_grad()
-def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module) -> float:
+def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device: torch.device) -> float:
     model.eval()
     total_loss = 0.0
     for x, y in loader:
+        x = x.to(device)
+        y = y.to(device)
         pred = model(x)
         total_loss += criterion(pred, y).item() * x.size(0)
     return total_loss / len(loader.dataset)
 
 
 @torch.no_grad()
-def sample_val_prediction(model: nn.Module, loader: DataLoader) -> Tuple[torch.Tensor, torch.Tensor]:
+def sample_val_prediction(model: nn.Module, loader: DataLoader, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
     """Return a single prediction/target pair from the validation set."""
     model.eval()
     x, y = next(iter(loader))
+    x = x.to(device)
+    y = y.to(device)
     pred = model(x)
-    return pred[0], y[0]
+    return pred[0].cpu(), y[0].cpu()
 
 
 def train_fp32(
@@ -166,10 +175,13 @@ def train_fp32(
     val_loader: DataLoader,
     epochs: int,
     lr: float,
+    device: torch.device,
     patience: int = 20,
+    min_delta: float = 0.0,
+    weight_decay: float = 0.0,
 ) -> None:
     criterion = R2Loss()
-    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=30, gamma=0.1)
 
     best_loss = float("inf")
@@ -179,14 +191,16 @@ def train_fp32(
     for epoch in range(epochs):
         model.train()
         for x, y in train_loader:
+            x = x.to(device)
+            y = y.to(device)
             opt.zero_grad()
             loss = criterion(model(x), y)
             loss.backward()
             opt.step()
         scheduler.step()
 
-        val_loss = evaluate(model, val_loader, criterion)
-        if val_loss + 1e-6 < best_loss:
+        val_loss = evaluate(model, val_loader, criterion, device)
+        if best_loss - val_loss > min_delta:
             best_loss = val_loss
             wait = 0
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
@@ -198,7 +212,7 @@ def train_fp32(
 
         if (epoch + 1) % 10 == 0 or wait == 0:
             print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
-            pred_vec, target_vec = sample_val_prediction(model, val_loader)
+            pred_vec, target_vec = sample_val_prediction(model, val_loader, device)
              # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
             formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
             print("      example pred:  ", formatted_pred)
@@ -218,13 +232,16 @@ def train_qat(
     val_loader: DataLoader,
     epochs: int,
     lr: float,
+    device: torch.device,
     patience: int = 30,
+    min_delta: float = 0.0,
+    weight_decay: float = 1e-5,
 ) -> None:
     model.train()
     model.quant = True
 
     criterion = R2Loss()
-    opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=50, gamma=0.1)
 
     best_loss = float("inf")
@@ -234,14 +251,16 @@ def train_qat(
     for epoch in range(epochs):
         model.train()
         for x, y in train_loader:
+            x = x.to(device)
+            y = y.to(device)
             opt.zero_grad()
             loss = criterion(model(x), y)
             loss.backward()
             opt.step()
         scheduler.step()
 
-        val_loss = evaluate(model, val_loader, criterion)
-        if val_loss + 1e-6 < best_loss:
+        val_loss = evaluate(model, val_loader, criterion, device)
+        if best_loss - val_loss > min_delta:
             best_loss = val_loss
             wait = 0
             best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
@@ -252,7 +271,7 @@ def train_qat(
                 break
 
         print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
-        pred_vec, target_vec = sample_val_prediction(model, val_loader)
+        pred_vec, target_vec = sample_val_prediction(model, val_loader, device)
             # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
         formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
         print("      example pred:  ", formatted_pred)
@@ -275,7 +294,23 @@ def main() -> None:
     parser.add_argument("--qat-epochs", type=int, default=150)
     parser.add_argument("--hidden1", type=int, default=32)
     parser.add_argument("--hidden2", type=int, default=16)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--fp32-lr", type=float, default=1e-3)
+    parser.add_argument("--qat-lr", type=float, default=1e-4)
+    parser.add_argument("--fp32-weight-decay", type=float, default=0.0)
+    parser.add_argument("--qat-weight-decay", type=float, default=1e-5)
+    parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--patience", type=int, default=20)
+    parser.add_argument("--min-delta", type=float, default=0.0)
+    parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        random.seed(args.seed)
 
     x, y = load_dataset(args.csv)
     (x_train, y_train), (x_val, y_val), (x_test, y_test) = split_data(x, y)
@@ -285,25 +320,47 @@ def main() -> None:
     x_val = apply_norm(x_val, mean, std)
     x_test = apply_norm(x_test, mean, std)
 
-    train_loader = DataLoader(TensorDataset(x_train, y_train), batch_size=128, shuffle=True)
-    val_loader = DataLoader(TensorDataset(x_val, y_val), batch_size=128)
-    test_loader = DataLoader(TensorDataset(x_test, y_test), batch_size=128)
+    train_loader = DataLoader(TensorDataset(x_train, y_train), batch_size=args.batch_size, shuffle=True)
+    val_loader = DataLoader(TensorDataset(x_val, y_val), batch_size=args.batch_size)
+    test_loader = DataLoader(TensorDataset(x_test, y_test), batch_size=args.batch_size)
 
     args.out.mkdir(parents=True, exist_ok=True)
 
-    model = MLP(hidden1=args.hidden1, hidden2=args.hidden2)
-    train_fp32(model, train_loader, val_loader, args.fp32_epochs, 1e-3)
+    model = MLP(hidden1=args.hidden1, hidden2=args.hidden2, dropout=args.dropout)
+    model.to(device)
+    train_fp32(
+        model,
+        train_loader,
+        val_loader,
+        args.fp32_epochs,
+        args.fp32_lr,
+        device,
+        patience=args.patience,
+        min_delta=args.min_delta,
+        weight_decay=args.fp32_weight_decay,
+    )
     torch.save({"state_dict": model.state_dict(), "mean": mean, "std": std}, args.out / "model_fp32.pth")
 
-    qat_model = MLP(hidden1=args.hidden1, hidden2=args.hidden2)
+    qat_model = MLP(hidden1=args.hidden1, hidden2=args.hidden2, dropout=args.dropout)
     qat_model.load_state_dict(model.state_dict())
-    train_qat(qat_model, train_loader, val_loader, args.qat_epochs, 1e-4)
+    qat_model.to(device)
+    train_qat(
+        qat_model,
+        train_loader,
+        val_loader,
+        args.qat_epochs,
+        args.qat_lr,
+        device,
+        patience=args.patience,
+        min_delta=args.min_delta,
+        weight_decay=args.qat_weight_decay,
+    )
 
     scripted = torch.jit.script(qat_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
-    test_loss_fp32 = evaluate(model, test_loader, R2Loss())
-    test_loss_int8 = evaluate(qat_model, test_loader, R2Loss())
+    test_loss_fp32 = evaluate(model, test_loader, R2Loss(), device)
+    test_loss_int8 = evaluate(qat_model, test_loader, R2Loss(), device)
 
     with open(args.out / "metrics.json", "w") as f:
         json.dump({"fp32_test_r2": test_loss_fp32, "int8_test_r2": test_loss_int8}, f, indent=2)
