@@ -30,7 +30,9 @@ from torch.utils.data import DataLoader, TensorDataset
 
 def load_dataset(path: Path) -> Tuple[torch.Tensor, torch.Tensor]:
     """Load CSV dataset and split inputs/targets."""
-    data = pd.read_csv(path, header=None).values.astype("float32")
+    data = pd.read_csv(path, header=None, usecols=range(70))
+    data = data.dropna(how='any')
+    data = data.values.astype("float32")
     x = torch.tensor(data[:, :58])
     y = torch.tensor(data[:, 58:])
     return x, y
