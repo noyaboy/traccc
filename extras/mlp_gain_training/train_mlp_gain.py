@@ -97,28 +97,48 @@ class R2Loss(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dim=58, hidden1=32, hidden2=16, output_dim=12):
+    """Two-layer MLP with optional symmetric INT8 quantisation (scale=127)."""
+
+    def __init__(self, input_dim=58, hidden1=32, hidden2=16, output_dim=12, quant=False):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, hidden1),
-            nn.ReLU(),
-            nn.Linear(hidden1, hidden2),
-            nn.ReLU(),
-            nn.Linear(hidden2, output_dim),
+        self.fc1 = nn.Linear(input_dim, hidden1, bias=False)
+        self.fc2 = nn.Linear(hidden1, hidden2, bias=False)
+        self.fc3 = nn.Linear(hidden2, output_dim, bias=False)
+        self.quant = quant
+
+    @staticmethod
+    def _fake_quant(x: torch.Tensor) -> torch.Tensor:
+        return torch.fake_quantize_per_tensor_affine(
+            x, scale=1.0 / 127.0, zero_point=0, quant_min=-128, quant_max=127
         )
-        self.quant = torch.quantization.QuantStub()
-        self.dequant = torch.quantization.DeQuantStub()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.quant(x)
-        x = self.net(x)
-        x = self.dequant(x)
+        if self.quant:
+            x = self._fake_quant(x)
+            w1 = self._fake_quant(self.fc1.weight)
+        else:
+            w1 = self.fc1.weight
+        x = nn.functional.linear(x, w1)
+        x = nn.functional.relu(x)
+
+        if self.quant:
+            x = self._fake_quant(x)
+            w2 = self._fake_quant(self.fc2.weight)
+        else:
+            w2 = self.fc2.weight
+        x = nn.functional.linear(x, w2)
+        x = nn.functional.relu(x)
+
+        if self.quant:
+            x = self._fake_quant(x)
+            w3 = self._fake_quant(self.fc3.weight)
+        else:
+            w3 = self.fc3.weight
+        x = nn.functional.linear(x, w3)
         return x
 
     def fuse_model(self) -> None:
-        torch.quantization.fuse_modules(
-            self.net, [["0", "1"], ["2", "3"]], inplace=True
-        )
+        pass  # kept for API compatibility
 
 
 @torch.no_grad()
@@ -201,9 +221,7 @@ def train_qat(
     patience: int = 30,
 ) -> None:
     model.train()
-    model.fuse_model()
-    model.qconfig = torch.quantization.get_default_qat_qconfig("fbgemm")
-    torch.quantization.prepare_qat(model, inplace=True)
+    model.quant = True
 
     criterion = R2Loss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
@@ -246,7 +264,7 @@ def train_qat(
 
     if best_state is not None:
         model.load_state_dict(best_state)
-    torch.quantization.convert(model.eval(), inplace=True)
+    model.eval()
 
 
 def main() -> None:
