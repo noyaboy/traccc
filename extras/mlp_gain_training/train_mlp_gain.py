@@ -131,6 +131,15 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module) -> floa
     return total_loss / len(loader.dataset)
 
 
+@torch.no_grad()
+def sample_val_prediction(model: nn.Module, loader: DataLoader) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Return a single prediction/target pair from the validation set."""
+    model.eval()
+    x, y = next(iter(loader))
+    pred = model(x)
+    return pred[0], y[0]
+
+
 def train_fp32(
     model: nn.Module,
     train_loader: DataLoader,
@@ -169,6 +178,9 @@ def train_fp32(
 
         if (epoch + 1) % 10 == 0 or wait == 0:
             print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
+            pred_vec, target_vec = sample_val_prediction(model, val_loader)
+            print("    example pred:", pred_vec.tolist())
+            print("    example target:", target_vec.tolist())
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -217,6 +229,9 @@ def train_qat(
 
         if (epoch + 1) % 10 == 0 or wait == 0:
             print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
+            pred_vec, target_vec = sample_val_prediction(model, val_loader)
+            print("    example pred:", pred_vec.tolist())
+            print("    example target:", target_vec.tolist())
 
     if best_state is not None:
         model.load_state_dict(best_state)
