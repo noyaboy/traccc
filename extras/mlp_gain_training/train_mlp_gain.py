@@ -179,8 +179,14 @@ def train_fp32(
         if (epoch + 1) % 10 == 0 or wait == 0:
             print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
             pred_vec, target_vec = sample_val_prediction(model, val_loader)
-            print("    example pred:", pred_vec.tolist())
-            print("    example target:", target_vec.tolist())
+             # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
+            formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
+            print("      example pred:  ", formatted_pred)
+
+            # target_vec 通常是整數標籤，可能不需要格式化，此處保留原樣
+            # 如果 target_vec 也是浮點數且需要格式化，可使用相同方法
+            formatted_target = [f'{num:+.1e}' for num in target_vec.tolist()]
+            print("      example target:", formatted_target)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -227,11 +233,16 @@ def train_qat(
                 print(f"Early stopping QAT at epoch {epoch+1}")
                 break
 
-        if (epoch + 1) % 10 == 0 or wait == 0:
-            print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
-            pred_vec, target_vec = sample_val_prediction(model, val_loader)
-            print("    example pred:", pred_vec.tolist())
-            print("    example target:", target_vec.tolist())
+        print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
+        pred_vec, target_vec = sample_val_prediction(model, val_loader)
+            # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
+        formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
+        print("      example pred:  ", formatted_pred)
+
+        # target_vec 通常是整數標籤，可能不需要格式化，此處保留原樣
+        # 如果 target_vec 也是浮點數且需要格式化，可使用相同方法
+        formatted_target = [f'{num:+.1e}' for num in target_vec.tolist()]
+        print("      example target:", formatted_target)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -279,8 +290,9 @@ def main() -> None:
     with open(args.out / "metrics.json", "w") as f:
         json.dump({"fp32_test_r2": test_loss_fp32, "int8_test_r2": test_loss_int8}, f, indent=2)
 
-    print("FP32 test R^2 loss:", test_loss_fp32)
-    print("INT8 test R^2 loss:", test_loss_int8)
+    print(f"FP32 test R^2 loss:{test_loss_fp32}, FP32 test R^2: {1 - test_loss_fp32:.6f}")
+    print(f"INT8 test R^2 loss:{test_loss_int8}, INT8 test R^2: {1 - test_loss_int8:.6f}")
+
 
 
 if __name__ == "__main__":
