@@ -168,7 +168,7 @@ def train_fp32(
                 break
 
         if (epoch + 1) % 10 == 0 or wait == 0:
-            print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
+            print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -216,7 +216,7 @@ def train_qat(
                 break
 
         if (epoch + 1) % 10 == 0 or wait == 0:
-            print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
+            print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
 
     if best_state is not None:
         model.load_state_dict(best_state)
