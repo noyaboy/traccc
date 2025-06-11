@@ -98,6 +98,19 @@ class R2Loss(nn.Module):
         return ss_res / (ss_tot + self.eps)
 
 
+class SMAPELoss(nn.Module):
+    """Symmetric Mean Absolute Percentage Error loss with epsilon."""
+
+    def __init__(self, eps: float = 1e-8) -> None:
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        diff = torch.abs(pred - target)
+        denom = torch.abs(pred) + torch.abs(target) + self.eps
+        return torch.mean(2.0 * diff / denom)
+
+
 class MLP(nn.Module):
     """Two-layer MLP with optional symmetric INT8 quantisation (scale=127)."""
 
@@ -180,7 +193,7 @@ def train_fp32(
     min_delta: float = 0.0,
     weight_decay: float = 0.0,
 ) -> None:
-    criterion = R2Loss()
+    criterion = SMAPELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=30, gamma=0.1)
 
@@ -211,7 +224,7 @@ def train_fp32(
                 break
 
         if (epoch + 1) % 10 == 0 or wait == 0:
-            print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
+            print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
             pred_vec, target_vec = sample_val_prediction(model, val_loader, device)
              # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
             formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
@@ -240,7 +253,7 @@ def train_qat(
     model.train()
     model.quant = True
 
-    criterion = R2Loss()
+    criterion = SMAPELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=50, gamma=0.1)
 
@@ -270,7 +283,7 @@ def train_qat(
                 print(f"Early stopping QAT at epoch {epoch+1}")
                 break
 
-        print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, r2={1 - val_loss:.6f}")
+        print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
         pred_vec, target_vec = sample_val_prediction(model, val_loader, device)
             # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
         formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
