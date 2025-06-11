@@ -10,5 +10,6 @@ The workflow implements two stages:
 2. **Quantisation aware training** – fine tune the model to produce
    an INT8 friendly network.
 
-Run the script with `python3 train_mlp_gain.py --help` for usage
-information.
+The resulting model architecture matches the implementation in
+`kalman_int8_gru_gain_predictor.hpp` (hidden sizes 32 and 16).
+Run the script with `python3 train_mlp_gain.py --help` for usage information.

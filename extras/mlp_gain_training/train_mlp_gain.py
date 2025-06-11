@@ -67,7 +67,7 @@ def apply_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.
 
 
 class MLP(nn.Module):
-    def __init__(self, input_dim=58, hidden1=128, hidden2=64, output_dim=12):
+    def __init__(self, input_dim=58, hidden1=32, hidden2=16, output_dim=12):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(input_dim, hidden1),
@@ -101,11 +101,21 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module) -> floa
     return total_loss / len(loader.dataset)
 
 
-def train_fp32(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
-               epochs: int, lr: float) -> None:
+def train_fp32(
+    model: nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    epochs: int,
+    lr: float,
+    patience: int = 20,
+) -> None:
     criterion = nn.MSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=30, gamma=0.1)
+
+    best_loss = float("inf")
+    wait = 0
+    best_state = None
 
     for epoch in range(epochs):
         model.train()
@@ -116,13 +126,32 @@ def train_fp32(model: nn.Module, train_loader: DataLoader, val_loader: DataLoade
             opt.step()
         scheduler.step()
 
-        if (epoch + 1) % 10 == 0:
-            val_loss = evaluate(model, val_loader, criterion)
+        val_loss = evaluate(model, val_loader, criterion)
+        if val_loss + 1e-6 < best_loss:
+            best_loss = val_loss
+            wait = 0
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        else:
+            wait += 1
+            if wait >= patience:
+                print(f"Early stopping FP32 at epoch {epoch+1}")
+                break
+
+        if (epoch + 1) % 10 == 0 or wait == 0:
             print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
 
+    if best_state is not None:
+        model.load_state_dict(best_state)
 
-def train_qat(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
-              epochs: int, lr: float) -> None:
+
+def train_qat(
+    model: nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    epochs: int,
+    lr: float,
+    patience: int = 30,
+) -> None:
     model.train()
     model.fuse_model()
     model.qconfig = torch.quantization.get_default_qat_qconfig("fbgemm")
@@ -132,6 +161,10 @@ def train_qat(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=50, gamma=0.1)
 
+    best_loss = float("inf")
+    wait = 0
+    best_state = None
+
     for epoch in range(epochs):
         model.train()
         for x, y in train_loader:
@@ -141,10 +174,22 @@ def train_qat(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader
             opt.step()
         scheduler.step()
 
-        if (epoch + 1) % 10 == 0:
-            val_loss = evaluate(model, val_loader, criterion)
+        val_loss = evaluate(model, val_loader, criterion)
+        if val_loss + 1e-6 < best_loss:
+            best_loss = val_loss
+            wait = 0
+            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        else:
+            wait += 1
+            if wait >= patience:
+                print(f"Early stopping QAT at epoch {epoch+1}")
+                break
+
+        if (epoch + 1) % 10 == 0 or wait == 0:
             print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
 
+    if best_state is not None:
+        model.load_state_dict(best_state)
     torch.quantization.convert(model.eval(), inplace=True)
 
 
@@ -154,6 +199,8 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("model_out"))
     parser.add_argument("--fp32-epochs", type=int, default=100)
     parser.add_argument("--qat-epochs", type=int, default=150)
+    parser.add_argument("--hidden1", type=int, default=32)
+    parser.add_argument("--hidden2", type=int, default=16)
     args = parser.parse_args()
 
     x, y = load_dataset(args.csv)
@@ -170,11 +217,11 @@ def main() -> None:
 
     args.out.mkdir(parents=True, exist_ok=True)
 
-    model = MLP()
+    model = MLP(hidden1=args.hidden1, hidden2=args.hidden2)
     train_fp32(model, train_loader, val_loader, args.fp32_epochs, 1e-3)
     torch.save({"state_dict": model.state_dict(), "mean": mean, "std": std}, args.out / "model_fp32.pth")
 
-    qat_model = MLP()
+    qat_model = MLP(hidden1=args.hidden1, hidden2=args.hidden2)
     qat_model.load_state_dict(model.state_dict())
     train_qat(qat_model, train_loader, val_loader, args.qat_epochs, 1e-4)
 
