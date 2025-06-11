@@ -66,6 +66,18 @@ def apply_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.
     return (x - mean) / std
 
 
+class RMSELoss(nn.Module):
+    """Root mean squared error loss."""
+
+    def __init__(self, eps: float = 1e-8) -> None:
+        super().__init__()
+        self.mse = nn.MSELoss()
+        self.eps = eps
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        return torch.sqrt(self.mse(pred, target) + self.eps)
+
+
 class MLP(nn.Module):
     def __init__(self, input_dim=58, hidden1=32, hidden2=16, output_dim=12):
         super().__init__()
@@ -109,7 +121,7 @@ def train_fp32(
     lr: float,
     patience: int = 20,
 ) -> None:
-    criterion = nn.MSELoss()
+    criterion = RMSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=30, gamma=0.1)
 
@@ -157,7 +169,7 @@ def train_qat(
     model.qconfig = torch.quantization.get_default_qat_qconfig("fbgemm")
     torch.quantization.prepare_qat(model, inplace=True)
 
-    criterion = nn.MSELoss()
+    criterion = RMSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=50, gamma=0.1)
 
@@ -228,8 +240,8 @@ def main() -> None:
     scripted = torch.jit.script(qat_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
-    test_loss_fp32 = evaluate(model, test_loader, nn.MSELoss())
-    test_loss_int8 = evaluate(qat_model, test_loader, nn.MSELoss())
+    test_loss_fp32 = evaluate(model, test_loader, RMSELoss())
+    test_loss_int8 = evaluate(qat_model, test_loader, RMSELoss())
 
     with open(args.out / "metrics.json", "w") as f:
         json.dump({"fp32_test_loss": test_loss_fp32, "int8_test_loss": test_loss_int8}, f, indent=2)
