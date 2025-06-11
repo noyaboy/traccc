@@ -78,6 +78,24 @@ class RMSELoss(nn.Module):
         return torch.sqrt(self.mse(pred, target) + self.eps)
 
 
+class R2Loss(nn.Module):
+    """Loss based on the coefficient of determination (R^2).
+
+    Minimises ``1 - R^2`` to maximise the quality of fit. The loss is computed
+    over the entire batch.
+    """
+
+    def __init__(self, eps: float = 1e-8) -> None:
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        target_mean = torch.mean(target)
+        ss_tot = torch.sum((target - target_mean) ** 2)
+        ss_res = torch.sum((target - pred) ** 2)
+        return ss_res / (ss_tot + self.eps)
+
+
 class MLP(nn.Module):
     def __init__(self, input_dim=58, hidden1=32, hidden2=16, output_dim=12):
         super().__init__()
@@ -121,7 +139,7 @@ def train_fp32(
     lr: float,
     patience: int = 20,
 ) -> None:
-    criterion = RMSELoss()
+    criterion = R2Loss()
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=30, gamma=0.1)
 
@@ -169,7 +187,7 @@ def train_qat(
     model.qconfig = torch.quantization.get_default_qat_qconfig("fbgemm")
     torch.quantization.prepare_qat(model, inplace=True)
 
-    criterion = RMSELoss()
+    criterion = R2Loss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=50, gamma=0.1)
 
@@ -240,14 +258,14 @@ def main() -> None:
     scripted = torch.jit.script(qat_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
-    test_loss_fp32 = evaluate(model, test_loader, RMSELoss())
-    test_loss_int8 = evaluate(qat_model, test_loader, RMSELoss())
+    test_loss_fp32 = evaluate(model, test_loader, R2Loss())
+    test_loss_int8 = evaluate(qat_model, test_loader, R2Loss())
 
     with open(args.out / "metrics.json", "w") as f:
-        json.dump({"fp32_test_loss": test_loss_fp32, "int8_test_loss": test_loss_int8}, f, indent=2)
+        json.dump({"fp32_test_r2": test_loss_fp32, "int8_test_r2": test_loss_int8}, f, indent=2)
 
-    print("FP32 test loss:", test_loss_fp32)
-    print("INT8 test loss:", test_loss_int8)
+    print("FP32 test R^2 loss:", test_loss_fp32)
+    print("INT8 test R^2 loss:", test_loss_int8)
 
 
 if __name__ == "__main__":
