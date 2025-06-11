@@ -22,6 +22,7 @@ import json
 from pathlib import Path
 from typing import Tuple
 import random
+import math
 import numpy as np
 
 import pandas as pd
@@ -111,6 +112,17 @@ class SMAPELoss(nn.Module):
         return torch.mean(2.0 * diff / denom)
 
 
+class LogCoshLoss(nn.Module):
+    """Log-cosh loss implemented in a numerically stable manner."""
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        diff = pred - target
+        return torch.mean(diff + nn.functional.softplus(-2.0 * diff) - math.log(2.0))
+
+
 class MLP(nn.Module):
     """Two-layer MLP with optional symmetric INT8 quantisation (scale=127)."""
 
@@ -193,7 +205,7 @@ def train_fp32(
     min_delta: float = 0.0,
     weight_decay: float = 0.0,
 ) -> None:
-    criterion = SMAPELoss()
+    criterion = LogCoshLoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=30, gamma=0.1)
 
@@ -253,7 +265,7 @@ def train_qat(
     model.train()
     model.quant = True
 
-    criterion = SMAPELoss()
+    criterion = LogCoshLoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=50, gamma=0.1)
 
