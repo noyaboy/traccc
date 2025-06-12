@@ -83,7 +83,7 @@ def undo_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.T
 
 class MAAPELoss(nn.Module):
     """Mean Arctangent Absolute Percentage Error (MAAPE) loss."""
-    def __init__(self, eps: float = 1e-5):
+    def __init__(self, eps: float = 3e-4):
         super().__init__()
         self.eps = eps
 
@@ -204,8 +204,7 @@ def train_fp32(
         opt,
         mode='min',
         factor=scheduler_gamma,
-        patience=20,           # 连续10轮val loss无下降时再减lr
-        verbose=True
+        patience=5           # 连续10轮val loss无下降时再减lr
     )
 
     best_loss = float("inf")
@@ -238,7 +237,8 @@ def train_fp32(
                 break
 
         if (epoch + 1) % 10 == 0 or wait == 0:
-            print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
+            current_lr = opt.param_groups[0]['lr']
+            print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
             pred_vec, target_vec = sample_val_prediction(
                 model, val_loader, device, y_mean, y_std
             )
@@ -279,8 +279,7 @@ def train_qat(
         opt,
         mode='min',
         factor=0.1,
-        patience=10,
-        verbose=True
+        patience=10           # 连续10轮val loss无下降时再减lr
     )
 
     best_loss = float("inf")
@@ -311,8 +310,8 @@ def train_qat(
             if wait >= patience:
                 print(f"Early stopping QAT at epoch {epoch+1}")
                 break
-
-        print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
+        current_lr = opt.param_groups[0]['lr']
+        print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
         pred_vec, target_vec = sample_val_prediction(
             model, val_loader, device, y_mean, y_std
         )
@@ -344,7 +343,7 @@ def main() -> None:
     parser.add_argument("--fp32-weight-decay", type=float, default=0.0)
     parser.add_argument("--qat-weight-decay", type=float, default=1e-5)
     parser.add_argument("--dropout", type=float, default=0.0)
-    parser.add_argument("--patience", type=int, default=30)
+    parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--min-delta", type=float, default=0.0)
     # 新增：FP32 阶梯学习率调度器的 step_size 和 gamma
     parser.add_argument("--scheduler-step-size", type=int, default=30,
@@ -354,10 +353,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--loss",
-        choices=["mse", "mmape"],
+        choices=["mse", "maape"],
         default="mse",
-        help="loss function to use: mse or mmape (MAAPE)",
+        help="loss function to use: mse or maape (MAAPE)",
     )
+    parser.add_argument("--eps-maape", type=float, default=3e-4)
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -371,7 +371,7 @@ def main() -> None:
     if args.loss == "mse":
         criterion = nn.MSELoss()
     else:
-        criterion = MAAPELoss()
+        criterion = MAAPELoss(eps=args.eps_maape)
     x, y = load_dataset(args.csv)
     (x_train, y_train), (x_val, y_val), (x_test, y_test) = split_data(x, y)
 
