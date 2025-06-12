@@ -22,6 +22,7 @@ original scale when reported.
 import argparse
 import json
 from pathlib import Path
+import math
 from typing import Tuple
 import random
 import numpy as np
@@ -29,8 +30,14 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.init as init
+from torch.nn import Module
 from torch.utils.data import DataLoader, TensorDataset
 
+def init_weights(m):
+    if isinstance(m, nn.Linear):
+        # He 初始化，适用于 ReLU 激活
+        init.kaiming_uniform_(m.weight, nonlinearity='relu')
 
 def load_dataset(path: Path) -> Tuple[torch.Tensor, torch.Tensor]:
     """Load CSV dataset and split inputs/targets."""
@@ -74,37 +81,18 @@ def undo_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.T
     """Revert normalisation applied to ``x``."""
     return x * std + mean
 
-
-class RMSELoss(nn.Module):
-    """Root mean squared error loss."""
-
-    def __init__(self, eps: float = 1e-8) -> None:
-        super().__init__()
-        self.mse = nn.MSELoss()
-        self.eps = eps
-
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        return torch.sqrt(self.mse(pred, target) + self.eps)
-
-
-class R2Loss(nn.Module):
-    """Loss based on the coefficient of determination (R^2).
-
-    Minimises ``1 - R^2`` to maximise the quality of fit. The loss is computed
-    over the entire batch.
-    """
-
-    def __init__(self, eps: float = 1e-8) -> None:
+class MAAPELoss(nn.Module):
+    """Mean Arctangent Absolute Percentage Error (MAAPE) loss."""
+    def __init__(self, eps: float = 1e-5):
         super().__init__()
         self.eps = eps
 
     def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        target_mean = torch.mean(target)
-        ss_tot = torch.sum((target - target_mean) ** 2)
-        ss_res = torch.sum((target - pred) ** 2)
-        return ss_res / (ss_tot + self.eps)
-
-
+        # 避免除以 0
+        denom = torch.clamp(target.abs(), min=self.eps)
+        mape = (pred - target).abs() / denom
+        # arctan 後取平均
+        return torch.atan(mape).mean()
 
 
 class MLP(nn.Module):
@@ -205,11 +193,20 @@ def train_fp32(
     patience: int = 20,
     min_delta: float = 0.0,
     weight_decay: float = 0.0,
+    # 新增：调度器参数
+    scheduler_step_size: int = 30,
+    scheduler_gamma: float = 0.1,
+    criterion: nn.Module = nn.MSELoss(),
 ) -> None:
-    """Train the FP32 model using standardised targets and MSE loss."""
-    criterion = nn.MSELoss()
+    """Train the FP32 model using指定的 loss (MSE or MAAPE)."""
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=30, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        opt,
+        mode='min',
+        factor=scheduler_gamma,
+        patience=20,           # 连续10轮val loss无下降时再减lr
+        verbose=True
+    )
 
     best_loss = float("inf")
     wait = 0
@@ -223,10 +220,13 @@ def train_fp32(
             opt.zero_grad()
             loss = criterion(model(x), y)
             loss.backward()
+            # 梯度裁剪，防止梯度爆炸
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             opt.step()
-        scheduler.step()
+        # 计算完 validation loss 后再触发 lr 调度
 
         val_loss = evaluate(model, val_loader, criterion, device)
+        scheduler.step(val_loss)
         if best_loss - val_loss > min_delta:
             best_loss = val_loss
             wait = 0
@@ -267,14 +267,21 @@ def train_qat(
     patience: int = 30,
     min_delta: float = 0.0,
     weight_decay: float = 1e-5,
+    criterion: nn.Module = nn.MSELoss(),
 ) -> None:
-    """Quantisation aware training with standardised targets and MSE loss."""
+    """Quantisation aware training with standardised targets and指定的 loss."""
     model.train()
     model.quant = True
 
     criterion = nn.MSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=50, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        opt,
+        mode='min',
+        factor=0.1,
+        patience=10,
+        verbose=True
+    )
 
     best_loss = float("inf")
     wait = 0
@@ -288,10 +295,13 @@ def train_qat(
             opt.zero_grad()
             loss = criterion(model(x), y)
             loss.backward()
+            # 梯度裁剪
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             opt.step()
-        scheduler.step()
+        # monitor validation loss 再触发 lr 调度
 
         val_loss = evaluate(model, val_loader, criterion, device)
+        scheduler.step(val_loss)
         if best_loss - val_loss > min_delta:
             best_loss = val_loss
             wait = 0
@@ -324,7 +334,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Train MLP Kalman gain model")
     parser.add_argument("--csv", type=Path, default=Path("gru_training_data.csv"))
     parser.add_argument("--out", type=Path, default=Path("model_out"))
-    parser.add_argument("--fp32-epochs", type=int, default=100)
+    parser.add_argument("--fp32-epochs", type=int, default=400)
     parser.add_argument("--qat-epochs", type=int, default=150)
     parser.add_argument("--hidden1", type=int, default=32)
     parser.add_argument("--hidden2", type=int, default=16)
@@ -334,9 +344,20 @@ def main() -> None:
     parser.add_argument("--fp32-weight-decay", type=float, default=0.0)
     parser.add_argument("--qat-weight-decay", type=float, default=1e-5)
     parser.add_argument("--dropout", type=float, default=0.0)
-    parser.add_argument("--patience", type=int, default=20)
+    parser.add_argument("--patience", type=int, default=30)
     parser.add_argument("--min-delta", type=float, default=0.0)
+    # 新增：FP32 阶梯学习率调度器的 step_size 和 gamma
+    parser.add_argument("--scheduler-step-size", type=int, default=30,
+                        help="StepLR 的 step_size，默认 30")
+    parser.add_argument("--scheduler-gamma", type=float, default=0.1,
+                        help="StepLR 的 gamma，默认 0.1")
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--loss",
+        choices=["mse", "mmape"],
+        default="mse",
+        help="loss function to use: mse or mmape (MAAPE)",
+    )
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -346,6 +367,11 @@ def main() -> None:
         np.random.seed(args.seed)
         random.seed(args.seed)
 
+    # 選擇 loss criterion
+    if args.loss == "mse":
+        criterion = nn.MSELoss()
+    else:
+        criterion = MAAPELoss()
     x, y = load_dataset(args.csv)
     (x_train, y_train), (x_val, y_val), (x_test, y_test) = split_data(x, y)
 
@@ -366,19 +392,24 @@ def main() -> None:
     args.out.mkdir(parents=True, exist_ok=True)
 
     model = MLP(hidden1=args.hidden1, hidden2=args.hidden2, dropout=args.dropout)
+    # 应用 He 初始化
+    model.apply(init_weights)
     model.to(device)
     train_fp32(
         model,
         train_loader,
         val_loader,
-        args.fp32_epochs,
-        args.fp32_lr,
-        device,
-        y_mean,
-        y_std,
+        epochs=args.fp32_epochs,
+        lr=args.fp32_lr,
+        device=device,
+        y_mean=y_mean,
+        y_std=y_std,
         patience=args.patience,
         min_delta=args.min_delta,
         weight_decay=args.fp32_weight_decay,
+        scheduler_step_size=args.scheduler_step_size,
+        scheduler_gamma=args.scheduler_gamma,
+        criterion=criterion,
     )
     torch.save(
         {
@@ -392,6 +423,8 @@ def main() -> None:
     )
 
     qat_model = MLP(hidden1=args.hidden1, hidden2=args.hidden2, dropout=args.dropout)
+    # QAT 模型同样做初始化
+
     qat_model.load_state_dict(model.state_dict())
     qat_model.to(device)
     train_qat(
@@ -406,13 +439,14 @@ def main() -> None:
         patience=args.patience,
         min_delta=args.min_delta,
         weight_decay=args.qat_weight_decay,
+        criterion=criterion,
     )
 
     scripted = torch.jit.script(qat_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
-    test_loss_fp32 = evaluate(model, test_loader, nn.MSELoss(), device)
-    test_loss_int8 = evaluate(qat_model, test_loader, nn.MSELoss(), device)
+    test_loss_fp32 = evaluate(model, test_loader, criterion, device)
+    test_loss_int8 = evaluate(qat_model, test_loader, criterion, device)
 
     with open(args.out / "metrics.json", "w") as f:
         json.dump({"fp32_test_mse": test_loss_fp32, "int8_test_mse": test_loss_int8}, f, indent=2)
