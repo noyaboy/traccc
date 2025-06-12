@@ -372,14 +372,14 @@ def main() -> None:
     scripted = torch.jit.script(qat_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
-    test_loss_fp32 = evaluate(model, test_loader, R2Loss(), device)
-    test_loss_int8 = evaluate(qat_model, test_loader, R2Loss(), device)
+    test_loss_fp32 = evaluate(model, test_loader, SMAPELoss(), device)
+    test_loss_int8 = evaluate(qat_model, test_loader, SMAPELoss(), device)
 
     with open(args.out / "metrics.json", "w") as f:
         json.dump({"fp32_test_r2": test_loss_fp32, "int8_test_r2": test_loss_int8}, f, indent=2)
 
-    print(f"FP32 test R^2 loss:{test_loss_fp32}, FP32 test R^2: {1 - test_loss_fp32:.6f}")
-    print(f"INT8 test R^2 loss:{test_loss_int8}, INT8 test R^2: {1 - test_loss_int8:.6f}")
+    print(f"FP32 test loss:{test_loss_fp32}")
+    print(f"INT8 test loss:{test_loss_int8}")
 
 
 
