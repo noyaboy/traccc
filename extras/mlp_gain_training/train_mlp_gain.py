@@ -64,11 +64,15 @@ def split_data(x: torch.Tensor, y: torch.Tensor, train_ratio=0.8, val_ratio=0.1)
     return (x_train, y_train), (x_val, y_val), (x_test, y_test)
 
 
-def compute_norm(x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Return per-feature mean and std for ``x``."""
+def compute_norm(x: torch.Tensor, eps: float = 1e-6) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Return per-feature mean and std for ``x``.
+
+    Very small standard deviations are clamped to 1 to avoid extremely
+    large scaling factors which can hinder training.
+    """
     mean = x.mean(0)
     std = x.std(0)
-    std[std == 0] = 1.0
+    std[std < eps] = 1.0
     return mean, std
 
 
@@ -93,6 +97,21 @@ class MAAPELoss(nn.Module):
         mape = (pred - target).abs() / denom
         # arctan 後取平均
         return torch.atan(mape).mean()
+
+
+class OneMinusR2Loss(nn.Module):
+    """Loss that minimises ``1 - R^2`` between ``pred`` and ``target``."""
+
+    def __init__(self, eps: float = 1e-6) -> None:
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        target_mean = target.mean(dim=0, keepdim=True)
+        ss_tot = ((target - target_mean) ** 2).sum()
+        ss_res = ((pred - target) ** 2).sum()
+        r2 = 1.0 - ss_res / (ss_tot + self.eps)
+        return 1.0 - r2
 
 
 class MLP(nn.Module):
@@ -206,18 +225,17 @@ def train_fp32(
     patience: int = 20,
     min_delta: float = 0.0,
     weight_decay: float = 0.0,
-    # 新增：调度器参数
+    # Learning rate scheduler parameters
     scheduler_step_size: int = 30,
     scheduler_gamma: float = 0.1,
     criterion: nn.Module = nn.MSELoss(),
 ) -> None:
     """Train the FP32 model using指定的 loss (MSE or MAAPE)."""
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    scheduler = torch.optim.lr_scheduler.StepLR(
         opt,
-        mode='min',
-        factor=scheduler_gamma,
-        patience=5           # 连续10轮val loss无下降时再减lr
+        step_size=scheduler_step_size,
+        gamma=scheduler_gamma,
     )
 
     best_loss = float("inf")
@@ -238,7 +256,7 @@ def train_fp32(
         # 计算完 validation loss 后再触发 lr 调度
 
         val_loss = evaluate(model, val_loader, criterion, device)
-        scheduler.step(val_loss)
+        scheduler.step()
         if best_loss - val_loss > min_delta:
             best_loss = val_loss
             wait = 0
@@ -280,19 +298,19 @@ def train_qat(
     patience: int = 30,
     min_delta: float = 0.0,
     weight_decay: float = 1e-5,
+    scheduler_step_size: int = 30,
+    scheduler_gamma: float = 0.1,
     criterion: nn.Module = nn.MSELoss(),
 ) -> None:
     """Quantisation aware training with standardised targets and指定的 loss."""
     model.train()
     model.quant = True
 
-    criterion = nn.MSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    scheduler = torch.optim.lr_scheduler.StepLR(
         opt,
-        mode='min',
-        factor=0.1,
-        patience=10           # 连续10轮val loss无下降时再减lr
+        step_size=scheduler_step_size,
+        gamma=scheduler_gamma,
     )
 
     best_loss = float("inf")
@@ -313,7 +331,7 @@ def train_qat(
         # monitor validation loss 再触发 lr 调度
 
         val_loss = evaluate(model, val_loader, criterion, device)
-        scheduler.step(val_loss)
+        scheduler.step()
         if best_loss - val_loss > min_delta:
             best_loss = val_loss
             wait = 0
@@ -367,9 +385,9 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--loss",
-        choices=["mse", "maape"],
+        choices=["mse", "maape", "r2"],
         default="mse",
-        help="loss function to use: mse or maape (MAAPE)",
+        help="loss function to use: mse, maape or r2 (1 - R^2)",
     )
     parser.add_argument("--eps-maape", type=float, default=3e-4)
     parser.add_argument("--num-workers", type=int, default=0, help="DataLoader workers")
@@ -382,11 +400,13 @@ def main() -> None:
         np.random.seed(args.seed)
         random.seed(args.seed)
 
-    # 選擇 loss criterion
+    # Select loss criterion
     if args.loss == "mse":
         criterion = nn.MSELoss()
-    else:
+    elif args.loss == "maape":
         criterion = MAAPELoss(eps=args.eps_maape)
+    else:
+        criterion = OneMinusR2Loss()
     x, y = load_dataset(args.csv)
     (x_train, y_train), (x_val, y_val), (x_test, y_test) = split_data(x, y)
 
@@ -481,6 +501,8 @@ def main() -> None:
         patience=args.patience,
         min_delta=args.min_delta,
         weight_decay=args.qat_weight_decay,
+        scheduler_step_size=args.scheduler_step_size,
+        scheduler_gamma=args.scheduler_gamma,
         criterion=criterion,
     )
 
