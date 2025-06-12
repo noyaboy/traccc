@@ -96,12 +96,23 @@ class MAAPELoss(nn.Module):
 
 
 class MLP(nn.Module):
-    """Two-layer MLP with optional symmetric INT8 quantisation (scale=127)."""
+    """Two-layer MLP with optional BatchNorm and INT8 quantisation."""
 
-    def __init__(self, input_dim=58, hidden1=32, hidden2=16, output_dim=12, quant=False, dropout=0.0):
+    def __init__(
+        self,
+        input_dim: int = 58,
+        hidden1: int = 32,
+        hidden2: int = 16,
+        output_dim: int = 12,
+        quant: bool = False,
+        dropout: float = 0.0,
+        batchnorm: bool = False,
+    ) -> None:
         super().__init__()
         self.fc1 = nn.Linear(input_dim, hidden1, bias=False)
+        self.bn1 = nn.BatchNorm1d(hidden1) if batchnorm else nn.Identity()
         self.fc2 = nn.Linear(hidden1, hidden2, bias=False)
+        self.bn2 = nn.BatchNorm1d(hidden2) if batchnorm else nn.Identity()
         self.fc3 = nn.Linear(hidden2, output_dim, bias=False)
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
         self.quant = quant
@@ -119,6 +130,7 @@ class MLP(nn.Module):
         else:
             w1 = self.fc1.weight
         x = nn.functional.linear(x, w1)
+        x = self.bn1(x)
         x = nn.functional.relu(x)
         x = self.dropout(x)
 
@@ -128,6 +140,7 @@ class MLP(nn.Module):
         else:
             w2 = self.fc2.weight
         x = nn.functional.linear(x, w2)
+        x = self.bn2(x)
         x = nn.functional.relu(x)
         x = self.dropout(x)
 
@@ -343,6 +356,7 @@ def main() -> None:
     parser.add_argument("--fp32-weight-decay", type=float, default=0.0)
     parser.add_argument("--qat-weight-decay", type=float, default=1e-5)
     parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--batchnorm", action="store_true", help="use BatchNorm layers")
     parser.add_argument("--patience", type=int, default=20)
     parser.add_argument("--min-delta", type=float, default=0.0)
     # 新增：FP32 阶梯学习率调度器的 step_size 和 gamma
@@ -358,6 +372,7 @@ def main() -> None:
         help="loss function to use: mse or maape (MAAPE)",
     )
     parser.add_argument("--eps-maape", type=float, default=3e-4)
+    parser.add_argument("--num-workers", type=int, default=0, help="DataLoader workers")
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -385,13 +400,35 @@ def main() -> None:
     y_val = apply_norm(y_val, y_mean, y_std)
     y_test = apply_norm(y_test, y_mean, y_std)
 
-    train_loader = DataLoader(TensorDataset(x_train, y_train), batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(TensorDataset(x_val, y_val), batch_size=args.batch_size)
-    test_loader = DataLoader(TensorDataset(x_test, y_test), batch_size=args.batch_size)
+    pin_mem = device.type == "cuda"
+    train_loader = DataLoader(
+        TensorDataset(x_train, y_train),
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        pin_memory=pin_mem,
+    )
+    val_loader = DataLoader(
+        TensorDataset(x_val, y_val),
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=pin_mem,
+    )
+    test_loader = DataLoader(
+        TensorDataset(x_test, y_test),
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=pin_mem,
+    )
 
     args.out.mkdir(parents=True, exist_ok=True)
 
-    model = MLP(hidden1=args.hidden1, hidden2=args.hidden2, dropout=args.dropout)
+    model = MLP(
+        hidden1=args.hidden1,
+        hidden2=args.hidden2,
+        dropout=args.dropout,
+        batchnorm=args.batchnorm,
+    )
     # 应用 He 初始化
     model.apply(init_weights)
     model.to(device)
@@ -422,7 +459,12 @@ def main() -> None:
         args.out / "model_fp32.pth",
     )
 
-    qat_model = MLP(hidden1=args.hidden1, hidden2=args.hidden2, dropout=args.dropout)
+    qat_model = MLP(
+        hidden1=args.hidden1,
+        hidden2=args.hidden2,
+        dropout=args.dropout,
+        batchnorm=args.batchnorm,
+    )
     # QAT 模型同样做初始化
 
     qat_model.load_state_dict(model.state_dict())
