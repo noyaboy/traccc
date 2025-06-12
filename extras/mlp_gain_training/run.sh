@@ -13,4 +13,23 @@
 #      example pred:   ['+8.0e-01', '+1.8e-05', '+1.4e-04', '+4.8e-01', '+1.8e-02', '+1.8e-05', '-9.8e-06', '-9.1e-03', '-1.1e-01', '+4.6e-05', '+0.0e+00', '+0.0e+00']
 #      example target: ['+7.2e-02', '-1.6e-03', '-1.8e-02', '+8.3e-03', '+3.1e-03', '-7.4e-05', '-4.3e-05', '-8.2e-05', '-6.8e-02', '+1.8e-03', '+0.0e+00', '+0.0e+00']
 
-python3 train_mlp_gain.py --seed 123 --loss r2 --scheduler-gamma "0.1" --scheduler-step-size "35" --fp32-lr "3e-3" --eps-maape "1e-5" --batch-size 128   
+
+# Improved run aiming for <0.05 validation loss.  The network
+# capacity is increased and training runs for more epochs with a
+# larger patience to allow convergence.  BatchNorm and dropout help
+# stabilise training.
+python3 train_mlp_gain.py \
+  --seed 123 \
+  --loss r2 \
+  --scheduler-gamma "0.1" \
+  --scheduler-step-size "35" \
+  --fp32-lr "3e-3" \
+  --qat-lr "1e-4" \
+  --fp32-epochs 600 \
+  --qat-epochs 200 \
+  --batch-size 128 \
+  --hidden1 64 \
+  --hidden2 32 \
+  --dropout 0.1 \
+  --batchnorm \
+  --patience 100
