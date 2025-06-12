@@ -13,8 +13,10 @@ The training procedure consists of two stages:
 2. Quantisation aware training (QAT) to fine tune an INT8 friendly model.
 
 The script saves ``model_fp32.pth`` and ``model_int8.pt`` in the output
-folder.  Normalisation statistics are stored alongside the FP32 model and are
-applied during inference.
+folder.  Normalisation statistics for both the inputs and targets are stored
+alongside the FP32 model and are applied during inference. Targets are
+standardised during training and predictions are unnormalised back to the
+original scale when reported.
 """
 
 import argparse
@@ -68,6 +70,11 @@ def apply_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.
     return (x - mean) / std
 
 
+def undo_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
+    """Revert normalisation applied to ``x``."""
+    return x * std + mean
+
+
 class RMSELoss(nn.Module):
     """Root mean squared error loss."""
 
@@ -98,17 +105,6 @@ class R2Loss(nn.Module):
         return ss_res / (ss_tot + self.eps)
 
 
-class SMAPELoss(nn.Module):
-    """Symmetric Mean Absolute Percentage Error loss with epsilon."""
-
-    def __init__(self, eps: float = 1e-8) -> None:
-        super().__init__()
-        self.eps = eps
-
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        diff = torch.abs(pred - target)
-        denom = torch.abs(pred) + torch.abs(target) + self.eps
-        return torch.mean(2.0 * diff / denom)
 
 
 class MLP(nn.Module):
@@ -172,14 +168,29 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device:
 
 
 @torch.no_grad()
-def sample_val_prediction(model: nn.Module, loader: DataLoader, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Return a single prediction/target pair from the validation set."""
+def sample_val_prediction(
+    model: nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+    y_mean: torch.Tensor | None = None,
+    y_std: torch.Tensor | None = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Return a single prediction/target pair from the validation set.
+
+    If ``y_mean`` and ``y_std`` are provided the values are unnormalised
+    before being returned so they match the original scale of the dataset.
+    """
     model.eval()
     x, y = next(iter(loader))
     x = x.to(device)
     y = y.to(device)
     pred = model(x)
-    return pred[0].cpu(), y[0].cpu()
+    pred = pred[0].cpu()
+    y = y[0].cpu()
+    if y_mean is not None and y_std is not None:
+        pred = undo_norm(pred, y_mean, y_std)
+        y = undo_norm(y, y_mean, y_std)
+    return pred, y
 
 
 def train_fp32(
@@ -189,11 +200,14 @@ def train_fp32(
     epochs: int,
     lr: float,
     device: torch.device,
+    y_mean: torch.Tensor,
+    y_std: torch.Tensor,
     patience: int = 20,
     min_delta: float = 0.0,
     weight_decay: float = 0.0,
 ) -> None:
-    criterion = SMAPELoss()
+    """Train the FP32 model using standardised targets and MSE loss."""
+    criterion = nn.MSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=30, gamma=0.1)
 
@@ -225,7 +239,9 @@ def train_fp32(
 
         if (epoch + 1) % 10 == 0 or wait == 0:
             print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
-            pred_vec, target_vec = sample_val_prediction(model, val_loader, device)
+            pred_vec, target_vec = sample_val_prediction(
+                model, val_loader, device, y_mean, y_std
+            )
              # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
             formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
             print("      example pred:  ", formatted_pred)
@@ -246,14 +262,17 @@ def train_qat(
     epochs: int,
     lr: float,
     device: torch.device,
+    y_mean: torch.Tensor,
+    y_std: torch.Tensor,
     patience: int = 30,
     min_delta: float = 0.0,
     weight_decay: float = 1e-5,
 ) -> None:
+    """Quantisation aware training with standardised targets and MSE loss."""
     model.train()
     model.quant = True
 
-    criterion = SMAPELoss()
+    criterion = nn.MSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=50, gamma=0.1)
 
@@ -284,7 +303,9 @@ def train_qat(
                 break
 
         print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}")
-        pred_vec, target_vec = sample_val_prediction(model, val_loader, device)
+        pred_vec, target_vec = sample_val_prediction(
+            model, val_loader, device, y_mean, y_std
+        )
             # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
         formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
         print("      example pred:  ", formatted_pred)
@@ -333,6 +354,11 @@ def main() -> None:
     x_val = apply_norm(x_val, mean, std)
     x_test = apply_norm(x_test, mean, std)
 
+    y_mean, y_std = compute_norm(y_train)
+    y_train = apply_norm(y_train, y_mean, y_std)
+    y_val = apply_norm(y_val, y_mean, y_std)
+    y_test = apply_norm(y_test, y_mean, y_std)
+
     train_loader = DataLoader(TensorDataset(x_train, y_train), batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(TensorDataset(x_val, y_val), batch_size=args.batch_size)
     test_loader = DataLoader(TensorDataset(x_test, y_test), batch_size=args.batch_size)
@@ -348,11 +374,22 @@ def main() -> None:
         args.fp32_epochs,
         args.fp32_lr,
         device,
+        y_mean,
+        y_std,
         patience=args.patience,
         min_delta=args.min_delta,
         weight_decay=args.fp32_weight_decay,
     )
-    torch.save({"state_dict": model.state_dict(), "mean": mean, "std": std}, args.out / "model_fp32.pth")
+    torch.save(
+        {
+            "state_dict": model.state_dict(),
+            "x_mean": mean,
+            "x_std": std,
+            "y_mean": y_mean,
+            "y_std": y_std,
+        },
+        args.out / "model_fp32.pth",
+    )
 
     qat_model = MLP(hidden1=args.hidden1, hidden2=args.hidden2, dropout=args.dropout)
     qat_model.load_state_dict(model.state_dict())
@@ -364,6 +401,8 @@ def main() -> None:
         args.qat_epochs,
         args.qat_lr,
         device,
+        y_mean,
+        y_std,
         patience=args.patience,
         min_delta=args.min_delta,
         weight_decay=args.qat_weight_decay,
@@ -372,11 +411,11 @@ def main() -> None:
     scripted = torch.jit.script(qat_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
-    test_loss_fp32 = evaluate(model, test_loader, SMAPELoss(), device)
-    test_loss_int8 = evaluate(qat_model, test_loader, SMAPELoss(), device)
+    test_loss_fp32 = evaluate(model, test_loader, nn.MSELoss(), device)
+    test_loss_int8 = evaluate(qat_model, test_loader, nn.MSELoss(), device)
 
     with open(args.out / "metrics.json", "w") as f:
-        json.dump({"fp32_test_r2": test_loss_fp32, "int8_test_r2": test_loss_int8}, f, indent=2)
+        json.dump({"fp32_test_mse": test_loss_fp32, "int8_test_mse": test_loss_int8}, f, indent=2)
 
     print(f"FP32 test loss:{test_loss_fp32}")
     print(f"INT8 test loss:{test_loss_int8}")
