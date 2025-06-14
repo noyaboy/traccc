@@ -11,7 +11,7 @@
 #include "traccc/examples/utils/printable.hpp"
 
 // System include(s).
-#include <format>
+#include <sstream>
 
 namespace traccc::opts {
 
@@ -26,7 +26,7 @@ std::unique_ptr<configuration_printable> performance::as_printable() const {
     auto cat = std::make_unique<configuration_category>(m_description);
 
     cat->add_child(std::make_unique<configuration_kv_pair>(
-        "Run performance checks", std::format("{}", run)));
+        "Run performance checks", run ? "true" : "false"));
 
     return cat;
 }

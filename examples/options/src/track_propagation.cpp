@@ -12,8 +12,8 @@
 #include "traccc/examples/utils/printable.hpp"
 
 // System include(s).
-#include <format>
 #include <limits>
+#include <sstream>
 
 namespace traccc::opts {
 
@@ -131,10 +131,10 @@ std::unique_ptr<configuration_printable> track_propagation::as_printable()
                              " mm"));
     cat_tsp->add_child(std::make_unique<configuration_kv_pair>(
         "Enable Bethe energy loss",
-        std::format("{}", m_config.stepping.use_mean_loss)));
+        m_config.stepping.use_mean_loss ? "true" : "false"));
     cat_tsp->add_child(std::make_unique<configuration_kv_pair>(
         "Enable covariance transport",
-        std::format("{}", m_config.stepping.do_covariance_transport)));
+        m_config.stepping.do_covariance_transport ? "true" : "false"));
 
     if (m_config.stepping.do_covariance_transport) {
         auto cat_cov =
@@ -142,10 +142,10 @@ std::unique_ptr<configuration_printable> track_propagation::as_printable()
 
         cat_cov->add_child(std::make_unique<configuration_kv_pair>(
             "Enable energy loss gradient",
-            std::format("{}", m_config.stepping.use_eloss_gradient)));
+            m_config.stepping.use_eloss_gradient ? "true" : "false"));
         cat_cov->add_child(std::make_unique<configuration_kv_pair>(
             "Enable B-field gradient",
-            std::format("{}", m_config.stepping.use_field_gradient)));
+            m_config.stepping.use_field_gradient ? "true" : "false"));
 
         cat_tsp->add_child(std::move(cat_cov));
     }
