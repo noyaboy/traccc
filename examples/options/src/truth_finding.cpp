@@ -7,7 +7,7 @@
 
 #include "traccc/options/truth_finding.hpp"
 
-#include <format>
+#include "traccc/utils/format.hpp"
 
 #include "traccc/definitions/common.hpp"
 #include "traccc/examples/utils/printable.hpp"
@@ -29,7 +29,7 @@ std::unique_ptr<configuration_printable> truth_finding::as_printable() const {
     auto cat = std::make_unique<configuration_category>(m_description);
 
     cat->add_child(std::make_unique<configuration_kv_pair>(
-        "Minimum pT", std::format("{} GeV", m_min_pt / unit<float>::GeV)));
+        "Minimum pT", traccc::format("{} GeV", m_min_pt / unit<float>::GeV)));
 
     return cat;
 }

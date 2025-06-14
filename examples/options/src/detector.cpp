@@ -11,7 +11,7 @@
 #include "traccc/examples/utils/printable.hpp"
 
 // System include(s).
-#include <format>
+#include "traccc/utils/format.hpp"
 
 namespace traccc::opts {
 
@@ -50,7 +50,7 @@ std::unique_ptr<configuration_printable> detector::as_printable() const {
     cat->add_child(std::make_unique<configuration_kv_pair>("Surface grid file",
                                                            grid_file));
     cat->add_child(std::make_unique<configuration_kv_pair>(
-        "Use detray detector", std::format("{}", use_detray_detector)));
+        "Use detray detector", traccc::format("{}", use_detray_detector)));
     cat->add_child(std::make_unique<configuration_kv_pair>("Digitization file",
                                                            digitization_file));
 

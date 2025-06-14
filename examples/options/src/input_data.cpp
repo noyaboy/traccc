@@ -11,7 +11,7 @@
 #include "traccc/examples/utils/printable.hpp"
 
 // System include(s).
-#include <format>
+#include "traccc/utils/format.hpp"
 #include <sstream>
 #include <stdexcept>
 
@@ -66,7 +66,7 @@ std::unique_ptr<configuration_printable> input_data::as_printable() const {
     auto cat = std::make_unique<configuration_category>(m_description);
 
     cat->add_child(std::make_unique<configuration_kv_pair>(
-        "Use ACTS geometry source", std::format("{}", use_acts_geom_source)));
+        "Use ACTS geometry source", traccc::format("{}", use_acts_geom_source)));
     std::ostringstream format_ss;
     format_ss << format;
     cat->add_child(std::make_unique<configuration_kv_pair>("Input data format",

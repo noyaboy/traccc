@@ -11,7 +11,7 @@
 #include "traccc/examples/utils/printable.hpp"
 
 // System include(s).
-#include <format>
+#include "traccc/utils/format.hpp"
 
 namespace traccc::opts {
 
@@ -26,7 +26,7 @@ std::unique_ptr<configuration_printable> accelerator::as_printable() const {
     auto cat = std::make_unique<configuration_category>(m_description);
 
     cat->add_child(std::make_unique<configuration_kv_pair>(
-        "Compare with CPU output", std::format("{}", compare_with_cpu)));
+        "Compare with CPU output", traccc::format("{}", compare_with_cpu)));
 
     return cat;
 }

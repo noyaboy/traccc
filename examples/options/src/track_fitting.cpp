@@ -12,7 +12,7 @@
 #include "traccc/utils/particle.hpp"
 
 // System include(s).
-#include <format>
+#include "traccc/utils/format.hpp"
 
 namespace traccc::opts {
 

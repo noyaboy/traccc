@@ -11,7 +11,7 @@
 #include "traccc/examples/utils/printable.hpp"
 
 // System include(s).
-#include <format>
+#include "traccc/utils/format.hpp"
 
 namespace traccc::opts {
 

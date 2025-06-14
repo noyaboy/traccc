@@ -11,7 +11,7 @@
 #include "traccc/examples/utils/printable.hpp"
 
 // System include(s).
-#include <format>
+#include "traccc/utils/format.hpp"
 
 namespace traccc::opts {
 
@@ -51,7 +51,7 @@ std::unique_ptr<configuration_printable> throughput::as_printable() const {
         std::make_unique<configuration_kv_pair>("Log file", log_file));
     cat->add_child(std::make_unique<configuration_kv_pair>(
         "Deterministic ordering",
-        std::format("{}", deterministic_event_order)));
+        traccc::format("{}", deterministic_event_order)));
     cat->add_child(std::make_unique<configuration_kv_pair>(
         "Random seed",
         random_seed == 0 ? "time-based" : std::to_string(random_seed)));
