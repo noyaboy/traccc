@@ -551,8 +551,8 @@ def main() -> None:
     scripted = torch.jit.script(qat_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
-    test_loss_fp32 = evaluate(model, test_loader, criterion, device)
-    test_loss_int8 = evaluate(qat_model, test_loader, criterion, device)
+    test_loss_fp32 = evaluate(model, test_loader, criterion=nn.MSELoss(), device)
+    test_loss_int8 = evaluate(qat_model, test_loader, criterion=nn.MSELoss(), device)
 
     with open(args.out / "metrics.json", "w") as f:
         json.dump({"fp32_test_mse": test_loss_fp32, "int8_test_mse": test_loss_int8}, f, indent=2)
