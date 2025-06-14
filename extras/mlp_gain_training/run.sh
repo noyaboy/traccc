@@ -20,16 +20,12 @@
 # stabilise training.
 python3 train_mlp_gain.py \
   --seed 123 \
-  --loss r2 \
-  --scheduler-gamma "0.1" \
-  --scheduler-step-size "35" \
-  --fp32-lr "3e-3" \
-  --qat-lr "1e-4" \
+  --fp32-lr 3e-3 \
+  --qat-lr 1e-4 \
   --fp32-epochs 600 \
   --qat-epochs 200 \
   --batch-size 128 \
   --hidden1 64 \
   --hidden2 32 \
-  --dropout 0.1 \
-  --batchnorm \
-  --patience 100
+  --patience 100 \
+  --min-delta 1e-4 

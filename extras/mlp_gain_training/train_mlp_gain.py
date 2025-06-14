@@ -18,13 +18,14 @@ alongside the FP32 model and are applied during inference. Targets are
 standardised during training and predictions are unnormalised back to the
 original scale when reported.
 """
-
+import matplotlib.pyplot as plt
 import argparse
 import json
 from pathlib import Path
 import math
 from typing import Tuple
 import random
+import copy
 import numpy as np
 
 import pandas as pd
@@ -38,12 +39,30 @@ def init_weights(m):
     if isinstance(m, nn.Linear):
         # He 初始化，适用于 ReLU 激活
         init.kaiming_uniform_(m.weight, nonlinearity='relu')
+        # 如果有偏置，则初始化为 0
+        if m.bias is not None:
+            init.zeros_(m.bias)
 
 def load_dataset(path: Path) -> Tuple[torch.Tensor, torch.Tensor]:
     """Load CSV dataset and split inputs/targets."""
-    data = pd.read_csv(path, header=None, usecols=range(70))
-    data = data.dropna(how='any')
-    data = data.values.astype("float32")
+    # 讀取 CSV 並移除行數不是 70 的 row
+    df = pd.read_csv(path, header=None, usecols=range(70))
+    orig_rows = len(df)
+    # drop rows with missing values → 非 70 欄的 row
+    df = df.dropna(how='any')
+    arr = df.values.astype("float32")
+    # 計算每欄平均值與標準差
+    means = np.mean(arr, axis=0)
+    stds  = np.std(arr, axis=0)
+    # 過濾掉超出平均值 ±3*標準差的 row
+    mask = np.ones(arr.shape[0], dtype=bool)
+    for i in range(arr.shape[1]):
+        if stds[i] > 0:
+            mask &= np.abs(arr[:, i] - means[i]) <= 3 * stds[i]
+    filtered_arr = arr[mask]
+    final_rows = filtered_arr.shape[0]
+    print(f"原始 row 數: {orig_rows}, 篩選後 row 數: {final_rows}")
+    data = filtered_arr
     x = torch.tensor(data[:, :58])
     y = torch.tensor(data[:, 58:])
     return x, y
@@ -65,15 +84,14 @@ def split_data(x: torch.Tensor, y: torch.Tensor, train_ratio=0.8, val_ratio=0.1)
 
 
 def compute_norm(x: torch.Tensor, eps: float = 1e-6) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Return per-feature mean and std for ``x``.
+    """Return per-feature mean/std *for all dimensions*.
 
-    Very small standard deviations are clamped to 1 to avoid extremely
-    large scaling factors which can hinder training.
+    將極小方差直接設為 eps，確保沒有通道被跳過，避免 loss 權重失衡。
     """
-    mean = x.mean(0)
     std = x.std(0)
-    std[std < eps] = 1.0
-    return mean, std
+    std_clamped = torch.clamp(std, min=eps)     # ← 每一維都真的被縮放
+    mean = x.mean(0)
+    return mean, std_clamped
 
 
 def apply_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
@@ -120,19 +138,19 @@ class MLP(nn.Module):
     def __init__(
         self,
         input_dim: int = 58,
-        hidden1: int = 32,
-        hidden2: int = 16,
+        hidden1: int = 64,
+        hidden2: int = 32,
         output_dim: int = 12,
         quant: bool = False,
         dropout: float = 0.0,
         batchnorm: bool = False,
     ) -> None:
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden1, bias=False)
+        self.fc1 = nn.Linear(input_dim, hidden1, bias=True)
         self.bn1 = nn.BatchNorm1d(hidden1) if batchnorm else nn.Identity()
-        self.fc2 = nn.Linear(hidden1, hidden2, bias=False)
+        self.fc2 = nn.Linear(hidden1, hidden2, bias=True)
         self.bn2 = nn.BatchNorm1d(hidden2) if batchnorm else nn.Identity()
-        self.fc3 = nn.Linear(hidden2, output_dim, bias=False)
+        self.fc3   = nn.Linear(hidden2, output_dim, bias=True)
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
         self.quant = quant
 
@@ -148,27 +166,24 @@ class MLP(nn.Module):
             w1 = self._fake_quant(self.fc1.weight)
         else:
             w1 = self.fc1.weight
-        x = nn.functional.linear(x, w1)
-        x = self.bn1(x)
+        x = nn.functional.linear(x, w1, self.fc1.bias)
         x = nn.functional.relu(x)
-        x = self.dropout(x)
 
         if self.quant:
             x = self._fake_quant(x)
             w2 = self._fake_quant(self.fc2.weight)
         else:
             w2 = self.fc2.weight
-        x = nn.functional.linear(x, w2)
-        x = self.bn2(x)
+        x = nn.functional.linear(x, w2, self.fc2.bias)
         x = nn.functional.relu(x)
-        x = self.dropout(x)
 
         if self.quant:
             x = self._fake_quant(x)
             w3 = self._fake_quant(self.fc3.weight)
         else:
             w3 = self.fc3.weight
-        x = nn.functional.linear(x, w3)
+        x = nn.functional.linear(x, w3, self.fc3.bias)
+        # ─ no residual bias ─
         return x
 
     def fuse_model(self) -> None:
@@ -223,40 +238,53 @@ def train_fp32(
     y_mean: torch.Tensor,
     y_std: torch.Tensor,
     patience: int = 20,
-    min_delta: float = 0.0,
+    min_delta: float = 1e-4,
     weight_decay: float = 0.0,
     # Learning rate scheduler parameters
     scheduler_step_size: int = 30,
     scheduler_gamma: float = 0.1,
-    criterion: nn.Module = nn.MSELoss(),
+    criterion: nn.Module = nn.MSELoss(),   # 改用 MSE
 ) -> None:
     """Train the FP32 model using指定的 loss (MSE or MAAPE)."""
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(
+    # 使用 CosineAnnealingLR，T_max = 總 epoch 數
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         opt,
-        step_size=scheduler_step_size,
-        gamma=scheduler_gamma,
+        T_max=epochs,
+        eta_min=lr * 0.01,   # 最小學習率設為初始的 1%
     )
 
     best_loss = float("inf")
     wait = 0
     best_state = None
 
+    train_losses = []
+    val_losses = []
     for epoch in range(epochs):
+        # --- training step & 计算 train_loss
         model.train()
+        total_train_loss = 0.0
         for x, y in train_loader:
             x = x.to(device)
             y = y.to(device)
             opt.zero_grad()
             loss = criterion(model(x), y)
+            # 累计训练损失（未乘 batch_size 归一化）
+            total_train_loss += loss.item() * x.size(0)
             loss.backward()
-            # 梯度裁剪，防止梯度爆炸
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             opt.step()
+        train_loss_epoch = total_train_loss / len(train_loader.dataset)
         # 计算完 validation loss 后再触发 lr 调度
 
+        # --- 验证 step
         val_loss = evaluate(model, val_loader, criterion, device)
+        # StepLR 不需要 metric，直接按 epoch 更新
         scheduler.step()
+
+        train_losses.append(train_loss_epoch)
+        val_losses.append(val_loss)
+
         if best_loss - val_loss > min_delta:
             best_loss = val_loss
             wait = 0
@@ -267,24 +295,35 @@ def train_fp32(
                 print(f"Early stopping FP32 at epoch {epoch+1}")
                 break
 
+        # 每 10 个 epoch 或在取得新最好时打印一次当前 lr & val loss
+        current_lr = opt.param_groups[0]['lr']
         if (epoch + 1) % 10 == 0 or wait == 0:
-            current_lr = opt.param_groups[0]['lr']
             print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
-            pred_vec, target_vec = sample_val_prediction(
-                model, val_loader, device, y_mean, y_std
-            )
-             # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
-            formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
-            print("      example pred:  ", formatted_pred)
-
-            # target_vec 通常是整數標籤，可能不需要格式化，此處保留原樣
-            # 如果 target_vec 也是浮點數且需要格式化，可使用相同方法
-            formatted_target = [f'{num:+.1e}' for num in target_vec.tolist()]
-            print("      example target:", formatted_target)
+            # 1) normalized predictions for magnitude check
+            pred_norm, targ_norm = sample_val_prediction(model, val_loader, device, None, None)
+            fmt_norm = [f'{n:+.1e}' for n in pred_norm.tolist()]
+            print("      example pred_norm:", fmt_norm)
+            # 2) un-normalized back to original scale
+            pred_vec, target_vec = sample_val_prediction(model, val_loader, device, y_mean, y_std)
+            formatted_pred   = [f'{n:+.1e}' for n in pred_vec.tolist()]
+            formatted_target = [f'{n:+.1e}' for n in target_vec.tolist()]
+            print("      example pred:     ", formatted_pred)
+            print("      example target:   ", formatted_target)
 
     if best_state is not None:
         model.load_state_dict(best_state)
 
+    # 绘制 train/val 曲线
+    plt.figure()
+    plt.plot(train_losses, label='train_loss')
+    plt.plot(val_losses, label='val_loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.title('FP32 Training and Validation Loss')
+    plt.savefig(Path("loss_curve_fp32.png"))
+    print("Saved FP32 loss curve to loss_curve_fp32.png")
+    plt.close()
 
 def train_qat(
     model: nn.Module,
@@ -296,7 +335,7 @@ def train_qat(
     y_mean: torch.Tensor,
     y_std: torch.Tensor,
     patience: int = 30,
-    min_delta: float = 0.0,
+    min_delta: float = 1e-4,
     weight_decay: float = 1e-5,
     scheduler_step_size: int = 30,
     scheduler_gamma: float = 0.1,
@@ -307,10 +346,10 @@ def train_qat(
     model.quant = True
 
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         opt,
-        step_size=scheduler_step_size,
-        gamma=scheduler_gamma,
+        T_max=epochs,
+        eta_min=lr * 0.01,
     )
 
     best_loss = float("inf")
@@ -371,25 +410,29 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--fp32-lr", type=float, default=1e-3)
     parser.add_argument("--qat-lr", type=float, default=1e-4)
-    parser.add_argument("--fp32-weight-decay", type=float, default=0.0)
+    parser.add_argument("--fp32-weight-decay", type=float, default=1e-5,
+                        help="FP32 阶段的 weight decay，建议设为 1e-5")
     parser.add_argument("--qat-weight-decay", type=float, default=1e-5)
-    parser.add_argument("--dropout", type=float, default=0.0)
+    parser.add_argument("--dropout", type=float, default=0.05, help="use smaller dropout by default")
     parser.add_argument("--batchnorm", action="store_true", help="use BatchNorm layers")
     parser.add_argument("--patience", type=int, default=20)
-    parser.add_argument("--min-delta", type=float, default=0.0)
+    parser.add_argument("--min-delta", type=float, default=1e-4)
     # 新增：FP32 阶梯学习率调度器的 step_size 和 gamma
-    parser.add_argument("--scheduler-step-size", type=int, default=30,
+    parser.add_argument("--scheduler-step-size", type=int, default=100,
                         help="StepLR 的 step_size，默认 30")
+    parser.add_argument("--pretrain-epochs",   type=int, default=100,
+                        help="FP32 阶段用 MSE 预热训练的 epoch 数")
     parser.add_argument("--scheduler-gamma", type=float, default=0.1,
                         help="StepLR 的 gamma，默认 0.1")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--loss",
-        choices=["mse", "maape", "r2"],
-        default="mse",
-        help="loss function to use: mse, maape or r2 (1 - R^2)",
+        choices=["mse", "huber", "r2"],
+        default="huber",
+        help="loss function to use: mse, huber (SmoothL1) or r2 (1 - R^2)",
     )
-    parser.add_argument("--eps-maape", type=float, default=3e-4)
+    parser.add_argument("--beta-huber", type=float, default=1e-3,
+                        help="δ for SmoothL1Loss (Huber)")
     parser.add_argument("--num-workers", type=int, default=0, help="DataLoader workers")
     args = parser.parse_args()
 
@@ -400,74 +443,81 @@ def main() -> None:
         np.random.seed(args.seed)
         random.seed(args.seed)
 
-    # Select loss criterion
-    if args.loss == "mse":
-        criterion = nn.MSELoss()
-    elif args.loss == "maape":
-        criterion = MAAPELoss(eps=args.eps_maape)
-    else:
-        criterion = OneMinusR2Loss()
+    # —— 数据准备 & 模型初始化 ——
     x, y = load_dataset(args.csv)
     (x_train, y_train), (x_val, y_val), (x_test, y_test) = split_data(x, y)
-
     mean, std = compute_norm(x_train)
     x_train = apply_norm(x_train, mean, std)
-    x_val = apply_norm(x_val, mean, std)
-    x_test = apply_norm(x_test, mean, std)
-
+    x_val   = apply_norm(x_val,   mean, std)
+    x_test  = apply_norm(x_test,  mean, std)
     y_mean, y_std = compute_norm(y_train)
     y_train = apply_norm(y_train, y_mean, y_std)
-    y_val = apply_norm(y_val, y_mean, y_std)
-    y_test = apply_norm(y_test, y_mean, y_std)
-
+    y_val   = apply_norm(y_val,   y_mean, y_std)
+    y_test  = apply_norm(y_test,  y_mean, y_std)
     pin_mem = device.type == "cuda"
     train_loader = DataLoader(
         TensorDataset(x_train, y_train),
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.num_workers,
-        pin_memory=pin_mem,
+        batch_size=args.batch_size, shuffle=True,
+        num_workers=args.num_workers, pin_memory=pin_mem,
     )
     val_loader = DataLoader(
-        TensorDataset(x_val, y_val),
+        TensorDataset(x_val,   y_val),
         batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=pin_mem,
+        num_workers=args.num_workers, pin_memory=pin_mem,
     )
     test_loader = DataLoader(
-        TensorDataset(x_test, y_test),
+        TensorDataset(x_test,  y_test),
         batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=pin_mem,
+        num_workers=args.num_workers, pin_memory=pin_mem,
     )
-
     args.out.mkdir(parents=True, exist_ok=True)
-
     model = MLP(
         hidden1=args.hidden1,
         hidden2=args.hidden2,
         dropout=args.dropout,
-        batchnorm=args.batchnorm,
+        batchnorm=False,         # 预热阶段不启用
     )
-    # 应用 He 初始化
     model.apply(init_weights)
     model.to(device)
-    train_fp32(
-        model,
-        train_loader,
-        val_loader,
-        epochs=args.fp32_epochs,
-        lr=args.fp32_lr,
-        device=device,
-        y_mean=y_mean,
-        y_std=y_std,
-        patience=args.patience,
-        min_delta=args.min_delta,
-        weight_decay=args.fp32_weight_decay,
-        scheduler_step_size=args.scheduler_step_size,
-        scheduler_gamma=args.scheduler_gamma,
-        criterion=criterion,
-    )
+
+    # two-phase FP32 training if using MAAPE
+    if args.loss == "maape":
+        print("=== Stage 1: MSE Pre-training ===")
+        train_fp32(
+            model, train_loader, val_loader,
+            epochs=args.pretrain_epochs, lr=args.fp32_lr,
+            device=device, y_mean=y_mean, y_std=y_std,
+            patience=args.patience, min_delta=args.min_delta,
+            weight_decay=args.fp32_weight_decay,
+            scheduler_step_size=args.scheduler_step_size,
+            scheduler_gamma=args.scheduler_gamma,
+            criterion=nn.MSELoss(),
+        )
+        print("=== Stage 2: MAAPE Fine-tuning ===")
+        train_fp32(
+            model, train_loader, val_loader,
+            epochs=args.fp32_epochs - args.pretrain_epochs,
+            lr=args.fp32_lr, device=device,
+            y_mean=y_mean, y_std=y_std,
+            patience=args.patience, min_delta=args.min_delta,
+            weight_decay=args.fp32_weight_decay,
+            scheduler_step_size=args.scheduler_step_size,
+            scheduler_gamma=args.scheduler_gamma,
+            criterion=MAAPELoss(eps=args.eps_maape),
+        )
+    else:
+        # 單階段 MSE 訓練（驗證最快收斂）
+        crit = nn.MSELoss()
+        train_fp32(
+            model, train_loader, val_loader,
+            epochs=args.fp32_epochs, lr=args.fp32_lr,
+            device=device, y_mean=y_mean, y_std=y_std,
+            patience=args.patience, min_delta=args.min_delta,
+            weight_decay=args.fp32_weight_decay,
+            scheduler_step_size=args.scheduler_step_size,
+            scheduler_gamma=args.scheduler_gamma,
+            criterion=crit,
+        )
     torch.save(
         {
             "state_dict": model.state_dict(),
@@ -479,15 +529,7 @@ def main() -> None:
         args.out / "model_fp32.pth",
     )
 
-    qat_model = MLP(
-        hidden1=args.hidden1,
-        hidden2=args.hidden2,
-        dropout=args.dropout,
-        batchnorm=args.batchnorm,
-    )
-    # QAT 模型同样做初始化
-
-    qat_model.load_state_dict(model.state_dict())
+    qat_model = copy.deepcopy(model)
     qat_model.to(device)
     train_qat(
         qat_model,
@@ -503,7 +545,7 @@ def main() -> None:
         weight_decay=args.qat_weight_decay,
         scheduler_step_size=args.scheduler_step_size,
         scheduler_gamma=args.scheduler_gamma,
-        criterion=criterion,
+        criterion=nn.MSELoss(),
     )
 
     scripted = torch.jit.script(qat_model)
