@@ -2,9 +2,9 @@
 
 """Train an MLP to approximate the Kalman gain.
 
-The script expects a CSV file ``gru_training_data.csv`` containing rows of
+The script expects a CSV file `gru_training_data.csv containing rows of
 58 input features followed by 12 target values. The first 58 columns encode
-``predicted_vec`` (6), ``predicted_cov`` (36), ``H`` (12) and ``V`` (4).
+`predicted_vec (6), predicted_cov (36), H (12) and V (4).
 The remaining 12 columns correspond to the flattened 6x2 Kalman gain matrix.
 
 The training procedure consists of two stages:
@@ -12,7 +12,7 @@ The training procedure consists of two stages:
 1. FP32 pre-training to obtain good initial weights.
 2. Quantisation aware training (QAT) to fine tune an INT8 friendly model.
 
-The script saves ``model_fp32.pth`` and ``model_int8.pt`` in the output
+The script saves `model_fp32.pth and model_int8.pt in the output
 folder.  Normalisation statistics for both the inputs and targets are stored
 alongside the FP32 model and are applied during inference. Targets are
 standardised during training and predictions are unnormalised back to the
@@ -35,6 +35,18 @@ import torch.nn.init as init
 from torch.nn import Module
 from torch.utils.data import DataLoader, TensorDataset
 
+# ───────────── 常數 feature 索引 ─────────────
+# ※ 索引為 **0-based**，與 Pandas / NumPy 欄序相同
+#   - 前 58 個輸入特徵中共有 25 個常數欄  
+#   - 後 12 個目標（Kalman gain）特徵中共有 2 個常數欄
+CONST_INPUT_IDXS  = [
+    5, 11, 17, 23, 29,                # F, L, R, X, AD
+    *range(35, 41),                   # AJ ~ AO
+    *range(42, 54),                   # AQ ~ BB
+    55, 56                            # BD, BE
+]
+CONST_OUTPUT_IDXS = [10, 11]          # BQ, BR  → 在 y 張量中的索引
+
 def init_weights(m):
     if isinstance(m, nn.Linear):
         # He 初始化，适用于 ReLU 激活
@@ -51,23 +63,22 @@ def load_dataset(path: Path) -> Tuple[torch.Tensor, torch.Tensor]:
     # drop rows with missing values → 非 70 欄的 row
     df = df.dropna(how='any')
     arr = df.values.astype("float32")
-    # 計算每欄平均值與標準差
-    means = np.mean(arr, axis=0)
-    stds  = np.std(arr, axis=0)
-    # 過濾掉超出平均值 ±3*標準差的 row
-    mask = np.ones(arr.shape[0], dtype=bool)
-    for i in range(arr.shape[1]):
-        if stds[i] > 0:
-            mask &= np.abs(arr[:, i] - means[i]) <= 3 * stds[i]
-    filtered_arr = arr[mask]
-    final_rows = filtered_arr.shape[0]
+    final_rows = arr.shape[0]
     print(f"原始 row 數: {orig_rows}, 篩選後 row 數: {final_rows}")
-    data = filtered_arr
-    x = torch.tensor(data[:, :58])
-    y = torch.tensor(data[:, 58:])
+    # 不再做 ±3*標準差過濾
+    data = arr
+    # ────── 移除常數輸入欄位 ──────
+    kept_input_cols = [i for i in range(58) if i not in CONST_INPUT_IDXS]
+    x = torch.tensor(data[:, kept_input_cols])
+
+    # ────── 移除常數輸出欄位 ──────
+    y_full = torch.tensor(data[:, 58:])          # shape: (N, 12)
+    kept_output_cols = [i for i in range(12) if i not in CONST_OUTPUT_IDXS]
+    y = y_full[:, kept_output_cols]
+
+    print(f"移除常數特徵後，x_dim={x.shape[1]}, y_dim={y.shape[1]}")
     return x, y
-
-
+    
 def split_data(x: torch.Tensor, y: torch.Tensor, train_ratio=0.8, val_ratio=0.1):
     """Shuffle and split the data set."""
     idx = torch.randperm(x.shape[0])
@@ -95,12 +106,12 @@ def compute_norm(x: torch.Tensor, eps: float = 1e-6) -> Tuple[torch.Tensor, torc
 
 
 def apply_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
-    """Apply normalisation statistics to ``x``."""
+    """Apply normalisation statistics to `x."""
     return (x - mean) / std
 
 
 def undo_norm(x: torch.Tensor, mean: torch.Tensor, std: torch.Tensor) -> torch.Tensor:
-    """Revert normalisation applied to ``x``."""
+    """Revert normalisation applied to `x."""
     return x * std + mean
 
 class MAAPELoss(nn.Module):
@@ -118,7 +129,7 @@ class MAAPELoss(nn.Module):
 
 
 class OneMinusR2Loss(nn.Module):
-    """Loss that minimises ``1 - R^2`` between ``pred`` and ``target``."""
+    """Loss that minimises `1 - R^2 between pred and target."""
 
     def __init__(self, eps: float = 1e-6) -> None:
         super().__init__()
@@ -212,7 +223,7 @@ def sample_val_prediction(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """Return a single prediction/target pair from the validation set.
 
-    If ``y_mean`` and ``y_std`` are provided the values are unnormalised
+    If `y_mean and y_std are provided the values are unnormalised
     before being returned so they match the original scale of the dataset.
     """
     model.eval()
@@ -472,8 +483,10 @@ def main() -> None:
     )
     args.out.mkdir(parents=True, exist_ok=True)
     model = MLP(
+        input_dim=x_train.shape[1],
         hidden1=args.hidden1,
         hidden2=args.hidden2,
+        output_dim=y_train.shape[1],
         dropout=args.dropout,
         batchnorm=False,         # 预热阶段不启用
     )
