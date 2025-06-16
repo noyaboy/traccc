@@ -32,6 +32,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.init as init
+import torch.ao.quantization as quant    # ← 官方 QAT 入口
 from torch.nn import Module
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -182,53 +183,39 @@ class MLP(nn.Module):
         hidden1: int = 64,
         hidden2: int = 32,
         output_dim: int = 12,
-        quant: bool = False,
         dropout: float = 0.0,
         batchnorm: bool = False,
     ) -> None:
         super().__init__()
-        self.fc1 = nn.Linear(input_dim, hidden1, bias=True)
-        self.bn1 = nn.BatchNorm1d(hidden1) if batchnorm else nn.Identity()
-        self.fc2 = nn.Linear(hidden1, hidden2, bias=True)
-        self.bn2 = nn.BatchNorm1d(hidden2) if batchnorm else nn.Identity()
-        self.fc3   = nn.Linear(hidden2, output_dim, bias=True)
-        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
-        self.quant = quant
+        # ── QAT 量化節點 ──
+        self.quant_in  = quant.QuantStub()
+        self.dequant   = quant.DeQuantStub()
 
-    @staticmethod
-    def _fake_quant(x: torch.Tensor) -> torch.Tensor:
-        return torch.fake_quantize_per_tensor_affine(
-            x, scale=1.0 / 127.0, zero_point=0, quant_min=-128, quant_max=127
-        )
+        self.fc1   = nn.Linear(input_dim, hidden1, bias=True)
+        self.relu1 = nn.ReLU()
+        self.fc2   = nn.Linear(hidden1, hidden2, bias=True)
+        self.relu2 = nn.ReLU()
+        self.fc3   = nn.Linear(hidden2, output_dim, bias=True)
+
+        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
+
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.quant:
-            x = self._fake_quant(x)
-            w1 = self._fake_quant(self.fc1.weight)
-        else:
-            w1 = self.fc1.weight
-        x = nn.functional.linear(x, w1, self.fc1.bias)
-        x = nn.functional.relu(x)
-
-        if self.quant:
-            x = self._fake_quant(x)
-            w2 = self._fake_quant(self.fc2.weight)
-        else:
-            w2 = self.fc2.weight
-        x = nn.functional.linear(x, w2, self.fc2.bias)
-        x = nn.functional.relu(x)
-
-        if self.quant:
-            x = self._fake_quant(x)
-            w3 = self._fake_quant(self.fc3.weight)
-        else:
-            w3 = self.fc3.weight
-        x = nn.functional.linear(x, w3, self.fc3.bias)
-        # ─ no residual bias ─
+        x = self.quant_in(x)
+        x = self.relu1(self.fc1(x))
+        x = self.relu2(self.fc2(x))
+        x = self.fc3(x)
+        x = self.dequant(x)
         return x
 
     def fuse_model(self) -> None:
-        pass  # kept for API compatibility
+        # Linear+ReLU fusion (官方支援 pattern)
+        quant.fuse_modules(
+            self,
+            [['fc1', 'relu1'],
+             ['fc2', 'relu2']],
+            inplace=True
+        )
 
 
 @torch.no_grad()
@@ -340,16 +327,17 @@ def train_fp32(
         current_lr = opt.param_groups[0]['lr']
         if (epoch + 1) % 10 == 0 or wait == 0:
             print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
-            # 1) normalized predictions for magnitude check
-            pred_norm, targ_norm = sample_val_prediction(model, val_loader, device, None, None)
-            fmt_norm = [f'{n:+.1e}' for n in pred_norm.tolist()]
-            print("      example pred_norm:", fmt_norm)
-            # 2) un-normalized back to original scale
-            pred_vec, target_vec = sample_val_prediction(model, val_loader, device, y_mean, y_std)
-            formatted_pred   = [f'{n:+.1e}' for n in pred_vec.tolist()]
-            formatted_target = [f'{n:+.1e}' for n in target_vec.tolist()]
-            print("      example pred:     ", formatted_pred)
-            print("      example target:   ", formatted_target)
+            
+            # # 1) normalized predictions for magnitude check
+            # pred_norm, targ_norm = sample_val_prediction(model, val_loader, device, None, None)
+            # fmt_norm = [f'{n:+.1e}' for n in pred_norm.tolist()]
+            # print("      example pred_norm:", fmt_norm)
+            # # 2) un-normalized back to original scale
+            # pred_vec, target_vec = sample_val_prediction(model, val_loader, device, y_mean, y_std)
+            # formatted_pred   = [f'{n:+.1e}' for n in pred_vec.tolist()]
+            # formatted_target = [f'{n:+.1e}' for n in target_vec.tolist()]
+            # print("      example pred:     ", formatted_pred)
+            # print("      example target:   ", formatted_target)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -423,17 +411,17 @@ def train_qat(
                 break
         current_lr = opt.param_groups[0]['lr']
         print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
-        pred_vec, target_vec = sample_val_prediction(
-            model, val_loader, device, y_mean, y_std
-        )
-            # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
-        formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
-        print("      example pred:  ", formatted_pred)
+        # pred_vec, target_vec = sample_val_prediction(
+        #     model, val_loader, device, y_mean, y_std
+        # )
+        #     # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
+        # formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
+        # print("      example pred:  ", formatted_pred)
 
-        # target_vec 通常是整數標籤，可能不需要格式化，此處保留原樣
-        # 如果 target_vec 也是浮點數且需要格式化，可使用相同方法
-        formatted_target = [f'{num:+.1e}' for num in target_vec.tolist()]
-        print("      example target:", formatted_target)
+        # # target_vec 通常是整數標籤，可能不需要格式化，此處保留原樣
+        # # 如果 target_vec 也是浮點數且需要格式化，可使用相同方法
+        # formatted_target = [f'{num:+.1e}' for num in target_vec.tolist()]
+        # print("      example target:", formatted_target)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -466,12 +454,6 @@ def main() -> None:
     parser.add_argument("--scheduler-gamma", type=float, default=0.1,
                         help="StepLR 的 gamma，默认 0.1")
     parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument(
-        "--loss",
-        choices=["mse", "huber", "r2"],
-        default="huber",
-        help="loss function to use: mse, huber (SmoothL1) or r2 (1 - R^2)",
-    )
     parser.add_argument("--beta-huber", type=float, default=1e-3,
                         help="δ for SmoothL1Loss (Huber)")
     parser.add_argument("--num-workers", type=int, default=0, help="DataLoader workers")
@@ -511,6 +493,19 @@ def main() -> None:
         batch_size=args.batch_size,
         num_workers=args.num_workers, pin_memory=pin_mem,
     )
+
+
+# --- ① 另外準備一份 **CPU 專用** 的 test_loader ---
+#    - 不要 pin_memory
+#    - 後面評估 INT8 時會用到
+    test_loader_cpu = DataLoader(
+        TensorDataset(x_test, y_test),
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=False,
+    )
+
     args.out.mkdir(parents=True, exist_ok=True)
     model = MLP(
         input_dim=x_train.shape[1],
@@ -523,44 +518,19 @@ def main() -> None:
     model.apply(init_weights)
     model.to(device)
 
-    # two-phase FP32 training if using MAAPE
-    if args.loss == "maape":
-        print("=== Stage 1: MSE Pre-training ===")
-        train_fp32(
-            model, train_loader, val_loader,
-            epochs=args.pretrain_epochs, lr=args.fp32_lr,
-            device=device, y_mean=y_mean, y_std=y_std,
-            patience=args.patience, min_delta=args.min_delta,
-            weight_decay=args.fp32_weight_decay,
-            scheduler_step_size=args.scheduler_step_size,
-            scheduler_gamma=args.scheduler_gamma,
-            criterion=nn.MSELoss(),
-        )
-        print("=== Stage 2: MAAPE Fine-tuning ===")
-        train_fp32(
-            model, train_loader, val_loader,
-            epochs=args.fp32_epochs - args.pretrain_epochs,
-            lr=args.fp32_lr, device=device,
-            y_mean=y_mean, y_std=y_std,
-            patience=args.patience, min_delta=args.min_delta,
-            weight_decay=args.fp32_weight_decay,
-            scheduler_step_size=args.scheduler_step_size,
-            scheduler_gamma=args.scheduler_gamma,
-            criterion=MAAPELoss(eps=args.eps_maape),
-        )
-    else:
-        # 單階段 MSE 訓練（驗證最快收斂）
-        crit = nn.MSELoss()
-        train_fp32(
-            model, train_loader, val_loader,
-            epochs=args.fp32_epochs, lr=args.fp32_lr,
-            device=device, y_mean=y_mean, y_std=y_std,
-            patience=args.patience, min_delta=args.min_delta,
-            weight_decay=args.fp32_weight_decay,
-            scheduler_step_size=args.scheduler_step_size,
-            scheduler_gamma=args.scheduler_gamma,
-            criterion=crit,
-        )
+    # 單階段 MSE 訓練（驗證最快收斂）
+    crit = nn.MSELoss()
+    train_fp32(
+        model, train_loader, val_loader,
+        epochs=args.fp32_epochs, lr=args.fp32_lr,
+        device=device, y_mean=y_mean, y_std=y_std,
+        patience=args.patience, min_delta=args.min_delta,
+        weight_decay=args.fp32_weight_decay,
+        scheduler_step_size=args.scheduler_step_size,
+        scheduler_gamma=args.scheduler_gamma,
+        criterion=crit,
+    )
+
     torch.save(
         {
             "state_dict": model.state_dict(),
@@ -572,7 +542,30 @@ def main() -> None:
         args.out / "model_fp32.pth",
     )
 
+    torch.backends.quantized.engine = 'fbgemm'   # 選擇後端
     qat_model = copy.deepcopy(model)
+    qat_model.train()   # ← 確保在 training mode，否則 prepare_qat 會噴錯
+    qat_model.fuse_model()                       # 1. 先 fuse
+    # 2. 指定 qconfig：per-channel 權重量化 & symmetric activation
+    #    - activation: per-tensor symmetric (zero_point=0)
+    #    - weight:     per-channel symmetric (zero_point=0)
+    activation_observer = quant.MovingAverageMinMaxObserver.with_args(
+        dtype=torch.quint8,
+        qscheme=torch.per_tensor_affine,   # ← asymmetric
+        reduce_range=False,
+        averaging_constant=0.01            # EMA，對尾端比較穩
+    )
+    weight_observer = quant.PerChannelMinMaxObserver.with_args(
+        dtype=torch.qint8,
+        qscheme=torch.per_channel_symmetric,
+        ch_axis=0,            # 通道軸通常是 0
+        reduce_range=False
+    )
+    qat_model.qconfig = quant.QConfig(
+        activation=activation_observer,
+        weight=weight_observer
+    )
+    quant.prepare_qat(qat_model, inplace=True)   # 3. 插入 observer/fake-quant
     qat_model.to(device)
     train_qat(
         qat_model,
@@ -591,17 +584,46 @@ def main() -> None:
         criterion=nn.MSELoss(),
     )
 
-    scripted = torch.jit.script(qat_model)
+    # ───────── ② 量化前再做「代表性資料」校正 ─────────
+    #    使用 train_loader 取 2 000 ~ 5 000 筆，或整批都跑也行
+    qat_model.eval()
+    with torch.no_grad():
+        seen = 0
+        for x, _ in train_loader:        # 也可替換為自訂 calibration_loader
+            qat_model(x.to("cpu"))       # 一律在 CPU 執行以收集真實 INT8 範圍
+            seen += x.size(0)
+            if seen >= 5000:             # 視需要可放寬或拿掉此門檻
+                break
+
+    # Convert to INT8
+    quantized_model = quant.convert(qat_model.cpu(), inplace=False)
+
+    # ───────── 新增：量化後用真驗證資料跑一次確認推論無誤 ─────────
+    quantized_model.eval()
+    with torch.no_grad():
+        for x, _ in val_loader:
+            quantized_model(x)
+
+    scripted = torch.jit.script(quantized_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
+    # ③ FP32 仍可用 GPU 評估
     test_loss_fp32 = evaluate(model, test_loader, nn.MSELoss(), device)
-    test_loss_int8 = evaluate(qat_model, test_loader, nn.MSELoss(), device)
+
+    # ④ INT8 評估一律固定在 **CPU**
+    cpu_device = torch.device("cpu")
+    test_loss_int8 = evaluate(
+        quantized_model,            # ※ 不要 .to(device) ‼
+        test_loader_cpu,            # 用剛才建立的 CPU loader
+        nn.MSELoss(),
+        cpu_device,
+    )
 
     with open(args.out / "metrics.json", "w") as f:
         json.dump({"fp32_test_mse": test_loss_fp32, "int8_test_mse": test_loss_int8}, f, indent=2)
 
-    print(f"FP32 test loss:{test_loss_fp32}")
-    print(f"INT8 test loss:{test_loss_int8}")
+    print(f"FP32 test loss: {test_loss_fp32:.6f}")
+    print(f"INT8 test loss: {test_loss_int8:.6f}")
 
 
 
