@@ -35,12 +35,42 @@ import torch.nn.init as init
 from torch.nn import Module
 from torch.utils.data import DataLoader, TensorDataset
 
+# Data Layout
+# std::vector<traccc::scalar> row;
+# row.reserve(6 + 36 + 6 * D + D * D + 6 * D);
+# for (size_type i = 0; i < 6; ++i) {
+#     row.push_back(getter::element(predicted_vec, i, 0));
+# }
+# for (size_type r = 0; r < 6; ++r) {
+#     for (size_type c = 0; c < 6; ++c) {
+#         row.push_back(getter::element(predicted_cov, r, c));
+#     }
+# }
+# for (size_type r = 0; r < D; ++r) {
+#     for (size_type c = 0; c < 6; ++c) {
+#         row.push_back(getter::element(H, r, c));
+#     }
+# }
+# for (size_type r = 0; r < D; ++r) {
+#     for (size_type c = 0; c < D; ++c) {
+#         row.push_back(getter::element(V, r, c));
+#     }
+# }
+# for (size_type r = 0; r < 6; ++r) {
+#     for (size_type c = 0; c < D; ++c) {
+#         row.push_back(getter::element(K, r, c));
+#     }
+# }
+# gru_training_logger::write_row(row);
+
+
 # ───────────── 常數 feature 索引 ─────────────
 # ※ 索引為 **0-based**，與 Pandas / NumPy 欄序相同
-#   - 前 58 個輸入特徵中共有 25 個常數欄  
+#   - 前 58 個輸入特徵中共有 35 個常數欄  
 #   - 後 12 個目標（Kalman gain）特徵中共有 2 個常數欄
 CONST_INPUT_IDXS  = [
-    5, 11, 17, 23, 29,                # F, L, R, X, AD
+    # 原有常數欄位 + 新增 12,18,19,24,25,26,30,31,32,33
+    5, 11, 12, 17, 18, 19, 23, 24, 25, 26, 29, 30, 31, 32, 33,
     *range(35, 41),                   # AJ ~ AO
     *range(42, 54),                   # AQ ~ BB
     55, 56                            # BD, BE
@@ -148,7 +178,7 @@ class MLP(nn.Module):
 
     def __init__(
         self,
-        input_dim: int = 58,
+        input_dim: int = 23,          # 新的默認輸入維度：58−35=23
         hidden1: int = 64,
         hidden2: int = 32,
         output_dim: int = 12,
