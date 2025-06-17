@@ -369,9 +369,17 @@ def train_qat(
     scheduler_step_size: int = 30,
     scheduler_gamma: float = 0.1,
     criterion: nn.Module = nn.MSELoss(),
+    freeze_observer_epoch: int | None = None,
+    freeze_bn_epoch: int | None = None,
 ) -> None:
     """Quantisation aware training with standardised targets and指定的 loss."""
     model.train()
+
+    # ────── 自動設定凍結時機（可覆寫） ──────
+    if freeze_observer_epoch is None:
+        freeze_observer_epoch = int(0.7 * epochs)
+    if freeze_bn_epoch is None:
+        freeze_bn_epoch = int(0.2 * epochs)
     model.quant = True
 
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -387,6 +395,16 @@ def train_qat(
 
     for epoch in range(epochs):
         model.train()
+
+        # ① 凍結 BN running mean/var（若模型有 BN 且函式存在）
+        if epoch == freeze_bn_epoch and hasattr(quant, "freeze_bn_stats"):
+            quant.freeze_bn_stats(model)
+            print(f"[QAT] Freeze BN stats  @ epoch {epoch+1}")
+
+        # ② 停止 observer -> 固定量化參數
+        if epoch == freeze_observer_epoch:
+            quant.disable_observer(model)
+            print(f"[QAT] Disable observer @ epoch {epoch+1}")
         for x, y in train_loader:
             x = x.to(device)
             y = y.to(device)
@@ -549,11 +567,12 @@ def main() -> None:
     # 2. 指定 qconfig：per-channel 權重量化 & symmetric activation
     #    - activation: per-tensor symmetric (zero_point=0)
     #    - weight:     per-channel symmetric (zero_point=0)
-    activation_observer = quant.MovingAverageMinMaxObserver.with_args(
+    # 改用 HistogramObserver：對低幅度 activation 更友善
+    activation_observer = quant.HistogramObserver.with_args(
         dtype=torch.quint8,
-        qscheme=torch.per_tensor_affine,   # ← asymmetric
+        qscheme=torch.per_tensor_affine,
         reduce_range=False,
-        averaging_constant=0.01            # EMA，對尾端比較穩
+        bins=2048          # 若版本不支援 bins 也可直接拿掉
     )
     weight_observer = quant.PerChannelMinMaxObserver.with_args(
         dtype=torch.qint8,
@@ -584,16 +603,15 @@ def main() -> None:
         criterion=nn.MSELoss(),
     )
 
-    # ───────── ② 量化前再做「代表性資料」校正 ─────────
-    #    使用 train_loader 取 2 000 ~ 5 000 筆，或整批都跑也行
+    # ───────── ② 量化前再做「完整資料」校正 ─────────
+    #    重新開啟 observer，跑完整 train+val+test，然後再關閉
     qat_model.eval()
+    quant.enable_observer(qat_model)
     with torch.no_grad():
-        seen = 0
-        for x, _ in train_loader:        # 也可替換為自訂 calibration_loader
-            qat_model(x.to("cpu"))       # 一律在 CPU 執行以收集真實 INT8 範圍
-            seen += x.size(0)
-            if seen >= 5000:             # 視需要可放寬或拿掉此門檻
-                break
+        for loader in (train_loader, val_loader, test_loader_cpu):
+            for x, _ in loader:
+                qat_model(x.to("cpu"))
+    quant.disable_observer(qat_model)
 
     # Convert to INT8
     quantized_model = quant.convert(qat_model.cpu(), inplace=False)
