@@ -323,8 +323,8 @@ def train_fp32(
 
         # 每 10 个 epoch 或在取得新最好时打印一次当前 lr & val loss
         current_lr = opt.param_groups[0]['lr']
-        if (epoch + 1) % 10 == 0 or wait == 0:
-            print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
+        #if (epoch + 1) % 10 == 0 or wait == 0:
+            #print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
             
             # # 1) normalized predictions for magnitude check
             # pred_norm, targ_norm = sample_val_prediction(model, val_loader, device, None, None)
@@ -424,7 +424,7 @@ def train_qat(
                 print(f"Early stopping QAT at epoch {epoch+1}")
                 break
         current_lr = opt.param_groups[0]['lr']
-        print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
+        #print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
         # pred_vec, target_vec = sample_val_prediction(
         #     model, val_loader, device, y_mean, y_std
         # )
