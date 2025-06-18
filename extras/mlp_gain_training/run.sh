@@ -21,5 +21,5 @@
 #   --fp32-epochs 1500 --qat-epochs 500 --batch-size 128 --patience 100 --min-delta 1e-5 --beta-huber 1e-3
 
 python3 train_mlp_gain.py --seed 123 --fp32-lr 3e-3 --qat-lr 1e-4 --hidden1 48 --hidden2 32 \
-  --fp32-epochs 100 --qat-epochs 100 --batch-size 128 --patience 100 --min-delta 1e-5 --beta-huber 1e-3
+  --fp32-epochs 200 --qat-epochs 100 --batch-size 128 --patience 100 --min-delta 1e-5 --beta-huber 1e-3
 

@@ -276,10 +276,8 @@ def train_fp32(
     """Train the FP32 model using指定的 loss (MSE or MAAPE)."""
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     # 使用 CosineAnnealingLR，T_max = 總 epoch 數
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        opt,
-        T_max=epochs,
-        eta_min=lr * 0.01,   # 最小學習率設為初始的 1%
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        opt, T_0=50, T_mult=2, eta_min=lr*0.01
     )
 
     best_loss = float("inf")
@@ -300,7 +298,7 @@ def train_fp32(
             # 累计训练损失（未乘 batch_size 归一化）
             total_train_loss += loss.item() * x.size(0)
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             opt.step()
         train_loss_epoch = total_train_loss / len(train_loader.dataset)
         # 计算完 validation loss 后再触发 lr 调度
@@ -383,10 +381,8 @@ def train_qat(
     model.quant = True
 
     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        opt,
-        T_max=epochs,
-        eta_min=lr * 0.01,
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        opt, T_0=50, T_mult=2, eta_min=lr*0.01
     )
 
     best_loss = float("inf")
@@ -412,7 +408,7 @@ def train_qat(
             loss = criterion(model(x), y)
             loss.backward()
             # 梯度裁剪
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             opt.step()
         # monitor validation loss 再触发 lr 调度
 
