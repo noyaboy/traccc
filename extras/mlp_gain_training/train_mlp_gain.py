@@ -219,14 +219,28 @@ class MLP(nn.Module):
 
 
 @torch.no_grad()
-def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device: torch.device) -> float:
+def evaluate(
+    model: nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+    y_mean: torch.Tensor,
+    y_std: torch.Tensor
+) -> float:
+    """Evaluate model by un-normalising preds/targets and computing MSE on original scale."""
     model.eval()
     total_loss = 0.0
+    mse_loss = nn.MSELoss()
     for x, y in loader:
         x = x.to(device)
         y = y.to(device)
+        # forward
         pred = model(x)
-        total_loss += criterion(pred, y).item() * x.size(0)
+        # un-normalise
+        pred_orig   = undo_norm(pred,    y_mean.to(device), y_std.to(device))
+        target_orig = undo_norm(y,       y_mean.to(device), y_std.to(device))
+        # MSE on original scale
+        loss = mse_loss(pred_orig, target_orig)
+        total_loss += loss.item() * x.size(0)
     return total_loss / len(loader.dataset)
 
 
@@ -304,7 +318,7 @@ def train_fp32(
         # 计算完 validation loss 后再触发 lr 调度
 
         # --- 验证 step
-        val_loss = evaluate(model, val_loader, criterion, device)
+        val_loss = evaluate(model, val_loader, device, y_mean, y_std)
         # StepLR 不需要 metric，直接按 epoch 更新
         scheduler.step()
 
@@ -323,19 +337,19 @@ def train_fp32(
 
         # 每 10 个 epoch 或在取得新最好时打印一次当前 lr & val loss
         current_lr = opt.param_groups[0]['lr']
-        #if (epoch + 1) % 10 == 0 or wait == 0:
-            #print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
+        if (epoch + 1) % 10 == 0 or wait == 0:
+            print(f"Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
             
-            # # 1) normalized predictions for magnitude check
-            # pred_norm, targ_norm = sample_val_prediction(model, val_loader, device, None, None)
-            # fmt_norm = [f'{n:+.1e}' for n in pred_norm.tolist()]
-            # print("      example pred_norm:", fmt_norm)
-            # # 2) un-normalized back to original scale
-            # pred_vec, target_vec = sample_val_prediction(model, val_loader, device, y_mean, y_std)
-            # formatted_pred   = [f'{n:+.1e}' for n in pred_vec.tolist()]
-            # formatted_target = [f'{n:+.1e}' for n in target_vec.tolist()]
-            # print("      example pred:     ", formatted_pred)
-            # print("      example target:   ", formatted_target)
+            # 1) normalized predictions for magnitude check
+            pred_norm, targ_norm = sample_val_prediction(model, val_loader, device, None, None)
+            fmt_norm = [f'{n:+.1e}' for n in pred_norm.tolist()]
+            print("      example pred_norm:", fmt_norm)
+            # 2) un-normalized back to original scale
+            pred_vec, target_vec = sample_val_prediction(model, val_loader, device, y_mean, y_std)
+            formatted_pred   = [f'{n:+.1e}' for n in pred_vec.tolist()]
+            formatted_target = [f'{n:+.1e}' for n in target_vec.tolist()]
+            print("      example pred:     ", formatted_pred)
+            print("      example target:   ", formatted_target)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -412,7 +426,7 @@ def train_qat(
             opt.step()
         # monitor validation loss 再触发 lr 调度
 
-        val_loss = evaluate(model, val_loader, criterion, device)
+        val_loss = evaluate(model, val_loader, device, y_mean, y_std)
         scheduler.step()
         if best_loss - val_loss > min_delta:
             best_loss = val_loss
@@ -424,18 +438,18 @@ def train_qat(
                 print(f"Early stopping QAT at epoch {epoch+1}")
                 break
         current_lr = opt.param_groups[0]['lr']
-        #print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
-        # pred_vec, target_vec = sample_val_prediction(
-        #     model, val_loader, device, y_mean, y_std
-        # )
-        #     # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
-        # formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
-        # print("      example pred:  ", formatted_pred)
+        print(f"[QAT] Epoch {epoch+1:3d}: val loss={val_loss:.6f}, lr={current_lr:.3e}")
+        pred_vec, target_vec = sample_val_prediction(
+            model, val_loader, device, y_mean, y_std
+        )
+            # 將 pred_vec 轉換為 list，並對其中每個數字格式化為科學記號且保留小數點後兩位
+        formatted_pred = [f'{num:+.1e}' for num in pred_vec.tolist()]
+        print("      example pred:  ", formatted_pred)
 
-        # # target_vec 通常是整數標籤，可能不需要格式化，此處保留原樣
-        # # 如果 target_vec 也是浮點數且需要格式化，可使用相同方法
-        # formatted_target = [f'{num:+.1e}' for num in target_vec.tolist()]
-        # print("      example target:", formatted_target)
+        # target_vec 通常是整數標籤，可能不需要格式化，此處保留原樣
+        # 如果 target_vec 也是浮點數且需要格式化，可使用相同方法
+        formatted_target = [f'{num:+.1e}' for num in target_vec.tolist()]
+        print("      example target:", formatted_target)
 
     if best_state is not None:
         model.load_state_dict(best_state)
@@ -621,16 +635,17 @@ def main() -> None:
     scripted = torch.jit.script(quantized_model)
     scripted.save(str(args.out / "model_int8.pt"))
 
-    # ③ FP32 仍可用 GPU 評估
-    test_loss_fp32 = evaluate(model, test_loader, nn.MSELoss(), device)
+    # ③ FP32 評估（GPU）：反標準化後計算 MSE
+    test_loss_fp32 = evaluate(model, test_loader, device, y_mean, y_std)
 
-    # ④ INT8 評估一律固定在 **CPU**
+    # ④ INT8 評估（CPU）：反標準化後計算 MSE
     cpu_device = torch.device("cpu")
     test_loss_int8 = evaluate(
-        quantized_model,            # ※ 不要 .to(device) ‼
-        test_loader_cpu,            # 用剛才建立的 CPU loader
-        nn.MSELoss(),
-        cpu_device,
+        model=quantized_model,
+        loader=test_loader_cpu,
+        device=cpu_device,
+        y_mean=y_mean,
+        y_std=y_std
     )
 
     with open(args.out / "metrics.json", "w") as f:
