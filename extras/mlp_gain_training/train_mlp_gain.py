@@ -620,7 +620,8 @@ def main() -> None:
     with torch.no_grad():
         for loader in (train_loader, val_loader, test_loader_cpu):
             for x, _ in loader:
-                qat_model(x.to("cpu"))
+                # 改成送到同一个 device（cuda:0）上
+                qat_model(x.to(device))
     quant.disable_observer(qat_model)
 
     # Convert to INT8
