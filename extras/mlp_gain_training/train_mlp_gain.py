@@ -472,7 +472,7 @@ def main() -> None:
     parser.add_argument("--fp32-epochs", type=int, default=400)
     parser.add_argument("--qat-epochs", type=int, default=150)
     parser.add_argument("--hidden1", type=int, default=32)
-    parser.add_argument("--hidden2", type=int, default=16)
+    parser.add_argument("--hidden2", type=int, default=64)
     parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--fp32-lr", type=float, default=1e-3)
     parser.add_argument("--qat-lr", type=float, default=1e-4)
