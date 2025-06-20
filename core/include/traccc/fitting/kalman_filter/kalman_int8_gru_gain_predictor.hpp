@@ -1,6 +1,6 @@
 /** KalmanNet-inspired GRU gain predictor — INT8 TensorCore edition
  *
- * 兩層 GRU (hidden = 32) ➜ Dense 6×D，
+ * 兩層 GRU (hidden = 32 → 64) ➜ Dense 6×D，
  * 以對稱線性量化 (scale = 127) 將權重 / 活化轉為 INT8，
  * 累加於 INT32；在 SM_61+ 使用 __dp4a TensorCore 指令，
  * 無 TensorCore 時自動回退至純 CPU / GPU INT32 乘加。
@@ -44,13 +44,11 @@ struct kalman_int8_gru_gain_predictor {
     template <size_type R, size_type C>
     using matrix_type = detray::dmatrix<algebra_t, R, C>;
 
-    // InputSize = 6（predicted_vec） + 6×6（P） + D×6（H） + D×D（V）
-    static constexpr size_type InputSize = 6         // predicted_vec
-                                           + 6 * 6   // P covariance
-                                           + 6 * D   // H projector
-                                           + D * D;  // V measurement cov
+    // Only keep non-constant input features (see `CONST_INPUT_IDXS` in the
+    // training script).  For `D=2` this results in 23 inputs.
+    static constexpr size_type InputSize   = 23;
     static constexpr size_type HiddenSize1 = 32;
-    static constexpr size_type HiddenSize2 = 16;
+    static constexpr size_type HiddenSize2 = 64;
     static constexpr size_type InputStep = (InputSize + 3) / 4;
     static constexpr size_type HiddenStep1 = HiddenSize1 / 4;
     static constexpr size_type HiddenStep2 = HiddenSize2 / 4;
@@ -160,8 +158,10 @@ struct kalman_int8_gru_gain_predictor {
 
         /* (4) Dense → 6×D Kalman gain (fp32 反量化) */
         matrix_type<6, D> K{};
+        // Only the first 5 rows are predicted by the network.  The last row
+        // corresponds to the removed constant outputs and is kept at zero.
         TRACCC_PRAGMA_UNROLL
-        for (size_type r = 0; r < 6; ++r)
+        for (size_type r = 0; r < 5; ++r)
             TRACCC_PRAGMA_UNROLL
         for (size_type c = 0; c < D; ++c) {
             const size_type o = r * D + c;
@@ -190,6 +190,11 @@ struct kalman_int8_gru_gain_predictor {
                        static_cast<accum_t>(h1_q[j]);
 #endif
             K[c][r] = static_cast<float>(acc) * kInvScaleSquared;
+        }
+        // Pad constant outputs with zeros
+        TRACCC_PRAGMA_UNROLL
+        for (size_type c = 0; c < D; ++c) {
+            K[c][5] = 0.f;
         }
         return K;
     }
