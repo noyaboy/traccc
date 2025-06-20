@@ -374,17 +374,6 @@ def train_fp32(
     if best_state is not None:
         model.load_state_dict(best_state)
 
-    # 绘制 train/val 曲线
-    plt.figure()
-    plt.plot(train_losses, label='train_loss')
-    plt.plot(val_losses, label='val_loss')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.title('FP32 Training and Validation Loss')
-    plt.savefig(Path("loss_curve_fp32.png"))
-    print("Saved FP32 loss curve to loss_curve_fp32.png")
-    plt.close()
 
 def train_qat(
     model: nn.Module,
