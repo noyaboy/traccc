@@ -614,18 +614,18 @@ def main() -> None:
     )
 
     # ───────── ② 量化前再做「完整資料」校正 ─────────
-    #    重新開啟 observer，跑完整 train+val+test，然後再關閉
+    # 先把模型搬到 CPU，保證 model / tensor 在同一裝置
     qat_model.eval()
+    qat_model.to("cpu")                     # ← 關鍵！
     quant.enable_observer(qat_model)
     with torch.no_grad():
         for loader in (train_loader, val_loader, test_loader_cpu):
-            for x, _ in loader:
-                # 改成送到同一个 device（cuda:0）上
-                qat_model(x.to(device))
+            for x, _ in loader:             # x 本就是 CPU tensor
+                qat_model(x)
     quant.disable_observer(qat_model)
 
-    # Convert to INT8
-    quantized_model = quant.convert(qat_model.cpu(), inplace=False)
+    # Convert to INT8  (qat_model 已在 CPU)
+    quantized_model = quant.convert(qat_model, inplace=False)
 
     # ───────── 新增：量化後用真驗證資料跑一次確認推論無誤 ─────────
     quantized_model.eval()
