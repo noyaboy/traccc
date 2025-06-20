@@ -28,6 +28,10 @@ import random
 import copy
 import numpy as np
 
+# ───────────── 參數設定 ─────────────
+CLIP_PERCENTILES = (1, 99)   # p1–p99
+HEAVY_TAIL_THRESHOLD = 1e2   # std / |mean| > 100 視為 heavy-tail
+Y_MIN_STD = 1e-3             # y_std clip 下限
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -94,6 +98,22 @@ def load_dataset(path: Path) -> Tuple[torch.Tensor, torch.Tensor]:
     # drop rows with missing values → 非 70 欄的 row
     df = df.dropna(how='any')
     arr = df.values.astype("float32")
+
+    # ────── 進行 heavy-tail 百分位裁剪 ──────
+    means = arr[:, :58].mean(axis=0)
+    stds  = arr[:, :58].std(axis=0)
+    ratio = np.where(np.abs(means) < 1e-12, np.inf, stds / np.abs(means))
+
+    heavy_cols = [
+        i for i in range(58)
+        if (i not in CONST_INPUT_IDXS) and (ratio[i] > HEAVY_TAIL_THRESHOLD)
+    ]
+
+    if heavy_cols:
+        print(f"Heavy-tail columns → percentile-clip p{CLIP_PERCENTILES[0]}–p{CLIP_PERCENTILES[1]}: {heavy_cols}")
+        for c in heavy_cols:
+            p_low, p_high = np.percentile(arr[:, c], CLIP_PERCENTILES)
+            arr[:, c] = np.clip(arr[:, c], p_low, p_high)
     final_rows = arr.shape[0]
     print(f"原始 row 數: {orig_rows}, 篩選後 row 數: {final_rows}")
     # 不再做 ±3*標準差過濾
@@ -125,13 +145,13 @@ def split_data(x: torch.Tensor, y: torch.Tensor, train_ratio=0.8, val_ratio=0.1)
     return (x_train, y_train), (x_val, y_val), (x_test, y_test)
 
 
-def compute_norm(x: torch.Tensor, eps: float = 1e-6) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Return per-feature mean/std *for all dimensions*.
-
-    將極小方差直接設為 eps，確保沒有通道被跳過，避免 loss 權重失衡。
-    """
+def compute_norm(
+    x: torch.Tensor,
+    min_std: float = 1e-6
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Return per-feature mean/std (clamped by `min_std`)."""
     std = x.std(0)
-    std_clamped = torch.clamp(std, min=eps)     # ← 每一維都真的被縮放
+    std_clamped = torch.clamp(std, min=min_std)
     mean = x.mean(0)
     return mean, std_clamped
 
@@ -501,7 +521,7 @@ def main() -> None:
     x_train = apply_norm(x_train, mean, std)
     x_val   = apply_norm(x_val,   mean, std)
     x_test  = apply_norm(x_test,  mean, std)
-    y_mean, y_std = compute_norm(y_train)
+    y_mean, y_std = compute_norm(y_train, min_std=Y_MIN_STD)
     y_train = apply_norm(y_train, y_mean, y_std)
     y_val   = apply_norm(y_val,   y_mean, y_std)
     y_test  = apply_norm(y_test,  y_mean, y_std)
