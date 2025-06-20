@@ -118,32 +118,35 @@ struct gain_matrix_updater {
         if constexpr (D == 2u) {
             using Predictor = traccc::fitting::kalman_int8_gru_gain_predictor<algebra_t, D>;
             constexpr auto N = Predictor::InputSize;
-            // 建立 1×N 的輸入向量
+            // Construct a 1×N input vector with only the non-constant features
             typename Predictor::template matrix_type<1, N> gru_input{};
             size_type idx = 0;
-            // 1) Predicted state vector (6 elements)
-            for (size_type i = 0; i < 6; ++i) {
-                gru_input[0][idx] = predicted_vec[0][i];
-                idx = idx + 1;
+
+            // 1) Predicted state vector (only first five components)
+            for (size_type i = 0; i < 5; ++i) {
+                gru_input[0][idx++] = predicted_vec[0][i];
             }
-            // 2) Predicted covariance P (6×6 elements, row-major)
-            for (size_type r = 0; r < 6; ++r)
-                for (size_type c = 0; c < 6; ++c) {
-                    gru_input[0][idx] = predicted_cov[r][c];
-                    idx = idx + 1;
-                }
-            // 3) Projector matrix H (D×6 elements, row-major)
-            for (size_type r = 0; r < D; ++r)
-                for (size_type c = 0; c < 6; ++c) {
-                    gru_input[0][idx] = H[c][r];
-                    idx = idx + 1;
-                }
-            // 4) Measurement covariance V (D×D elements, row-major)
-            for (size_type r = 0; r < D; ++r)
-                for (size_type c = 0; c < D; ++c) {
-                    gru_input[0][idx] = V[r][c];
-                    idx = idx + 1;
-                }
+
+            // 2) Selected entries of the covariance matrix P
+            for (size_type c = 0; c < 5; ++c) {
+                gru_input[0][idx++] = predicted_cov[0][c];
+            }
+            for (size_type c = 1; c < 5; ++c) {
+                gru_input[0][idx++] = predicted_cov[1][c];
+            }
+            for (size_type c = 2; c < 5; ++c) {
+                gru_input[0][idx++] = predicted_cov[2][c];
+            }
+            for (size_type c = 3; c < 5; ++c) {
+                gru_input[0][idx++] = predicted_cov[3][c];
+            }
+            gru_input[0][idx++] = predicted_cov[4][4];
+            gru_input[0][idx++] = predicted_cov[5][5];
+
+            // 3) Measurement covariance V (diagonal elements)
+            gru_input[0][idx++] = V[0][0];
+            gru_input[0][idx++] = V[1][1];
+
             // 呼叫 GRU predictor
             K = Predictor::eval(gru_input);
         } else {
