@@ -49,3 +49,7 @@ log/maxreg_iter.logs
 gru_training_data.csv
 extras/mlp_gain_training/gru_training_data.csv
 extras/mlp_gain_training/gru_training_data_stats.csv
+extras/mlp_gain_training/model_out/metrics.json
+extras/mlp_gain_training/model_out/model_fp32.pth
+extras/mlp_gain_training/model_out/model_int8.pt
+extras/mlp_gain_training/model_out/weights_bias.pth

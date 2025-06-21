@@ -18,7 +18,7 @@ else:
 model = torch.jit.load(str(model_path))
 
 # Prepare output directory and file
-output_dir = cwd / "model_out"
+output_dir = cwd / "model_out" / "readable"
 output_dir.mkdir(exist_ok=True)
 output_file = output_dir / "qparams.txt"
 

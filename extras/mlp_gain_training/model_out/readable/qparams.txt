@@ -1,0 +1,7 @@
+=== Activation quant params ===
+quant_in: scale=8.438598e-02, zero_point=118
+fc1: scale=4.189834e-02, zero_point=0
+fc2: scale=1.956078e-02, zero_point=0
+fc3: scale=5.465837e-02, zero_point=130
+
+=== Weight quant params ===
