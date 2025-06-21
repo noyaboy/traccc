@@ -20,6 +20,12 @@ TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline const std::int8_t W1[2048] = {0};
 
 TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline const std::int8_t W2[640] = {0};
 
+TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline const float B0[32] = {0.f};
+
+TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline const float B1[64] = {0.f};
+
+TRACCC_DEVICE_CONSTANT TRACCC_ALIGN(4) inline const float B2[10] = {0.f};
+
 }  // namespace traccc::fitting::detail
 
 // ------------------------------------------------------------
@@ -33,5 +39,8 @@ struct kalman_int8_gru_gain_predictor_weights {
     static constexpr const auto& W0 = detail::W0;
     static constexpr const auto& W1 = detail::W1;
     static constexpr const auto& W2 = detail::W2;
+    static constexpr const auto& B0 = detail::B0;
+    static constexpr const auto& B1 = detail::B1;
+    static constexpr const auto& B2 = detail::B2;
 };
 }  // namespace traccc::fitting

@@ -96,7 +96,9 @@ struct kalman_int8_gru_gain_predictor {
         TRACCC_ALIGN(16) qscalar h0_q[HiddenSize1];
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize1; ++i) {
-            accum_t acc = 0;
+            accum_t acc = static_cast<accum_t>(
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B0[i] *
+                kScale * kScale);
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
@@ -128,7 +130,9 @@ struct kalman_int8_gru_gain_predictor {
         TRACCC_ALIGN(16) qscalar h1_q[HiddenSize2];
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize2; ++i) {
-            accum_t acc = 0;
+            accum_t acc = static_cast<accum_t>(
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B1[i] *
+                kScale * kScale);
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
@@ -165,7 +169,9 @@ struct kalman_int8_gru_gain_predictor {
             TRACCC_PRAGMA_UNROLL
         for (size_type c = 0; c < D; ++c) {
             const size_type o = r * D + c;
-            accum_t acc = 0;
+            accum_t acc = static_cast<accum_t>(
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B2[o] *
+                kScale * kScale);
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
