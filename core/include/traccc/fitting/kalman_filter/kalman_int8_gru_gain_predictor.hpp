@@ -46,7 +46,7 @@ struct kalman_int8_gru_gain_predictor {
 
     // Only keep non-constant input features (see `CONST_INPUT_IDXS` in the
     // training script).  For `D=2` this results in 23 inputs.
-    static constexpr size_type InputSize   = 23;
+    static constexpr size_type InputSize = 23;
     static constexpr size_type HiddenSize1 = 32;
     static constexpr size_type HiddenSize2 = 64;
     static constexpr size_type InputStep = (InputSize + 3) / 4;
@@ -97,8 +97,12 @@ struct kalman_int8_gru_gain_predictor {
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize1; ++i) {
             accum_t acc = static_cast<accum_t>(
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B0[i] *
-                kScale * kScale);
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::B0[i]
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B0[i]
+#endif
+                * kScale * kScale);
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
@@ -131,8 +135,12 @@ struct kalman_int8_gru_gain_predictor {
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize2; ++i) {
             accum_t acc = static_cast<accum_t>(
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B1[i] *
-                kScale * kScale);
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::B1[i]
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B1[i]
+#endif
+                * kScale * kScale);
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
@@ -170,8 +178,12 @@ struct kalman_int8_gru_gain_predictor {
         for (size_type c = 0; c < D; ++c) {
             const size_type o = r * D + c;
             accum_t acc = static_cast<accum_t>(
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B2[o] *
-                kScale * kScale);
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::B2[o]
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B2[o]
+#endif
+                * kScale * kScale);
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
