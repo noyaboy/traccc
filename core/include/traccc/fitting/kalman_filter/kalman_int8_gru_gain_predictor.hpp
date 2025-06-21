@@ -52,24 +52,25 @@ struct kalman_int8_gru_gain_predictor {
     static constexpr size_type InputStep = (InputSize + 3) / 4;
     static constexpr size_type HiddenStep1 = HiddenSize1 / 4;
     static constexpr size_type HiddenStep2 = HiddenSize2 / 4;
-    static constexpr float kScale = 127.0f;
-    static constexpr float kInvScaleSquared = 1.0f / (kScale * kScale);
+    static constexpr float kWeightScale = 127.0f;
 
     static_assert(D == 2, "Offline weights are generated for D=2");
 
-    /* 簡易 INT32 tanh 近似：y = x / (1 + |x|) (右移 7 位近似除以 128) */
-    TRACCC_HOST_DEVICE static inline accum_t relu(accum_t x) {
-        const accum_t ax = x >= 0 ? x : 0;
-        return ax;
+    /* 簡易 ReLU */
+    TRACCC_HOST_DEVICE static inline float relu(float x) {
+        return x >= 0.f ? x : 0.f;
     }
 
-    TRACCC_HOST_DEVICE static inline qscalar saturate(accum_t x) {
-        x >>= 7;
-        if (x > 127)
-            x = 127;
-        if (x < -128)
-            x = -128;
-        return static_cast<qscalar>(x);
+    TRACCC_HOST_DEVICE static inline qscalar quantise(float x, float inv_scale,
+                                                      int zero_point) {
+        float q = x * inv_scale + static_cast<float>(zero_point);
+        int qi =
+            q >= 0.f ? static_cast<int>(q + 0.5f) : static_cast<int>(q - 0.5f);
+        if (qi > 127)
+            qi = 127;
+        if (qi < -128)
+            qi = -128;
+        return static_cast<qscalar>(qi);
     }
 
     /* ─────────────── forward ─────────────── */
@@ -77,32 +78,40 @@ struct kalman_int8_gru_gain_predictor {
     TRACCC_HOST_DEVICE TRACCC_ALWAYS_INLINE static matrix_type<6, D> eval(
         const vec6_t& __restrict__ x_f32) {
 
+        using weights = kalman_int8_gru_gain_predictor_weights<algebra_t, D>;
+
+        constexpr float s_in = weights::QuantInScale;
+        constexpr float inv_s_in = 1.f / s_in;
+        constexpr int zp_in = weights::QuantInZeroPoint;
+        constexpr float s_fc1 = weights::FC1Scale;
+        constexpr float inv_s_fc1 = 1.f / s_fc1;
+        constexpr int zp_fc1 = weights::FC1ZeroPoint;
+        constexpr float s_fc2 = weights::FC2Scale;
+        constexpr float inv_s_fc2 = 1.f / s_fc2;
+        constexpr int zp_fc2 = weights::FC2ZeroPoint;
+        constexpr float s_fc3 = weights::FC3Scale;
+        constexpr float inv_s_fc3 = 1.f / s_fc3;
+        constexpr int zp_fc3 = weights::FC3ZeroPoint;
+        constexpr float inv_w_scale = 1.f / kWeightScale;
+
         /* (1) 量化輸入 */
         TRACCC_ALIGN(16) qscalar x_q[InputStep * 4];
 
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < InputSize; ++i) {
-            float q = x_f32[0][i] * kScale;
-            x_q[i] =
-                static_cast<qscalar>(q >= 0 ? (q > 127.f ? 127 : q + 0.5f)
-                                            : (q < -128.f ? -128 : q - 0.5f));
+            x_q[i] = quantise(x_f32[0][i], inv_s_in, zp_in);
         }
         TRACCC_PRAGMA_UNROLL
         for (size_type i = InputSize; i < InputStep * 4; ++i) {
-            x_q[i] = 0;
+            x_q[i] = quantise(0.f, inv_s_in, zp_in);
         }
 
         /* (2) GRU-0 linear */
         TRACCC_ALIGN(16) qscalar h0_q[HiddenSize1];
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize1; ++i) {
-            accum_t acc = static_cast<accum_t>(
-#ifdef __CUDA_ARCH__
-                ::traccc::fitting::detail::B0[i]
-#else
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B0[i]
-#endif
-                * kScale * kScale);
+            int acc = 0;
+            int wsum = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
@@ -117,30 +126,37 @@ struct kalman_int8_gru_gain_predictor {
                 const int w = __ldg(&Wp[i * InputStep + j / 4]);
                 const int v = *reinterpret_cast<const int*>(&x_q[j]);
                 acc = __dp4a(w, v, acc);
+                wsum = __dp4a(w, 0x01010101, wsum);
             }
 #else
             TRACCC_PRAGMA_UNROLL
-            for (size_type j = 0; j < InputStep * 4; ++j)
-                acc += static_cast<accum_t>(
-                           kalman_int8_gru_gain_predictor_weights<
-                               algebra_t, D>::W0[i * InputStep * 4 + j]) *
-                       static_cast<accum_t>(x_q[j]);
+            for (size_type j = 0; j < InputStep * 4; ++j) {
+                const int w =
+                    static_cast<int>(kalman_int8_gru_gain_predictor_weights<
+                                     algebra_t, D>::W0[i * InputStep * 4 + j]);
+                acc += w * static_cast<int>(x_q[j]);
+                wsum += w;
+            }
 #endif
-            const accum_t act = relu(acc);
-            h0_q[i] = saturate(act);
+            float acc_f =
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::B0[i]
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B0[i]
+#endif
+                + (s_in * inv_w_scale) *
+                      (static_cast<float>(acc) -
+                       static_cast<float>(zp_in) * static_cast<float>(wsum));
+            float act = relu(acc_f);
+            h0_q[i] = quantise(act, inv_s_fc1, zp_fc1);
         }
 
         /* (3) GRU-1 linear */
         TRACCC_ALIGN(16) qscalar h1_q[HiddenSize2];
         TRACCC_PRAGMA_UNROLL
         for (size_type i = 0; i < HiddenSize2; ++i) {
-            accum_t acc = static_cast<accum_t>(
-#ifdef __CUDA_ARCH__
-                ::traccc::fitting::detail::B1[i]
-#else
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B1[i]
-#endif
-                * kScale * kScale);
+            int acc = 0;
+            int wsum = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
@@ -155,17 +171,29 @@ struct kalman_int8_gru_gain_predictor {
                 const int w = __ldg(&Wp[i * HiddenStep1 + j / 4]);
                 const int v = *reinterpret_cast<const int*>(&h0_q[j]);
                 acc = __dp4a(w, v, acc);
+                wsum = __dp4a(w, 0x01010101, wsum);
             }
 #else
             TRACCC_PRAGMA_UNROLL
-            for (size_type j = 0; j < HiddenSize1; ++j)
-                acc += static_cast<accum_t>(
-                           kalman_int8_gru_gain_predictor_weights<
-                               algebra_t, D>::W1[i * HiddenSize1 + j]) *
-                       static_cast<accum_t>(h0_q[j]);
+            for (size_type j = 0; j < HiddenSize1; ++j) {
+                const int w =
+                    static_cast<int>(kalman_int8_gru_gain_predictor_weights<
+                                     algebra_t, D>::W1[i * HiddenSize1 + j]);
+                acc += w * static_cast<int>(h0_q[j]);
+                wsum += w;
+            }
 #endif
-            const accum_t act = relu(acc);
-            h1_q[i] = saturate(act);
+            float acc_f =
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::B1[i]
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B1[i]
+#endif
+                + (s_fc1 * inv_w_scale) *
+                      (static_cast<float>(acc) -
+                       static_cast<float>(zp_fc1) * static_cast<float>(wsum));
+            float act = relu(acc_f);
+            h1_q[i] = quantise(act, inv_s_fc2, zp_fc2);
         }
 
         /* (4) Dense → 6×D Kalman gain (fp32 反量化) */
@@ -177,13 +205,8 @@ struct kalman_int8_gru_gain_predictor {
             TRACCC_PRAGMA_UNROLL
         for (size_type c = 0; c < D; ++c) {
             const size_type o = r * D + c;
-            accum_t acc = static_cast<accum_t>(
-#ifdef __CUDA_ARCH__
-                ::traccc::fitting::detail::B2[o]
-#else
-                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B2[o]
-#endif
-                * kScale * kScale);
+            int acc = 0;
+            int wsum = 0;
 #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 610)
             const auto* W =
 #ifdef __CUDA_ARCH__
@@ -198,16 +221,30 @@ struct kalman_int8_gru_gain_predictor {
                 const int w = __ldg(&Wp[o * HiddenStep2 + j / 4]);
                 const int v = *reinterpret_cast<const int*>(&h1_q[j]);
                 acc = __dp4a(w, v, acc);
+                wsum = __dp4a(w, 0x01010101, wsum);
             }
 #else
             TRACCC_PRAGMA_UNROLL
-            for (size_type j = 0; j < HiddenSize2; ++j)
-                acc += static_cast<accum_t>(
-                           kalman_int8_gru_gain_predictor_weights<
-                               algebra_t, D>::W2[o * HiddenSize2 + j]) *
-                       static_cast<accum_t>(h1_q[j]);
+            for (size_type j = 0; j < HiddenSize2; ++j) {
+                const int w =
+                    static_cast<int>(kalman_int8_gru_gain_predictor_weights<
+                                     algebra_t, D>::W2[o * HiddenSize2 + j]);
+                acc += w * static_cast<int>(h1_q[j]);
+                wsum += w;
+            }
 #endif
-            K[c][r] = static_cast<float>(acc) * kInvScaleSquared;
+            float acc_f =
+#ifdef __CUDA_ARCH__
+                ::traccc::fitting::detail::B2[o]
+#else
+                kalman_int8_gru_gain_predictor_weights<algebra_t, D>::B2[o]
+#endif
+                + (s_fc2 * inv_w_scale) *
+                      (static_cast<float>(acc) -
+                       static_cast<float>(zp_fc2) * static_cast<float>(wsum));
+            qscalar q = quantise(acc_f, inv_s_fc3, zp_fc3);
+            K[c][r] =
+                (static_cast<float>(q) - static_cast<float>(zp_fc3)) * s_fc3;
         }
         // Pad constant outputs with zeros
         TRACCC_PRAGMA_UNROLL
