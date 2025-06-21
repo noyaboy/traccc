@@ -1,23 +1,5 @@
 #!/usr/bin/env python3
 
-"""Train an MLP to approximate the Kalman gain.
-
-The script expects a CSV file `gru_training_data.csv containing rows of
-58 input features followed by 12 target values. The first 58 columns encode
-`predicted_vec (6), predicted_cov (36), H (12) and V (4).
-The remaining 12 columns correspond to the flattened 6x2 Kalman gain matrix.
-
-The training procedure consists of two stages:
-
-1. FP32 pre-training to obtain good initial weights.
-2. Quantisation aware training (QAT) to fine tune an INT8 friendly model.
-
-The script saves `model_fp32.pth and model_int8.pt in the output
-folder.  Normalisation statistics for both the inputs and targets are stored
-alongside the FP32 model and are applied during inference. Targets are
-standardised during training and predictions are unnormalised back to the
-original scale when reported.
-"""
 import matplotlib.pyplot as plt
 import argparse
 import json
@@ -39,34 +21,6 @@ import torch.nn.init as init
 import torch.ao.quantization as quant    # ← 官方 QAT 入口
 from torch.nn import Module
 from torch.utils.data import DataLoader, TensorDataset
-
-# Data Layout
-# std::vector<traccc::scalar> row;
-# row.reserve(6 + 36 + 6 * D + D * D + 6 * D);
-# for (size_type i = 0; i < 6; ++i) {
-#     row.push_back(getter::element(predicted_vec, i, 0));
-# }
-# for (size_type r = 0; r < 6; ++r) {
-#     for (size_type c = 0; c < 6; ++c) {
-#         row.push_back(getter::element(predicted_cov, r, c));
-#     }
-# }
-# for (size_type r = 0; r < D; ++r) {
-#     for (size_type c = 0; c < 6; ++c) {
-#         row.push_back(getter::element(H, r, c));
-#     }
-# }
-# for (size_type r = 0; r < D; ++r) {
-#     for (size_type c = 0; c < D; ++c) {
-#         row.push_back(getter::element(V, r, c));
-#     }
-# }
-# for (size_type r = 0; r < 6; ++r) {
-#     for (size_type c = 0; c < D; ++c) {
-#         row.push_back(getter::element(K, r, c));
-#     }
-# }
-# gru_training_logger::write_row(row);
 
 
 # ───────────── 常數 feature 索引 ─────────────
