@@ -42,5 +42,15 @@ struct kalman_int8_gru_gain_predictor_weights {
     static constexpr const auto& B0 = detail::B0;
     static constexpr const auto& B1 = detail::B1;
     static constexpr const auto& B2 = detail::B2;
+
+    // Quantisation parameters for activations
+    static constexpr float QuantInScale = 8.432688e-02f;
+    static constexpr int QuantInZeroPoint = 118;
+    static constexpr float FC1Scale = 4.253764e-02f;
+    static constexpr int FC1ZeroPoint = 1;
+    static constexpr float FC2Scale = 2.197998e-02f;
+    static constexpr int FC2ZeroPoint = 2;
+    static constexpr float FC3Scale = 4.928375e-02f;
+    static constexpr int FC3ZeroPoint = 137;
 };
 }  // namespace traccc::fitting
