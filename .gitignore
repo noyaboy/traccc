@@ -46,5 +46,6 @@ log/spill.log
 log/spill_summary.log
 build*/
 log/maxreg_iter.logs
-./nc_report/*/*.ncu-rep
-./nc_report/*/*/*.ncu-rep
+gru_training_data.csv
+extras/mlp_gain_training/gru_training_data.csv
+extras/mlp_gain_training/gru_training_data_stats.csv
