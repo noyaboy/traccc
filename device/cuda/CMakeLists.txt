@@ -110,6 +110,24 @@ target_link_libraries( traccc_cuda
   PUBLIC traccc::core detray::core vecmem::core covfie::core
   PRIVATE CUDA::cudart traccc::device_common vecmem::cuda )
 
+# === TensorCore / FP16 acceleration =========================================
+# * 強制使用 Turing 以上 (sm_75) 以啟用 half-precision TensorCores
+# * 暴露巨集 TRACCC_USE_FP16 以便在原始碼中切換到半精度路徑
+# * --use_fast_math 及 -tensormath 允許編譯器產生 HMMA 指令
+if ( "${CMAKE_CUDA_COMPILER_ID}" STREQUAL "NVIDIA" )
+  set_target_properties( traccc_cuda PROPERTIES
+    CUDA_ARCHITECTURES 75 )
+
+  # 啟用 INT8 TensorCore 路徑；保留原 FP16 定義以維持兼容
+  target_compile_definitions( traccc_cuda
+    PUBLIC TRACCC_USE_FP16=1 TRACCC_USE_INT8=1 )
+
+  target_compile_options( traccc_cuda
+    PRIVATE
+      $<$<COMPILE_LANGUAGE:CUDA>:--use_fast_math --ftz=true> )
+endif()
+
+
 # Set up Thrust specifically for the traccc::cuda library.
 thrust_create_target( traccc::cuda_thrust
   HOST CPP
