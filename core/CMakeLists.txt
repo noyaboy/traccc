@@ -46,7 +46,9 @@ traccc_add_library( traccc_core core TYPE SHARED
   "include/traccc/utils/seed_generator.hpp"
   "include/traccc/utils/subspace.hpp"
   "include/traccc/utils/logging.hpp"
+  "include/traccc/utils/gru_training_logger.hpp"
   "src/utils/logging.cpp"
+  "src/utils/gru_training_logger.cpp"
   # Clusterization algorithmic code.
   "include/traccc/clusterization/details/sparse_ccl.hpp"
   "include/traccc/clusterization/impl/sparse_ccl.ipp"
