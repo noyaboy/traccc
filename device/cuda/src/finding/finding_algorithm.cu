@@ -15,6 +15,7 @@
 #include "./kernels/build_tracks.cuh"
 #include "./kernels/fill_sort_keys.cuh"
 #include "./kernels/find_tracks.cuh"
+#include "./kernels/kernel_config.cuh"
 #include "./kernels/make_barcode_sequence.cuh"
 #include "./kernels/propagate_to_next_surface.cuh"
 #include "./kernels/prune_tracks.cuh"
@@ -80,6 +81,9 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
 
     // Get a convenience variable for the stream that we'll be using.
     cudaStream_t stream = details::get_stream(m_stream);
+
+    // Load config into constant memory
+    kernels::load_finding_config(m_cfg);
 
     // Copy setup
     m_copy.setup(seeds_buffer)->ignore();
@@ -204,7 +208,6 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
 
             kernels::apply_interaction<
                 std::decay_t<detector_type>><<<nBlocks, nThreads, 0, stream>>>(
-                m_cfg,
                 device::apply_interaction_payload<std::decay_t<detector_type>>{
                     .det_data = det_view,
                     .n_params = n_in_params,
@@ -272,7 +275,6 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                        2 * nThreads *
                            sizeof(std::pair<unsigned int, unsigned int>),
                    stream>>>(
-                    m_cfg,
                     device::find_tracks_payload<std::decay_t<detector_type>>{
                         .det_data = det_view,
                         .measurements_view = measurements,
@@ -351,7 +353,6 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
                 kernels::propagate_to_next_surface<
                     std::decay_t<propagator_type>, std::decay_t<bfield_type>>
                     <<<nBlocks, nThreads, 0, stream>>>(
-                        m_cfg,
                         device::propagate_to_next_surface_payload<
                             std::decay_t<propagator_type>,
                             std::decay_t<bfield_type>>{
@@ -418,7 +419,7 @@ finding_algorithm<stepper_t, navigator_t>::operator()(
         const unsigned int nBlocks = (n_tips_total + nThreads - 1) / nThreads;
 
         kernels::build_tracks<<<nBlocks, nThreads, 0, stream>>>(
-            m_cfg, device::build_tracks_payload{
+            device::build_tracks_payload{
                        .measurements_view = measurements,
                        .seeds_view = seeds_buffer,
                        .links_view = links_buffer,

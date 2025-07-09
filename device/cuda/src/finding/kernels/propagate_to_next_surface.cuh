@@ -9,13 +9,12 @@
 
 // Project include(s).
 #include "traccc/finding/device/propagate_to_next_surface.hpp"
-#include "traccc/finding/finding_config.hpp"
+#include "kernel_config.cuh"
 
 namespace traccc::cuda::kernels {
 
 template <typename propagator_t, typename bfield_t>
 __global__ void propagate_to_next_surface(
-    const finding_config cfg,
     device::propagate_to_next_surface_payload<propagator_t, bfield_t> payload);
 
 }  // namespace traccc::cuda::kernels
