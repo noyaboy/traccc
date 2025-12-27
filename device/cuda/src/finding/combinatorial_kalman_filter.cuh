@@ -450,7 +450,8 @@ combinatorial_kalman_filter(
             {
                 vecmem::data::vector_buffer<device::sort_key> keys_buffer(
                     n_candidates, mr.main);
-                copy.setup(keys_buffer)->wait();
+                // Stream ordering ensures setup completes before kernel
+                copy.setup(keys_buffer)->ignore();
 
                 const unsigned int nThreads = warp_size * 2;
                 const unsigned int nBlocks =
@@ -512,8 +513,8 @@ combinatorial_kalman_filter(
                     bfield_t>(nBlocks, nThreads, 0, stream, config,
                               host_payload);
                 TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
-
-                str.synchronize();
+                // Removed str.synchronize() - stream ordering ensures
+                // propagation completes before next iteration's kernels
             }
         }
 
