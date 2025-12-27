@@ -18,6 +18,35 @@ Complete workflow: **Prerequisites → Profile → Analyze → Plan → Implemen
 
 ## Phase 0: PREREQUISITES
 
+### Verify Git State (CRITICAL)
+
+Before running any benchmark, verify the actual code state:
+
+```bash
+cd /dicos_ui_home/noah/traccc
+
+# 1. Check current branch and commit
+git branch --show-current
+git log --oneline -5
+
+# 2. Check for uncommitted changes
+git status
+
+# 3. Check if current code has previous optimizations applied
+git log --oneline --grep="perf:" -5
+```
+
+**Questions to answer:**
+- [ ] What branch am I on?
+- [ ] Is the build from this commit or an older one?
+- [ ] Are there uncommitted changes that affect the benchmark?
+- [ ] Is this the true baseline or already optimized code?
+
+**If on optimization branch with previous changes:**
+- The "baseline" is now the optimized code, not v1.0.0
+- Document what optimizations are already applied
+- Compare new optimization against current state, not original baseline
+
 ### Ensure Build Exists
 
 ```bash
@@ -37,11 +66,26 @@ cmake -DCMAKE_CUDA_FLAGS="-Xcompiler -fPIE" \
 cmake --build . -j8
 ```
 
-### Verify Baseline
+### Ensure Build Matches Code
 
-Before any optimization, confirm current performance matches expected baseline:
+If build exists, check if it's stale:
 
 ```bash
+cd /dicos_ui_home/noah/traccc/build
+ls -la bin/traccc_throughput_mt_cuda  # Check binary modification time
+git log -1 --format="%ci" HEAD        # Check last commit time
+
+# If binary is older than commit, rebuild
+cmake --build . -j8
+```
+
+### Verify Baseline
+
+Before any optimization, confirm current performance matches expected baseline.
+**Note:** Use 4 threads for verification (safer, avoids OOM). Primary 8-thread baseline is validated in Phase 6.
+
+```bash
+cd /dicos_ui_home/noah/traccc/build
 ./bin/traccc_throughput_mt_cuda \
   --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
   --material-file=../data/geometries/odd/odd-detray_material_detray.json \
@@ -70,6 +114,11 @@ nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
 ## Phase 1: PROFILE
 
 ### Run Profiling
+
+**Note:** Use 100 events for profiling (faster, sufficient for bottleneck analysis).
+Benchmarking in Phase 6 uses 500 events for stable throughput measurement.
+
+Replace `<name>` with a descriptive name for this optimization (e.g., `pinned_memory`, `sync_removal`).
 
 ```bash
 cd /dicos_ui_home/noah/traccc/build
@@ -186,10 +235,15 @@ If optimization requires new configuration:
 
 ## Phase 4: IMPLEMENT
 
-### Create Branch
+### Create Branch (or verify existing)
 
 ```bash
+# If starting fresh:
 git checkout -b optimization/<name>
+
+# If already on optimization branch (check Phase 0 git state):
+git branch --show-current  # Verify you're on intended branch
+# Continue on existing branch, or create new one for this specific optimization
 ```
 
 ### Save Rollback Point
@@ -215,6 +269,7 @@ Make changes based on verified code, not assumptions.
 
 For multi-file changes, test after each significant change:
 ```bash
+cd /dicos_ui_home/noah/traccc/build
 cmake --build . -j8 && ./bin/traccc_test_cuda
 # Or filter to relevant tests (check available test names first):
 # ./bin/traccc_test_cuda --gtest_list_tests | grep -i <keyword>
@@ -239,9 +294,10 @@ git reset --hard <saved-commit-hash>
 
 ### Save Profile Files (if in build/)
 
-Before clean build, move profile files out of build/:
+Before clean build, move profile files out of build/ (run from repo root):
 ```bash
-mv build/profile_*.nsys-rep build/profile_*.sqlite /dicos_ui_home/noah/traccc/docs/benchmarks/ 2>/dev/null || true
+cd /dicos_ui_home/noah/traccc
+mv build/profile_*.nsys-rep build/profile_*.sqlite docs/benchmarks/ 2>/dev/null || true
 ```
 
 ### Clean Build (REQUIRED)
@@ -260,6 +316,7 @@ cmake --build . -j8
 ### Run CUDA Tests (REQUIRED)
 
 ```bash
+cd /dicos_ui_home/noah/traccc/build
 ./bin/traccc_test_cuda
 ```
 
@@ -272,6 +329,7 @@ cmake --build . -j8
 ### Run Additional Tests (if available)
 
 ```bash
+cd /dicos_ui_home/noah/traccc/build
 # Check for other test binaries
 ls bin/traccc_test_*
 
@@ -313,6 +371,7 @@ Possible causes: deadlock from optimization, GPU memory issue.
 **Important:** Grep for "Event processing" specifically (not warm-up):
 
 ```bash
+cd /dicos_ui_home/noah/traccc/build
 ./bin/traccc_throughput_mt_cuda \
   --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
   --material-file=../data/geometries/odd/odd-detray_material_detray.json \
@@ -322,11 +381,12 @@ Possible causes: deadlock from optimization, GPU memory issue.
   --input-directory=../data/odd/geant4_ttbar_mu200/ \
   --input-events=36 \
   --processed-events=500 \
-  --cpu-threads=4 \
-  [NEW OPTIONS IF ADDED] 2>&1 | grep "Event processing.*events/s"
+  --cpu-threads=<N> \
+  2>&1 | grep "Event processing.*events/s"
+# Add any new CLI options defined in Phase 3 here
 ```
 
-Run 3 times, record each "Event processing" result.
+Run 3 times **for each thread count** (1, 4, 8), record each "Event processing" result.
 
 ### Thread Configurations
 
@@ -356,9 +416,17 @@ Improvement = (median - baseline) / baseline * 100%
 ### Re-Profile to Validate Impact
 
 ```bash
-# Profile after optimization
+# Profile after optimization (use same command as Phase 1, but different output name)
+cd /dicos_ui_home/noah/traccc/build
 /usr/local/cuda-12.6/bin/nsys profile --stats=true -o profile_<name>_after \
-  ./bin/traccc_throughput_mt_cuda ... --cpu-threads=1
+  ./bin/traccc_throughput_mt_cuda \
+  --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
+  --material-file=../data/geometries/odd/odd-detray_material_detray.json \
+  --grid-file=../data/geometries/odd/odd-detray_surface_grids_detray.json \
+  --digitization-file=../data/geometries/odd/odd-digi-geometric-config.json \
+  --use-acts-geom-source=true \
+  --input-directory=../data/odd/geant4_ttbar_mu200/ \
+  --input-events=36 --processed-events=100 --cpu-threads=1
 
 # Compare to Phase 1 profile
 # - Did target kernel time % decrease?
@@ -372,7 +440,21 @@ Improvement = (median - baseline) / baseline * 100%
 
 ### If Improvement Achieved
 
-1. Amend commit with benchmark results (if not pushed)
+1. Amend commit with benchmark results (if not pushed):
+   ```bash
+   git commit --amend -m "perf: <description>
+
+   <details of what was optimized>
+
+   Benchmark results:
+   - 1 thread: X.XX events/s (+Y.Y%)
+   - 4 threads: X.XX events/s (+Y.Y%)
+   - 8 threads: X.XX events/s (+Y.Y%)
+
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+   ```
 2. Update `docs/benchmarks/` with new analysis
 3. Proceed with PR or merge
 
@@ -406,7 +488,9 @@ git reset --hard HEAD~1  # Discard changes entirely
 ## Verification Checklist
 
 ### Phase 0: Prerequisites
+- [ ] **Git state verified** (branch, commits, uncommitted changes)
 - [ ] Build exists and works
+- [ ] Build matches current code (not stale)
 - [ ] Baseline verified (~51.30 @ 4 threads or ~59.21 @ 8 threads)
 - [ ] GPU is idle
 
@@ -417,8 +501,11 @@ git reset --hard HEAD~1  # Discard changes entirely
 - [ ] Bottlenecks documented with file:line
 
 ### Phase 3: Plan
+- [ ] Target file:line identified
+- [ ] Current behavior documented (code snippet)
 - [ ] Plan includes validation method
 - [ ] Plan includes rollback strategy
+- [ ] Files to modify listed
 
 ### Phase 4: Implement
 - [ ] Rollback point saved (commit hash noted)
@@ -442,12 +529,14 @@ git reset --hard HEAD~1  # Discard changes entirely
 
 ---
 
-## Current Bottlenecks
+## Known Bottlenecks (Historical Reference)
 
-| Component | Time % | Location |
-|-----------|--------|----------|
-| propagate_to_next_surface | 64.3% | `combinatorial_kalman_filter.cuh:509-516` |
-| cudaStreamSynchronize | 80.9% | Multiple locations |
+These are from past profiling sessions. **Always re-profile** to get current data.
+
+| Component | Time % | Location | Notes |
+|-----------|--------|----------|-------|
+| propagate_to_next_surface | 64.3% | `combinatorial_kalman_filter.cuh:509-516` | Post sync-removal |
+| cudaStreamSynchronize | 80.9% | Multiple locations | 10816 calls/100 events |
 
 ## Reference
 
