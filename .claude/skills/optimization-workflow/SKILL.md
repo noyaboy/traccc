@@ -1,16 +1,69 @@
 ---
 name: optimization-workflow
-description: Complete optimization workflow from profiling to verification. Includes profile, analyze, plan, implement, test, and benchmark phases. Always verify code before making changes.
+description: Complete optimization workflow from profiling to verification. Includes 8 phases (0-7): prerequisites, profile, analyze, plan, implement, test, benchmark, handle results. Always verify code before making changes.
 ---
 
 # Optimization Workflow
 
-Complete workflow: **Profile → Analyze → Plan → Implement → Test → Benchmark**
+Complete workflow: **Prerequisites → Profile → Analyze → Plan → Implement → Test → Benchmark → Handle Results**
+
+(Phase 0 + Phases 1-7 = 8 phases total)
 
 **Primary Baseline:** 59.21 events/s @ 8 threads (Tesla V100-32GB)
 **Fallback Baseline:** 51.30 events/s @ 4 threads (if 8 threads OOM)
 
 **Key Principle:** Always READ and VERIFY code before making changes. Never assume or imagine code structure.
+
+---
+
+## Phase 0: PREREQUISITES
+
+### Ensure Build Exists
+
+```bash
+cd /dicos_ui_home/noah/traccc/build
+ls bin/traccc_throughput_mt_cuda 2>/dev/null || echo "BUILD REQUIRED"
+```
+
+If build doesn't exist:
+```bash
+cd /dicos_ui_home/noah/traccc
+mkdir -p build && cd build
+cmake -DCMAKE_CUDA_FLAGS="-Xcompiler -fPIE" \
+      -DCMAKE_CUDA_ARCHITECTURES=70 \
+      -DTRACCC_BUILD_CUDA=ON \
+      -DTRACCC_BUILD_EXAMPLES=ON \
+      ..
+cmake --build . -j8
+```
+
+### Verify Baseline
+
+Before any optimization, confirm current performance matches expected baseline:
+
+```bash
+./bin/traccc_throughput_mt_cuda \
+  --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
+  --material-file=../data/geometries/odd/odd-detray_material_detray.json \
+  --grid-file=../data/geometries/odd/odd-detray_surface_grids_detray.json \
+  --digitization-file=../data/geometries/odd/odd-digi-geometric-config.json \
+  --use-acts-geom-source=true \
+  --input-directory=../data/odd/geant4_ttbar_mu200/ \
+  --input-events=36 \
+  --processed-events=500 \
+  --cpu-threads=4 2>&1 | grep "Event processing"
+```
+
+**Expected:** ~51.30 events/s @ 4 threads (±5% acceptable, i.e., 48.7-53.9).
+If outside this range, investigate before proceeding (GPU throttling? other processes?).
+
+### Check GPU is Idle
+
+```bash
+nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
+```
+
+**Expected:** No other processes using GPU. Wait or terminate if busy.
 
 ---
 
@@ -51,14 +104,23 @@ Look for:
 
 ### Find Bottleneck Source Files
 
-**Do NOT assume files** - search for the actual kernel name:
+**Do NOT assume files** - search for the actual kernel/function name.
+
+nsys shows mangled C++ names. Extract the base function name and search:
 
 ```bash
-# Find where bottleneck kernel is defined
-grep -r "kernel_name" device/cuda/src/ device/common/include/
+# Example: if nsys shows "void traccc::cuda::kernels::propagate_to_next_surface<...>"
+# Search for the function definition:
+grep -rn "propagate_to_next_surface" device/ --include="*.cuh" --include="*.cu" --include="*.hpp" --include="*.ipp"
+
+# Or search for kernel launch:
+grep -rn "propagate_to_next_surface<<<" device/
+
+# Or search for TRACCC kernel definition pattern:
+grep -rn "TRACCC_.*_DEVICE.*propagate_to_next_surface" device/
 ```
 
-Common locations (but ALWAYS verify):
+Common locations (but ALWAYS verify via grep):
 - `device/cuda/src/finding/` - CKF kernels
 - `device/cuda/src/seeding/` - Seeding kernels
 - `device/cuda/src/clusterization/` - CCL kernels
@@ -118,7 +180,7 @@ Based on **verified code analysis** (not assumptions):
 If optimization requires new configuration:
 - Define new CLI option name and type
 - Document default value
-- Add to benchmark command in Phase 6
+- Add to benchmark command in Phase 6 (BENCHMARK)
 
 ---
 
@@ -133,10 +195,8 @@ git checkout -b optimization/<name>
 ### Save Rollback Point
 
 ```bash
-# Before starting changes
-git stash push -m "pre-optimization-backup" --include-untracked
-# Or just note the current commit
-git rev-parse HEAD  # Save this hash
+# Note current commit hash
+git rev-parse HEAD  # Save this hash for rollback
 ```
 
 ### Verify Before Changing (REQUIRED)
@@ -151,35 +211,38 @@ Before modifying any file:
 
 Make changes based on verified code, not assumptions.
 
+### Test Incrementally (for large changes)
+
+For multi-file changes, test after each significant change:
+```bash
+cmake --build . -j8 && ./bin/traccc_test_cuda
+# Or filter to relevant tests (check available test names first):
+# ./bin/traccc_test_cuda --gtest_list_tests | grep -i <keyword>
+# ./bin/traccc_test_cuda --gtest_filter="*<keyword>*"
+```
+
 ### If Implementation Fails
 
 ```bash
-# Option 1: Revert all changes
+# Option 1: Revert all uncommitted changes
 git checkout -- .
 
-# Option 2: Restore from stash
-git stash pop
-
-# Option 3: Reset to saved commit
+# Option 2: Reset to saved commit (if already committed)
 git reset --hard <saved-commit-hash>
 ```
 
-### Commit Changes
-
-```bash
-git add <files>
-git commit -m "perf: <description>
-
-<details of what was optimized and why>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
-```
+**Do NOT commit until Phase 5 tests pass.**
 
 ---
 
 ## Phase 5: TEST
+
+### Save Profile Files (if in build/)
+
+Before clean build, move profile files out of build/:
+```bash
+mv build/profile_*.nsys-rep build/profile_*.sqlite /dicos_ui_home/noah/traccc/docs/benchmarks/ 2>/dev/null || true
+```
 
 ### Clean Build (REQUIRED)
 
@@ -200,7 +263,11 @@ cmake --build . -j8
 ./bin/traccc_test_cuda
 ```
 
-**Must pass:** All 710 tests. If tests fail, fix before proceeding.
+**Must pass:** All 710 tests. If tests fail:
+1. **Do NOT commit**
+2. **Do NOT proceed** to benchmark
+3. Fix the issue or rollback (see Phase 4)
+4. Re-run tests until all pass
 
 ### Run Additional Tests (if available)
 
@@ -213,41 +280,55 @@ ls bin/traccc_test_*
 ./bin/traccc_test_io 2>/dev/null || true
 ```
 
-### If Tests Fail
+### Commit ONLY After Tests Pass
 
-1. **Do NOT proceed** to benchmark
-2. Review error message
-3. Fix the issue or rollback (see Phase 4)
-4. Re-run tests until all pass
+```bash
+git add <files>
+git commit -m "perf: <description>
+
+<details of what was optimized and why>
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+```
 
 ---
 
 ## Phase 6: BENCHMARK
 
-### Run 3 Times for Statistical Significance
-
-Run each configuration **3 times** and take **median**:
+### Check GPU is Idle
 
 ```bash
-# Run 3 times, record each result
-for i in 1 2 3; do
-  ./bin/traccc_throughput_mt_cuda \
-    --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
-    --material-file=../data/geometries/odd/odd-detray_material_detray.json \
-    --grid-file=../data/geometries/odd/odd-detray_surface_grids_detray.json \
-    --digitization-file=../data/geometries/odd/odd-digi-geometric-config.json \
-    --use-acts-geom-source=true \
-    --input-directory=../data/odd/geant4_ttbar_mu200/ \
-    --input-events=36 \
-    --processed-events=500 \
-    --cpu-threads=4 \
-    [NEW OPTIONS IF ADDED] 2>&1 | grep "events/s"
-done
+nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
 ```
 
-### Thread Configurations
+### Run 3 Times for Statistical Significance
 
-Run with multiple thread counts:
+Run each configuration **3 times** and take **median**.
+
+**Timeout:** If benchmark hangs >5 minutes, kill it (Ctrl+C) and investigate.
+Possible causes: deadlock from optimization, GPU memory issue.
+
+**Important:** Grep for "Event processing" specifically (not warm-up):
+
+```bash
+./bin/traccc_throughput_mt_cuda \
+  --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
+  --material-file=../data/geometries/odd/odd-detray_material_detray.json \
+  --grid-file=../data/geometries/odd/odd-detray_surface_grids_detray.json \
+  --digitization-file=../data/geometries/odd/odd-digi-geometric-config.json \
+  --use-acts-geom-source=true \
+  --input-directory=../data/odd/geant4_ttbar_mu200/ \
+  --input-events=36 \
+  --processed-events=500 \
+  --cpu-threads=4 \
+  [NEW OPTIONS IF ADDED] 2>&1 | grep "Event processing.*events/s"
+```
+
+Run 3 times, record each "Event processing" result.
+
+### Thread Configurations
 
 | Threads | Baseline | When to Use |
 |---------|----------|-------------|
@@ -260,7 +341,7 @@ Run with multiple thread counts:
 ### Calculate Results
 
 ```
-Median = middle value of 3 runs
+Median = middle value of 3 runs (sort and take 2nd)
 Improvement = (median - baseline) / baseline * 100%
 ```
 
@@ -276,9 +357,10 @@ Improvement = (median - baseline) / baseline * 100%
 
 ```bash
 # Profile after optimization
-/usr/local/cuda-12.6/bin/nsys profile --stats=true -o profile_<name>_after ...
+/usr/local/cuda-12.6/bin/nsys profile --stats=true -o profile_<name>_after \
+  ./bin/traccc_throughput_mt_cuda ... --cpu-threads=1
 
-# Compare to before
+# Compare to Phase 1 profile
 # - Did target kernel time % decrease?
 # - Did sync count/time decrease?
 # - Did the expected improvement materialize?
@@ -290,45 +372,73 @@ Improvement = (median - baseline) / baseline * 100%
 
 ### If Improvement Achieved
 
-1. Document results in commit message
+1. Amend commit with benchmark results (if not pushed)
 2. Update `docs/benchmarks/` with new analysis
 3. Proceed with PR or merge
 
 ### If No Improvement (Neutral)
 
 1. Decide: Is the change still valuable? (cleaner code, future optimization prep)
-2. If yes: Document as "refactor" not "perf"
-3. If no: Consider reverting
+2. If yes: Change commit message from "perf:" to "refactor:"
+3. If no: Revert the commit
 
 ### If Regression (Worse Performance)
 
-1. **Do NOT merge**
+1. **Do NOT merge/push**
 2. Investigate why:
    - Re-read code - did you misunderstand something?
    - Profile again - what got slower?
-   - Check test results - any failures missed?
+   - Check test results - any subtle failures?
 3. Options:
    - Fix the implementation
    - Revert and try different approach
    - Abandon this optimization path
 
+```bash
+# To revert unpushed commit
+git reset --soft HEAD~1  # Keep changes, undo commit
+# or
+git reset --hard HEAD~1  # Discard changes entirely
+```
+
 ---
 
 ## Verification Checklist
 
-- [ ] Phase 1: Profiling data collected
-- [ ] Phase 2: Bottleneck files found via grep (not assumed)
-- [ ] Phase 2: **Code actually read** (not imagined)
-- [ ] Phase 2: Bottlenecks documented with file:line
-- [ ] Phase 3: Plan includes validation method
-- [ ] Phase 3: Plan includes rollback strategy
-- [ ] Phase 4: Rollback point saved before changes
-- [ ] Phase 4: Code verified before modification
-- [ ] Phase 5: Clean build succeeds
-- [ ] Phase 5: All 710 CUDA tests pass
-- [ ] Phase 6: Ran 3 times, took median
-- [ ] Phase 6: Re-profiled to validate impact claim
-- [ ] Phase 7: Results handled appropriately (improve/neutral/regress)
+### Phase 0: Prerequisites
+- [ ] Build exists and works
+- [ ] Baseline verified (~51.30 @ 4 threads or ~59.21 @ 8 threads)
+- [ ] GPU is idle
+
+### Phase 1-2: Profile & Analyze
+- [ ] Profiling data collected
+- [ ] Bottleneck files found via grep (not assumed)
+- [ ] **Code actually read** (not imagined)
+- [ ] Bottlenecks documented with file:line
+
+### Phase 3: Plan
+- [ ] Plan includes validation method
+- [ ] Plan includes rollback strategy
+
+### Phase 4: Implement
+- [ ] Rollback point saved (commit hash noted)
+- [ ] Code verified before modification
+- [ ] Large changes tested incrementally
+
+### Phase 5: Test
+- [ ] Profile files saved before clean build
+- [ ] Clean build succeeds
+- [ ] All 710 CUDA tests pass
+- [ ] **Commit made AFTER tests pass**
+
+### Phase 6: Benchmark
+- [ ] GPU idle before benchmark
+- [ ] Ran 3 times, took median
+- [ ] Used "Event processing" line (not warm-up)
+- [ ] Re-profiled to validate impact claim
+
+### Phase 7: Results
+- [ ] Results handled appropriately (improve/neutral/regress)
 
 ---
 
