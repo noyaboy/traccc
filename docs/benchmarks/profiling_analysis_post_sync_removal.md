@@ -60,19 +60,17 @@ After removing 2 unnecessary synchronizations (commit a9939663), the profile sho
 
 **Expected Impact**: Could reduce syncs per event from ~108 to ~50 (-50%)
 
-### Option 2: Pinned Memory for Staging (Low Effort, Medium Impact)
+### ~~Option 2: Pinned Memory for Staging~~ (ALREADY IMPLEMENTED)
 
-**Problem**: The staging buffer `size_staging_ptr` uses regular host memory
-```cpp
-vecmem::unique_alloc_ptr<unsigned int> size_staging_ptr =
-    vecmem::make_unique_alloc<unsigned int>(*(mr.host));
-```
+**Status**: ✅ Already implemented in `full_chain_algorithm`
 
-**Solution**: Use pinned (page-locked) memory for D2H staging buffers
-- Pinned memory allows truly async transfers
-- Reduces sync latency
+**Analysis (2025-12-27)**: Investigation revealed that pinned memory is already being used:
+- `full_chain_algorithm.hpp:120` declares `vecmem::cuda::host_memory_resource m_pinned_host_mr;`
+- `full_chain_algorithm.cpp:77-78` passes `{m_cached_device_mr, &m_cached_pinned_host_mr}` to CKF
+- The `mr.host` in CKF already points to pinned memory via `m_cached_pinned_host_mr`
+- Profile confirms `cudaMallocHost` calls (pinned allocation)
 
-**Expected Impact**: 5-15% reduction in sync overhead
+No further optimization possible here.
 
 ### Option 3: Multi-Event Batching (High Effort, High Impact)
 
@@ -92,4 +90,8 @@ vecmem::unique_alloc_ptr<unsigned int> size_staging_ptr =
 
 ## Recommendation
 
-Start with **Option 2 (Pinned Memory)** as it's lowest effort, then proceed to **Option 1 (Device-Side Count)** for larger gains.
+~~Start with **Option 2 (Pinned Memory)** as it's lowest effort, then proceed to **Option 1 (Device-Side Count)** for larger gains.~~
+
+**Updated (2025-12-27)**: Option 2 is already implemented. The next optimization to pursue is:
+1. **Option 1 (Device-Side Candidate Count)** - Medium effort, high impact (~50% sync reduction)
+2. **Option 3 (Multi-Event Batching)** - High effort, high impact (30-50% throughput improvement)
