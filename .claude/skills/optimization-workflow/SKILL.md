@@ -1,28 +1,37 @@
 ---
 name: optimization-workflow
-description: Complete optimization workflow from profiling to verification. Includes profile, analyze, plan, implement, test, and benchmark phases.
+description: Complete optimization workflow from profiling to verification. Includes profile, analyze, plan, implement, test, and benchmark phases. Always verify code before making changes.
 ---
 
 # Optimization Workflow
 
 Complete workflow: **Profile → Analyze → Plan → Implement → Test → Benchmark**
 
+**Primary Baseline:** 59.21 events/s @ 8 threads (Tesla V100-32GB)
+
+**Key Principle:** Always READ and VERIFY code before making changes. Never assume or imagine code structure.
+
 ---
 
 ## Phase 1: PROFILE
 
-Run profiling to collect performance data (see `cuda-throughput-benchmark` skill for full paths):
+### Run Profiling
 
 ```bash
 cd /dicos_ui_home/noah/traccc/build
 /usr/local/cuda-12.6/bin/nsys profile --stats=true -o profile_<name> \
   ./bin/traccc_throughput_mt_cuda \
+  --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
+  --material-file=../data/geometries/odd/odd-detray_material_detray.json \
+  --grid-file=../data/geometries/odd/odd-detray_surface_grids_detray.json \
+  --digitization-file=../data/geometries/odd/odd-digi-geometric-config.json \
+  --use-acts-geom-source=true \
   --input-directory=../data/odd/geant4_ttbar_mu200/ \
-  --input-events=36 --processed-events=100 --cpu-threads=1 \
-  [other args from cuda-throughput-benchmark skill]
+  --input-events=36 --processed-events=100 --cpu-threads=1
 ```
 
-Extract stats:
+### Extract Stats
+
 ```bash
 /usr/local/cuda-12.6/bin/nsys stats profile_<name>.nsys-rep --report cuda_gpu_kern_sum
 /usr/local/cuda-12.6/bin/nsys stats profile_<name>.nsys-rep --report cuda_api_sum
@@ -39,42 +48,62 @@ Look for:
 - **cudaStreamSynchronize** % (sync overhead)
 - **cudaMemcpyAsync** frequency (transfer overhead)
 
-### Review Relevant Code
+### Review Code (REQUIRED)
 
-Key files for CKF optimization:
-- `device/cuda/src/finding/combinatorial_kalman_filter.cuh`
-- `device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp`
-- `device/common/include/traccc/finding/device/impl/find_tracks.ipp`
+**MUST read actual code files** - never assume structure:
+
+```bash
+# Key files to read
+device/cuda/src/finding/combinatorial_kalman_filter.cuh
+device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
+device/common/include/traccc/finding/device/impl/find_tracks.ipp
+```
+
+Verify:
+- [ ] Read the bottleneck kernel/function code
+- [ ] Understand data flow and dependencies
+- [ ] Identify actual sync points and their purpose
+- [ ] Check memory allocation patterns
 
 ### Document Findings
 
 Create `docs/benchmarks/profiling_analysis_<name>.md` with:
 - Kernel time distribution table
 - API time distribution table
-- Identified bottlenecks
+- Identified bottlenecks with **line numbers**
 - Proposed optimizations ranked by effort/impact
 
 ---
 
 ## Phase 3: PLAN
 
-Based on analysis, create optimization plan:
+### Create Optimization Plan
 
-1. **Identify target** - Which kernel/API to optimize
-2. **Propose solution** - What change to make
-3. **Estimate effort** - Low/Medium/High
-4. **Estimate impact** - Expected improvement %
-5. **List files to modify** - Specific files and functions
+Based on **verified code analysis** (not assumptions):
+
+1. **Target** - Specific kernel/function and line numbers
+2. **Current behavior** - What the code actually does (quote code)
+3. **Proposed change** - What to modify
+4. **Effort** - Low/Medium/High
+5. **Expected impact** - % improvement estimate
+6. **Files to modify** - Exact file paths
 
 ### Optimization Categories
 
 | Category | Effort | Impact | Examples |
 |----------|--------|--------|----------|
 | Sync removal | Low | 5-15% | Remove unnecessary `str.synchronize()` |
-| Pinned memory | Low | 5-15% | Use `cudaMallocHost` for staging buffers |
+| Pinned memory | Low | 5-15% | Use `cuda::host_memory_resource` |
 | Kernel fusion | Medium | 10-20% | Combine sort + propagate |
-| Device-side logic | Medium | 20-40% | Keep counts on GPU, avoid D2H sync |
+| Device-side logic | Medium | 20-40% | Keep counts on GPU |
 | Multi-event batch | High | 30-50% | Process multiple events per kernel |
+
+### New CLI Options (if applicable)
+
+If optimization requires new configuration:
+- Define new CLI option name and type
+- Document default value
+- Add to benchmark command in Phase 6
 
 ---
 
@@ -86,29 +115,17 @@ Based on analysis, create optimization plan:
 git checkout -b optimization/<name>
 ```
 
+### Verify Before Changing (REQUIRED)
+
+Before modifying any file:
+1. **Read the file** using Read tool
+2. **Verify line numbers** match profiling analysis
+3. **Understand context** around the change
+4. **Check dependencies** - what else uses this code
+
 ### Implement Changes
 
-Follow the plan from Phase 3. Common patterns:
-
-**Sync Removal:**
-```cpp
-// BEFORE
-kernel<<<...>>>();
-str.synchronize();  // Remove if not needed
-
-// AFTER
-kernel<<<...>>>();
-// No sync - stream ordering handles dependency
-```
-
-**Pinned Memory:**
-```cpp
-// BEFORE
-vecmem::make_unique_alloc<T>(*(mr.host));
-
-// AFTER
-vecmem::make_unique_alloc<T>(*(mr.host));  // Ensure mr.host is cuda::host_memory_resource
-```
+Make changes based on verified code, not assumptions.
 
 ### Commit Changes
 
@@ -152,9 +169,9 @@ cmake --build . -j8
 
 ## Phase 6: BENCHMARK
 
-Use commands from `cuda-throughput-benchmark` skill.
+### Benchmark Command
 
-### Quick Benchmark (1 thread)
+Base command (adjust `--cpu-threads` and add new options if implemented):
 
 ```bash
 ./bin/traccc_throughput_mt_cuda \
@@ -166,50 +183,65 @@ Use commands from `cuda-throughput-benchmark` skill.
   --input-directory=../data/odd/geant4_ttbar_mu200/ \
   --input-events=36 \
   --processed-events=500 \
-  --cpu-threads=1
+  --cpu-threads=8 \
+  [NEW OPTIONS IF ADDED BY IMPLEMENTATION]
 ```
 
-**Baseline:** 25.32 events/s
+### Add New CLI Options
 
-### Full Benchmark (1, 4, 8 threads)
+If implementation added new options, include them:
+```bash
+  --new-option=value \
+```
 
-Run with `--cpu-threads=1`, `--cpu-threads=4`, `--cpu-threads=8`
+### Baselines (v1.0.0)
 
-**Baselines:**
 | Threads | events/s |
 |---------|----------|
 | 1 | 25.32 |
 | 4 | 51.30 |
-| 8 | 59.21 |
+| **8** | **59.21** ← Primary comparison |
 
-### Compare Results
+### Calculate Improvement
 
 ```
-Improvement = (new - baseline) / baseline * 100%
+Improvement = (new_result - 59.21) / 59.21 * 100%
 ```
+
+**Target:** Beat 59.21 events/s @ 8 threads
+
+### Document Results
+
+| Threads | Baseline | Optimized | Improvement |
+|---------|----------|-----------|-------------|
+| 1 | 25.32 | ? | ?% |
+| 4 | 51.30 | ? | ?% |
+| 8 | 59.21 | ? | ?% |
 
 ---
 
 ## Verification Checklist
 
-- [ ] Profiling completed and documented
-- [ ] Optimization plan created
-- [ ] Implementation complete
-- [ ] Clean build succeeds
-- [ ] All 710 CUDA tests pass
-- [ ] Benchmark shows improvement (or no regression)
-- [ ] Results documented in commit message
+- [ ] Phase 1: Profiling data collected
+- [ ] Phase 2: **Code actually read** (not imagined)
+- [ ] Phase 2: Bottlenecks documented with line numbers
+- [ ] Phase 3: Plan based on verified code
+- [ ] Phase 4: Code verified before modification
+- [ ] Phase 5: Clean build succeeds
+- [ ] Phase 5: All 710 CUDA tests pass
+- [ ] Phase 6: Benchmark beats 59.21 events/s @ 8 threads
+- [ ] Phase 6: Results documented in commit
 
 ---
 
 ## Current Bottlenecks
 
-| Component | Time % | Notes |
-|-----------|--------|-------|
-| propagate_to_next_surface | 64.3% | Runge-Kutta physics |
-| cudaStreamSynchronize | 80.9% | Sync overhead |
+| Component | Time % | Location |
+|-----------|--------|----------|
+| propagate_to_next_surface | 64.3% | `combinatorial_kalman_filter.cuh:509-516` |
+| cudaStreamSynchronize | 80.9% | Multiple locations |
 
 ## Reference
 
-- See `cuda-throughput-benchmark` skill for all benchmark commands
+- `cuda-throughput-benchmark` skill for baseline details
 - `docs/benchmarks/profiling_analysis_*.md` for past analyses
