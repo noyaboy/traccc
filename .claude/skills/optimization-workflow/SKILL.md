@@ -8,6 +8,7 @@ description: Complete optimization workflow from profiling to verification. Incl
 Complete workflow: **Profile → Analyze → Plan → Implement → Test → Benchmark**
 
 **Primary Baseline:** 59.21 events/s @ 8 threads (Tesla V100-32GB)
+**Fallback Baseline:** 51.30 events/s @ 4 threads (if 8 threads OOM)
 
 **Key Principle:** Always READ and VERIFY code before making changes. Never assume or imagine code structure.
 
@@ -48,29 +49,39 @@ Look for:
 - **cudaStreamSynchronize** % (sync overhead)
 - **cudaMemcpyAsync** frequency (transfer overhead)
 
-### Review Code (REQUIRED)
+### Find Bottleneck Source Files
 
-**MUST read actual code files** - never assume structure:
+**Do NOT assume files** - search for the actual kernel name:
 
 ```bash
-# Key files to read
-device/cuda/src/finding/combinatorial_kalman_filter.cuh
-device/common/include/traccc/finding/device/impl/propagate_to_next_surface.ipp
-device/common/include/traccc/finding/device/impl/find_tracks.ipp
+# Find where bottleneck kernel is defined
+grep -r "kernel_name" device/cuda/src/ device/common/include/
 ```
+
+Common locations (but ALWAYS verify):
+- `device/cuda/src/finding/` - CKF kernels
+- `device/cuda/src/seeding/` - Seeding kernels
+- `device/cuda/src/clusterization/` - CCL kernels
+- `device/common/include/traccc/*/device/impl/` - Kernel implementations
+
+### Review Code (REQUIRED)
+
+**MUST read actual source files** of the bottleneck:
 
 Verify:
 - [ ] Read the bottleneck kernel/function code
 - [ ] Understand data flow and dependencies
 - [ ] Identify actual sync points and their purpose
 - [ ] Check memory allocation patterns
+- [ ] Check what calls this code (callers)
+- [ ] Check what this code calls (callees)
 
 ### Document Findings
 
 Create `docs/benchmarks/profiling_analysis_<name>.md` with:
 - Kernel time distribution table
 - API time distribution table
-- Identified bottlenecks with **line numbers**
+- Identified bottlenecks with **file:line** references
 - Proposed optimizations ranked by effort/impact
 
 ---
@@ -81,22 +92,26 @@ Create `docs/benchmarks/profiling_analysis_<name>.md` with:
 
 Based on **verified code analysis** (not assumptions):
 
-1. **Target** - Specific kernel/function and line numbers
-2. **Current behavior** - What the code actually does (quote code)
+1. **Target** - Specific file:line of bottleneck
+2. **Current behavior** - Quote actual code snippet
 3. **Proposed change** - What to modify
 4. **Effort** - Low/Medium/High
 5. **Expected impact** - % improvement estimate
-6. **Files to modify** - Exact file paths
+6. **Validation method** - How to verify the impact claim
+7. **Rollback plan** - How to revert if it fails
+8. **Files to modify** - Exact file paths found via grep
 
-### Optimization Categories
+### Optimization Categories (Estimates - Must Validate)
 
-| Category | Effort | Impact | Examples |
-|----------|--------|--------|----------|
-| Sync removal | Low | 5-15% | Remove unnecessary `str.synchronize()` |
-| Pinned memory | Low | 5-15% | Use `cuda::host_memory_resource` |
-| Kernel fusion | Medium | 10-20% | Combine sort + propagate |
-| Device-side logic | Medium | 20-40% | Keep counts on GPU |
-| Multi-event batch | High | 30-50% | Process multiple events per kernel |
+| Category | Effort | Estimated Impact | Validation |
+|----------|--------|------------------|------------|
+| Sync removal | Low | 5-15% | Re-profile sync count |
+| Pinned memory | Low | 5-15% | Re-profile memcpy time |
+| Kernel fusion | Medium | 10-20% | Re-profile kernel count |
+| Device-side logic | Medium | 20-40% | Re-profile sync count |
+| Multi-event batch | High | 30-50% | Re-profile kernel launches |
+
+**Note:** These are estimates. Always re-profile after implementation to validate actual impact.
 
 ### New CLI Options (if applicable)
 
@@ -115,6 +130,15 @@ If optimization requires new configuration:
 git checkout -b optimization/<name>
 ```
 
+### Save Rollback Point
+
+```bash
+# Before starting changes
+git stash push -m "pre-optimization-backup" --include-untracked
+# Or just note the current commit
+git rev-parse HEAD  # Save this hash
+```
+
 ### Verify Before Changing (REQUIRED)
 
 Before modifying any file:
@@ -126,6 +150,19 @@ Before modifying any file:
 ### Implement Changes
 
 Make changes based on verified code, not assumptions.
+
+### If Implementation Fails
+
+```bash
+# Option 1: Revert all changes
+git checkout -- .
+
+# Option 2: Restore from stash
+git stash pop
+
+# Option 3: Reset to saved commit
+git reset --hard <saved-commit-hash>
+```
 
 ### Commit Changes
 
@@ -165,72 +202,133 @@ cmake --build . -j8
 
 **Must pass:** All 710 tests. If tests fail, fix before proceeding.
 
+### Run Additional Tests (if available)
+
+```bash
+# Check for other test binaries
+ls bin/traccc_test_*
+
+# Run if exist
+./bin/traccc_test_core 2>/dev/null || true
+./bin/traccc_test_io 2>/dev/null || true
+```
+
+### If Tests Fail
+
+1. **Do NOT proceed** to benchmark
+2. Review error message
+3. Fix the issue or rollback (see Phase 4)
+4. Re-run tests until all pass
+
 ---
 
 ## Phase 6: BENCHMARK
 
-### Benchmark Command
+### Run 3 Times for Statistical Significance
 
-Base command (adjust `--cpu-threads` and add new options if implemented):
+Run each configuration **3 times** and take **median**:
 
 ```bash
-./bin/traccc_throughput_mt_cuda \
-  --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
-  --material-file=../data/geometries/odd/odd-detray_material_detray.json \
-  --grid-file=../data/geometries/odd/odd-detray_surface_grids_detray.json \
-  --digitization-file=../data/geometries/odd/odd-digi-geometric-config.json \
-  --use-acts-geom-source=true \
-  --input-directory=../data/odd/geant4_ttbar_mu200/ \
-  --input-events=36 \
-  --processed-events=500 \
-  --cpu-threads=8 \
-  [NEW OPTIONS IF ADDED BY IMPLEMENTATION]
+# Run 3 times, record each result
+for i in 1 2 3; do
+  ./bin/traccc_throughput_mt_cuda \
+    --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
+    --material-file=../data/geometries/odd/odd-detray_material_detray.json \
+    --grid-file=../data/geometries/odd/odd-detray_surface_grids_detray.json \
+    --digitization-file=../data/geometries/odd/odd-digi-geometric-config.json \
+    --use-acts-geom-source=true \
+    --input-directory=../data/odd/geant4_ttbar_mu200/ \
+    --input-events=36 \
+    --processed-events=500 \
+    --cpu-threads=4 \
+    [NEW OPTIONS IF ADDED] 2>&1 | grep "events/s"
+done
 ```
 
-### Add New CLI Options
+### Thread Configurations
 
-If implementation added new options, include them:
-```bash
-  --new-option=value \
-```
+Run with multiple thread counts:
 
-### Baselines (v1.0.0)
+| Threads | Baseline | When to Use |
+|---------|----------|-------------|
+| 1 | 25.32 | Always run (most stable) |
+| 4 | 51.30 | Always run (good balance) |
+| 8 | 59.21 | Run if no OOM (primary target) |
 
-| Threads | events/s |
-|---------|----------|
-| 1 | 25.32 |
-| 4 | 51.30 |
-| **8** | **59.21** ← Primary comparison |
+**If 8 threads OOM:** Use 4 threads as primary comparison.
 
-### Calculate Improvement
+### Calculate Results
 
 ```
-Improvement = (new_result - 59.21) / 59.21 * 100%
+Median = middle value of 3 runs
+Improvement = (median - baseline) / baseline * 100%
 ```
-
-**Target:** Beat 59.21 events/s @ 8 threads
 
 ### Document Results
 
-| Threads | Baseline | Optimized | Improvement |
-|---------|----------|-----------|-------------|
-| 1 | 25.32 | ? | ?% |
-| 4 | 51.30 | ? | ?% |
-| 8 | 59.21 | ? | ?% |
+| Threads | Baseline | Run1 | Run2 | Run3 | Median | Improvement |
+|---------|----------|------|------|------|--------|-------------|
+| 1 | 25.32 | ? | ? | ? | ? | ?% |
+| 4 | 51.30 | ? | ? | ? | ? | ?% |
+| 8 | 59.21 | ? | ? | ? | ? | ?% |
+
+### Re-Profile to Validate Impact
+
+```bash
+# Profile after optimization
+/usr/local/cuda-12.6/bin/nsys profile --stats=true -o profile_<name>_after ...
+
+# Compare to before
+# - Did target kernel time % decrease?
+# - Did sync count/time decrease?
+# - Did the expected improvement materialize?
+```
+
+---
+
+## Phase 7: HANDLE RESULTS
+
+### If Improvement Achieved
+
+1. Document results in commit message
+2. Update `docs/benchmarks/` with new analysis
+3. Proceed with PR or merge
+
+### If No Improvement (Neutral)
+
+1. Decide: Is the change still valuable? (cleaner code, future optimization prep)
+2. If yes: Document as "refactor" not "perf"
+3. If no: Consider reverting
+
+### If Regression (Worse Performance)
+
+1. **Do NOT merge**
+2. Investigate why:
+   - Re-read code - did you misunderstand something?
+   - Profile again - what got slower?
+   - Check test results - any failures missed?
+3. Options:
+   - Fix the implementation
+   - Revert and try different approach
+   - Abandon this optimization path
 
 ---
 
 ## Verification Checklist
 
 - [ ] Phase 1: Profiling data collected
+- [ ] Phase 2: Bottleneck files found via grep (not assumed)
 - [ ] Phase 2: **Code actually read** (not imagined)
-- [ ] Phase 2: Bottlenecks documented with line numbers
-- [ ] Phase 3: Plan based on verified code
+- [ ] Phase 2: Bottlenecks documented with file:line
+- [ ] Phase 3: Plan includes validation method
+- [ ] Phase 3: Plan includes rollback strategy
+- [ ] Phase 4: Rollback point saved before changes
 - [ ] Phase 4: Code verified before modification
 - [ ] Phase 5: Clean build succeeds
 - [ ] Phase 5: All 710 CUDA tests pass
-- [ ] Phase 6: Benchmark beats 59.21 events/s @ 8 threads
-- [ ] Phase 6: Results documented in commit
+- [ ] Phase 6: Ran 3 times, took median
+- [ ] Phase 6: Re-profiled to validate impact claim
+- [ ] Phase 7: Results handled appropriately (improve/neutral/regress)
 
 ---
 
