@@ -471,8 +471,7 @@ combinatorial_kalman_filter(
                 thrust::sort_by_key(thrust_policy, keys_device.begin(),
                                     keys_device.end(),
                                     param_ids_device.begin());
-                // No sync needed - CUDA stream ordering ensures sort
-                // completes before the next kernel on this stream.
+                str.synchronize();
             }
 
             /*****************************************************************
@@ -633,7 +632,8 @@ combinatorial_kalman_filter(
 
             TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
-            // No sync needed - D2H copy on same stream waits for kernel.
+            str.synchronize();
+
             TRACCC_CUDA_ERROR_CHECK(cudaMemcpyAsync(
                 &n_tips_total_filtered, tip_to_output_map_idx.get(),
                 sizeof(unsigned int), cudaMemcpyDeviceToHost, stream));
