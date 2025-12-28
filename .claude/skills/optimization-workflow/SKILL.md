@@ -148,8 +148,16 @@ cd /dicos_ui_home/noah/traccc/build
 
 Look for:
 - **GPU kernels** with highest time % (target: >10%)
-- **cudaStreamSynchronize** % (sync overhead)
 - **cudaMemcpyAsync** frequency (transfer overhead)
+
+**IMPORTANT: Ignore cudaStreamSynchronize "overhead"**
+
+The profiler shows `cudaStreamSynchronize` taking 80%+ of API time. This is **NOT real overhead** - it's the host thread waiting for GPU kernels to complete. The GPU is doing useful work during this wait. Removing syncs will NOT improve performance because:
+1. The GPU is not idle during sync - it's executing kernels
+2. The host has nothing to do while waiting (work queues are already full)
+3. Benchmark results confirm: sync removal shows <1% improvement at production thread counts
+
+Focus optimization efforts on **GPU kernel time**, not sync time.
 
 ### Find Bottleneck Source Files
 
@@ -216,13 +224,15 @@ Based on **verified code analysis** (not assumptions):
 
 | Category | Effort | Estimated Impact | Validation |
 |----------|--------|------------------|------------|
-| Sync removal | Low | 5-15% | Re-profile sync count |
 | Pinned memory | Low | 5-15% | Re-profile memcpy time |
 | Kernel fusion | Medium | 10-20% | Re-profile kernel count |
-| Device-side logic | Medium | 20-40% | Re-profile sync count |
+| Device-side logic | Medium | 20-40% | Re-profile kernel time |
 | Multi-event batch | High | 30-50% | Re-profile kernel launches |
 
 **Note:** These are estimates. Always re-profile after implementation to validate actual impact.
+
+**DO NOT optimize:**
+- Sync removal - cudaStreamSynchronize time is NOT overhead (see Phase 2)
 
 ### New CLI Options (if applicable)
 
@@ -535,8 +545,9 @@ These are from past profiling sessions. **Always re-profile** to get current dat
 
 | Component | Time % | Location | Notes |
 |-----------|--------|----------|-------|
-| propagate_to_next_surface | 64.3% | `combinatorial_kalman_filter.cuh:509-516` | Post sync-removal |
-| cudaStreamSynchronize | 80.9% | Multiple locations | 10816 calls/100 events |
+| propagate_to_next_surface | 64.3% | `combinatorial_kalman_filter.cuh` | Main CKF kernel - real bottleneck |
+
+**Note:** cudaStreamSynchronize shows 80%+ in profiler but this is NOT a bottleneck - it's the host waiting for GPU work. Do not attempt to optimize sync time.
 
 ## Reference
 
