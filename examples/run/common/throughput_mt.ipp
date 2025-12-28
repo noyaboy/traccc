@@ -12,6 +12,7 @@
 
 // Project include(s)
 #include "traccc/geometry/detector.hpp"
+#include "traccc/geometry/detector_buffer.hpp"
 #include "traccc/geometry/host_detector.hpp"
 #include "traccc/seeding/detail/track_params_estimation_config.hpp"
 
@@ -44,6 +45,14 @@
 // VecMem include(s).
 #include <vecmem/memory/host_memory_resource.hpp>
 
+// Conditional CUDA includes for shared detector resources
+#if __has_include(<vecmem/memory/cuda/device_memory_resource.hpp>)
+#include <vecmem/memory/cuda/device_memory_resource.hpp>
+#include <vecmem/utils/cuda/async_copy.hpp>
+#include "traccc/cuda/utils/stream.hpp"
+#define TRACCC_THROUGHPUT_MT_HAS_CUDA 1
+#endif
+
 // TBB include(s).
 #include <tbb/global_control.h>
 #include <tbb/parallel_for.h>
@@ -61,9 +70,38 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace traccc {
+
+#ifdef TRACCC_THROUGHPUT_MT_HAS_CUDA
+/// Shared detector resources for CUDA multi-threaded throughput tests.
+/// Creates a single GPU copy of the detector that all algorithm instances share.
+/// Must outlive all algorithm instances.
+struct SharedDetectorResources {
+    /// Device memory resource for detector buffer
+    vecmem::cuda::device_memory_resource device_mr;
+    /// CUDA stream for initial detector transfer
+    traccc::cuda::stream stream;
+    /// Copy object for detector transfer
+    vecmem::cuda::async_copy copy{stream.cudaStream()};
+    /// Shared detector buffer (single GPU copy)
+    traccc::detector_buffer device_detector;
+
+    /// Constructor: creates device detector from host
+    explicit SharedDetectorResources(const traccc::host_detector& host_det) {
+        device_detector =
+            traccc::buffer_from_host_detector(host_det, device_mr, copy);
+        stream.synchronize();  // Wait for transfer to complete
+    }
+};
+
+// Forward declaration for type check
+namespace cuda {
+class full_chain_algorithm;
+}
+#endif  // TRACCC_THROUGHPUT_MT_HAS_CUDA
 
 template <typename FULL_CHAIN_ALG>
 int throughput_mt(std::string_view description, int argc, char* argv[]) {
@@ -161,12 +199,44 @@ int throughput_mt(std::string_view description, int argc, char* argv[]) {
     // Set up the full-chain algorithm(s). One for each thread.
     std::vector<FULL_CHAIN_ALG> algs;
     algs.reserve(threading_opts.threads + 1);
+
+#ifdef TRACCC_THROUGHPUT_MT_HAS_CUDA
+    // For CUDA algorithms, create shared detector resources (single GPU copy)
+    std::unique_ptr<SharedDetectorResources> shared_resources;
+    if constexpr (std::is_same_v<FULL_CHAIN_ALG,
+                                 traccc::cuda::full_chain_algorithm>) {
+        shared_resources = std::make_unique<SharedDetectorResources>(detector);
+    }
+
+    // Get pointer to shared detector (nullptr for CPU algorithm)
+    const traccc::detector_buffer* shared_device_detector =
+        shared_resources ? &shared_resources->device_detector : nullptr;
+
+    for (std::size_t i = 0; i < threading_opts.threads + 1; ++i) {
+        if constexpr (std::is_same_v<FULL_CHAIN_ALG,
+                                     traccc::cuda::full_chain_algorithm>) {
+            algs.push_back({host_mr, clustering_cfg, seedfinder_config,
+                            spacepoint_grid_config, seedfilter_config,
+                            track_params_estimation_config, finding_cfg,
+                            fitting_cfg, det_descr, field,
+                            shared_device_detector, logger().clone()});
+        } else {
+            algs.push_back({host_mr, clustering_cfg, seedfinder_config,
+                            spacepoint_grid_config, seedfilter_config,
+                            track_params_estimation_config, finding_cfg,
+                            fitting_cfg, det_descr, field, &detector,
+                            logger().clone()});
+        }
+    }
+#else
+    // CPU-only build: use original approach
     for (std::size_t i = 0; i < threading_opts.threads + 1; ++i) {
         algs.push_back(
             {host_mr, clustering_cfg, seedfinder_config, spacepoint_grid_config,
              seedfilter_config, track_params_estimation_config, finding_cfg,
              fitting_cfg, det_descr, field, &detector, logger().clone()});
     }
+#endif
 
     // Set up a lambda that calls the correct function on the algorithms.
     std::function<std::size_t(int, const edm::silicon_cell_collection::host&)>

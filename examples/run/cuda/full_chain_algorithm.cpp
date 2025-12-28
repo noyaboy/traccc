@@ -41,7 +41,8 @@ full_chain_algorithm::full_chain_algorithm(
     const finding_algorithm::config_type& finding_config,
     const fitting_algorithm::config_type& fitting_config,
     const silicon_detector_description::host& det_descr,
-    const magnetic_field& field, host_detector* detector,
+    const magnetic_field& field,
+    const detector_buffer* shared_device_detector,
     std::unique_ptr<const traccc::Logger> logger)
     : messaging(logger->clone()),
       m_host_mr(host_mr),
@@ -58,7 +59,7 @@ full_chain_algorithm::full_chain_algorithm(
           static_cast<silicon_detector_description::buffer::size_type>(
               m_det_descr.get().size()),
           m_device_mr),
-      m_detector(detector),
+      m_shared_device_detector(shared_device_detector),
       m_clusterization({m_cached_device_mr, &m_cached_pinned_host_mr}, m_copy,
                        m_stream, clustering_config),
       m_measurement_sorting({m_cached_device_mr, &m_cached_pinned_host_mr},
@@ -95,12 +96,10 @@ full_chain_algorithm::full_chain_algorithm(
               << ", bus: " << props.pciBusID
               << ", device: " << props.pciDeviceID << "]" << std::endl;
 
-    // Copy the detector (description) to the device.
+    // Copy the detector description to the device.
     m_copy(vecmem::get_data(m_det_descr.get()), m_device_det_descr)->ignore();
-    if (m_detector != nullptr) {
-        m_device_detector =
-            traccc::buffer_from_host_detector(*m_detector, m_device_mr, m_copy);
-    }
+    // Note: Device detector is now passed in as shared_device_detector,
+    // created externally in throughput_mt.ipp
 }
 
 full_chain_algorithm::full_chain_algorithm(const full_chain_algorithm& parent)
@@ -119,7 +118,7 @@ full_chain_algorithm::full_chain_algorithm(const full_chain_algorithm& parent)
           static_cast<silicon_detector_description::buffer::size_type>(
               m_det_descr.get().size()),
           m_device_mr),
-      m_detector(parent.m_detector),
+      m_shared_device_detector(parent.m_shared_device_detector),
       m_clusterization({m_cached_device_mr, &m_cached_pinned_host_mr}, m_copy,
                        m_stream, parent.m_clustering_config),
       m_measurement_sorting({m_cached_device_mr, &m_cached_pinned_host_mr},
@@ -150,12 +149,10 @@ full_chain_algorithm::full_chain_algorithm(const full_chain_algorithm& parent)
       m_finding_config(parent.m_finding_config),
       m_fitting_config(parent.m_fitting_config) {
 
-    // Copy the detector (description) to the device.
+    // Copy the detector description to the device.
     m_copy(vecmem::get_data(m_det_descr.get()), m_device_det_descr)->ignore();
-    if (m_detector != nullptr) {
-        m_device_detector =
-            traccc::buffer_from_host_detector(*m_detector, m_device_mr, m_copy);
-    }
+    // Note: Shared device detector pointer is copied from parent,
+    // no new GPU copy needed
 }
 
 full_chain_algorithm::~full_chain_algorithm() = default;
@@ -174,18 +171,18 @@ full_chain_algorithm::output_type full_chain_algorithm::operator()(
     const measurement_sorting_algorithm::output_type measurements =
         m_measurement_sorting(unsorted_measurements);
 
-    // If we have a Detray detector, run the seeding, track finding and fitting.
-    if (m_detector != nullptr) {
+    // If we have a shared device detector, run seeding, track finding and fitting.
+    if (m_shared_device_detector != nullptr) {
         // Run the seed-finding (asynchronously).
         const spacepoint_formation_algorithm::output_type spacepoints =
-            m_spacepoint_formation(m_device_detector, measurements);
+            m_spacepoint_formation(*m_shared_device_detector, measurements);
         const track_params_estimation::output_type track_params =
             m_track_parameter_estimation(measurements, spacepoints,
                                          m_seeding(spacepoints), m_field_vec);
 
         // Run the track finding (asynchronously).
         const finding_algorithm::output_type track_candidates =
-            m_finding(m_device_detector, m_field, measurements, track_params);
+            m_finding(*m_shared_device_detector, m_field, measurements, track_params);
 
         // Copy a limited amount of result data back to the host.
         const auto host_tracks =
@@ -225,12 +222,12 @@ bound_track_parameters_collection_types::host full_chain_algorithm::seeding(
     const measurement_sorting_algorithm::output_type measurements =
         m_measurement_sorting(unsorted_measurements);
 
-    // If we have a Detray detector, run the seeding, track finding and fitting.
-    if (m_detector != nullptr) {
+    // If we have a shared device detector, run the seeding.
+    if (m_shared_device_detector != nullptr) {
 
         // Run the seed-finding (asynchronously).
         const spacepoint_formation_algorithm::output_type spacepoints =
-            m_spacepoint_formation(m_device_detector, measurements);
+            m_spacepoint_formation(*m_shared_device_detector, measurements);
         const track_params_estimation::output_type track_params =
             m_track_parameter_estimation(measurements, spacepoints,
                                          m_seeding(spacepoints), m_field_vec);

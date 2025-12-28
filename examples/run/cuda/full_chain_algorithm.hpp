@@ -81,7 +81,8 @@ class full_chain_algorithm
         const finding_algorithm::config_type& finding_config,
         const fitting_algorithm::config_type& fitting_config,
         const silicon_detector_description::host& det_descr,
-        const magnetic_field& field, host_detector* detector,
+        const magnetic_field& field,
+        const detector_buffer* shared_device_detector,
         std::unique_ptr<const traccc::Logger> logger);
 
     /// Copy constructor
@@ -139,9 +140,8 @@ class full_chain_algorithm
         m_det_descr;
     /// Detector description buffer
     silicon_detector_description::buffer m_device_det_descr;
-    /// Host detector
-    host_detector* m_detector;
-    detector_buffer m_device_detector;
+    /// Shared device detector (non-owning pointer, may be nullptr)
+    const detector_buffer* m_shared_device_detector;
 
     /// @name Sub-algorithms used by this full-chain algorithm
     /// @{

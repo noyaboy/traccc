@@ -12,6 +12,7 @@
 
 // Project include(s)
 #include "traccc/geometry/detector.hpp"
+#include "traccc/geometry/detector_buffer.hpp"
 #include "traccc/geometry/host_detector.hpp"
 #include "traccc/seeding/detail/track_params_estimation_config.hpp"
 
@@ -42,6 +43,14 @@
 // VecMem include(s).
 #include <vecmem/memory/host_memory_resource.hpp>
 
+// Conditional CUDA includes for shared detector resources
+#if __has_include(<vecmem/memory/cuda/device_memory_resource.hpp>)
+#include <vecmem/memory/cuda/device_memory_resource.hpp>
+#include <vecmem/utils/cuda/async_copy.hpp>
+#include "traccc/cuda/utils/stream.hpp"
+#define TRACCC_THROUGHPUT_ST_HAS_CUDA 1
+#endif
+
 // Indicators include(s).
 #include <indicators/progress_bar.hpp>
 
@@ -51,8 +60,36 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <type_traits>
 
 namespace traccc {
+
+#ifdef TRACCC_THROUGHPUT_ST_HAS_CUDA
+/// Shared detector resources for CUDA throughput tests.
+/// Creates a single GPU copy of the detector.
+struct SharedDetectorResourcesST {
+    /// Device memory resource for detector buffer
+    vecmem::cuda::device_memory_resource device_mr;
+    /// CUDA stream for initial detector transfer
+    traccc::cuda::stream stream;
+    /// Copy object for detector transfer
+    vecmem::cuda::async_copy copy{stream.cudaStream()};
+    /// Shared detector buffer (single GPU copy)
+    traccc::detector_buffer device_detector;
+
+    /// Constructor: creates device detector from host
+    explicit SharedDetectorResourcesST(const traccc::host_detector& host_det) {
+        device_detector =
+            traccc::buffer_from_host_detector(host_det, device_mr, copy);
+        stream.synchronize();  // Wait for transfer to complete
+    }
+};
+
+// Forward declaration for type check
+namespace cuda {
+class full_chain_algorithm;
+}
+#endif  // TRACCC_THROUGHPUT_ST_HAS_CUDA
 
 template <typename FULL_CHAIN_ALG>
 int throughput_st(std::string_view description, int argc, char* argv[]) {
@@ -141,11 +178,42 @@ int throughput_st(std::string_view description, int argc, char* argv[]) {
     fitting_cfg.propagation = propagation_config;
 
     // Set up the full-chain algorithm.
+#ifdef TRACCC_THROUGHPUT_ST_HAS_CUDA
+    // For CUDA algorithms, create shared detector resources (single GPU copy)
+    std::unique_ptr<SharedDetectorResourcesST> shared_resources;
+    if constexpr (std::is_same_v<FULL_CHAIN_ALG,
+                                 traccc::cuda::full_chain_algorithm>) {
+        shared_resources =
+            std::make_unique<SharedDetectorResourcesST>(detector);
+    }
+
+    // Get pointer to shared detector (nullptr for CPU algorithm)
+    const traccc::detector_buffer* shared_device_detector =
+        shared_resources ? &shared_resources->device_detector : nullptr;
+
+    std::unique_ptr<FULL_CHAIN_ALG> alg;
+    if constexpr (std::is_same_v<FULL_CHAIN_ALG,
+                                 traccc::cuda::full_chain_algorithm>) {
+        alg = std::make_unique<FULL_CHAIN_ALG>(
+            host_mr, clustering_cfg, seedfinder_config, spacepoint_grid_config,
+            seedfilter_config, track_params_estimation_config, finding_cfg,
+            fitting_cfg, det_descr, field, shared_device_detector,
+            logger().clone("FullChainAlg"));
+    } else {
+        alg = std::make_unique<FULL_CHAIN_ALG>(
+            host_mr, clustering_cfg, seedfinder_config, spacepoint_grid_config,
+            seedfilter_config, track_params_estimation_config, finding_cfg,
+            fitting_cfg, det_descr, field, &detector,
+            logger().clone("FullChainAlg"));
+    }
+#else
+    // CPU-only build: use original approach
     std::unique_ptr<FULL_CHAIN_ALG> alg = std::make_unique<FULL_CHAIN_ALG>(
         host_mr, clustering_cfg, seedfinder_config, spacepoint_grid_config,
         seedfilter_config, track_params_estimation_config, finding_cfg,
         fitting_cfg, det_descr, field, &detector,
         logger().clone("FullChainAlg"));
+#endif
 
     // Seed the random number generator.
     if (throughput_opts.random_seed == 0) {
