@@ -9,8 +9,9 @@ Complete workflow: **Prerequisites → Profile → Analyze → Plan → Implemen
 
 (Phase 0 + Phases 1-7 = 8 phases total)
 
-**Primary Baseline:** 59.21 events/s @ 8 threads (Tesla V100-32GB)
-**Fallback Baseline:** 51.30 events/s @ 4 threads (if 8 threads OOM)
+**Primary Baseline:** 57.82 events/s @ 8 threads (Tesla V100-32GB)
+**Stable Baseline:** 58.65 events/s @ 7 threads (recommended - avoids OOM)
+**Fallback Baseline:** 51.37 events/s @ 4 threads (if 8 threads OOM)
 
 **Key Principle:** Always READ and VERIFY code before making changes. Never assume or imagine code structure.
 
@@ -402,11 +403,12 @@ Run 3 times **for each thread count** (1, 4, 8), record each "Event processing" 
 
 | Threads | Baseline | When to Use |
 |---------|----------|-------------|
-| 1 | 25.32 | Always run (most stable) |
-| 4 | 51.30 | Always run (good balance) |
-| 8 | 59.21 | Run if no OOM (primary target) |
+| 1 | 25.30 | Always run (most stable) |
+| 4 | 51.37 | Always run (good balance) |
+| 7 | 58.65 | Recommended (stable, near max) |
+| 8 | 57.82 | Primary target (may OOM occasionally) |
 
-**If 8 threads OOM:** Use 4 threads as primary comparison.
+**If 8 threads OOM:** Use 7 threads as primary comparison (more stable, similar throughput).
 
 ### Calculate Results
 
@@ -419,9 +421,10 @@ Improvement = (median - baseline) / baseline * 100%
 
 | Threads | Baseline | Run1 | Run2 | Run3 | Median | Improvement |
 |---------|----------|------|------|------|--------|-------------|
-| 1 | 25.32 | ? | ? | ? | ? | ?% |
-| 4 | 51.30 | ? | ? | ? | ? | ?% |
-| 8 | 59.21 | ? | ? | ? | ? | ?% |
+| 1 | 25.30 | ? | ? | ? | ? | ?% |
+| 4 | 51.37 | ? | ? | ? | ? | ?% |
+| 7 | 58.65 | ? | ? | ? | ? | ?% |
+| 8 | 57.82 | ? | ? | ? | ? | ?% |
 
 ### Re-Profile to Validate Impact
 
@@ -501,7 +504,7 @@ git reset --hard HEAD~1  # Discard changes entirely
 - [ ] **Git state verified** (branch, commits, uncommitted changes)
 - [ ] Build exists and works
 - [ ] Build matches current code (not stale)
-- [ ] Baseline verified (~51.30 @ 4 threads or ~59.21 @ 8 threads)
+- [ ] Baseline verified (~51.37 @ 4 threads, ~58.65 @ 7 threads, or ~57.82 @ 8 threads)
 - [ ] GPU is idle
 
 ### Phase 1-2: Profile & Analyze

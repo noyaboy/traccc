@@ -40,13 +40,19 @@ cd /dicos_ui_home/noah/traccc/build
   --cpu-threads=<N>
 ```
 
-## Baseline Results (v1.0.0 on Tesla V100-32GB)
+## Baseline Results (on Tesla V100-32GB)
 
-| cpu-threads | ms/event | events/s | Scaling |
-|-------------|----------|----------|---------|
-| 1           | 39.49    | 25.32    | 1.00x   |
-| 4           | 19.49    | 51.30    | 2.03x   |
-| 8           | 16.89    | 59.21    | 2.34x   |
+| cpu-threads | ms/event | events/s | Scaling | Notes |
+|-------------|----------|----------|---------|-------|
+| 1           | 39.53    | 25.30    | 1.00x   | Most stable |
+| 4           | 19.47    | 51.37    | 2.03x   | Good balance |
+| 6           | 17.78    | 56.22    | 2.22x   | |
+| 7           | 17.05    | 58.65    | 2.32x   | **Recommended** (stable) |
+| 8           | 17.30    | 57.82    | 2.29x   | Max (may OOM occasionally) |
+| 10+         | OOM      | -        | -       | Out of memory |
+
+**Primary baseline:** 57.82 events/s @ 8 threads
+**Recommended:** 58.65 events/s @ 7 threads (more stable, avoids OOM)
 
 ## CUDA Test Command
 
@@ -76,5 +82,7 @@ cd /dicos_ui_home/noah/traccc/build
 
 ## Notes
 
-- Max 8 threads before OOM on V100-32GB
+- Max 8 threads before OOM on V100-32GB (9+ threads OOM)
+- 7 threads recommended for stability (58.65 events/s vs 57.82 @ 8 threads)
 - Use `-DCMAKE_CUDA_ARCHITECTURES=70` for Tesla V100
+- Memory is the limiting factor for thread scaling
