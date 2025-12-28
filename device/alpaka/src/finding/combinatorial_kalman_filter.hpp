@@ -380,6 +380,7 @@ combinatorial_kalman_filter(
                 .in_params_view = in_params_buffer,
                 .in_params_liveness_view = param_liveness_buffer,
                 .n_in_params = n_in_params,
+                .apply_material_interaction = false,  // Alpaka uses separate kernel
                 .measurement_ranges_view = meas_ranges_buffer,
                 .links_view = links_buffer,
                 .prev_links_idx =

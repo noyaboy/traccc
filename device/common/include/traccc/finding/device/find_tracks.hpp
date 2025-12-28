@@ -45,19 +45,27 @@ struct find_tracks_payload {
 
     /**
      * @brief View object to the vector of track parameters
+     * @note Non-const to allow material interaction modification
      */
-    bound_track_parameters_collection_types::const_view in_params_view;
+    bound_track_parameters_collection_types::view in_params_view;
 
     /**
      * @brief View object to the vector of boolean-like integers describing the
      * liveness of each parameter
+     * @note Non-const for consistency with in_params_view
      */
-    vecmem::data::vector_view<const unsigned int> in_params_liveness_view;
+    vecmem::data::vector_view<unsigned int> in_params_liveness_view;
 
     /**
      * @brief The total number of input parameters
      */
     unsigned int n_in_params;
+
+    /**
+     * @brief Whether to apply material interaction before finding
+     * @note Set to true to fuse apply_interaction kernel into find_tracks
+     */
+    bool apply_material_interaction;
 
     /**
      * @brief View object to the vector of measurement index ranges per surface

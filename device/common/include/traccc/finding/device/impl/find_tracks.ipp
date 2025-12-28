@@ -27,9 +27,12 @@
 #include "traccc/fitting/kalman_filter/is_line_visitor.hpp"
 #include "traccc/fitting/status_codes.hpp"
 #include "traccc/utils/logging.hpp"
+#include "traccc/utils/particle.hpp"
 
 // Detray include(s)
+#include <detray/definitions/navigation.hpp>
 #include <detray/geometry/tracking_surface.hpp>
+#include <detray/propagator/actors/pointwise_material_interactor.hpp>
 
 // Thrust include(s).
 #include <thrust/binary_search.h>
@@ -50,13 +53,15 @@ TRACCC_HOST_DEVICE inline void find_tracks(
 
     /*
      * Initialize all of the device vectors from their vecmem views.
+     * Note: in_params and in_params_liveness are non-const to allow
+     * material interaction modification when fused.
      */
     detector_t det(payload.det_data);
     edm::measurement_collection<default_algebra>::const_device measurements(
         payload.measurements_view);
-    bound_track_parameters_collection_types::const_device in_params(
+    bound_track_parameters_collection_types::device in_params(
         payload.in_params_view);
-    vecmem::device_vector<const unsigned int> in_params_liveness(
+    vecmem::device_vector<unsigned int> in_params_liveness(
         payload.in_params_liveness_view);
     vecmem::device_vector<candidate_link> links(payload.links_view);
     vecmem::device_vector<candidate_link> tmp_links(payload.tmp_links_view);
@@ -74,6 +79,37 @@ TRACCC_HOST_DEVICE inline void find_tracks(
         payload.link_filtered_parameter_view);
 
     /*
+     * Apply material interaction if enabled (fused kernel optimization).
+     * This replaces the separate apply_interaction kernel call.
+     * Each thread modifies only its own parameter, so no race conditions.
+     */
+    if (payload.apply_material_interaction) {
+        if (in_param_id < payload.n_in_params &&
+            in_params_liveness.at(in_param_id) != 0u) {
+
+            using algebra_type = typename detector_t::algebra_type;
+            using interactor_type =
+                detray::pointwise_material_interactor<algebra_type>;
+
+            auto& bound_param = in_params.at(in_param_id);
+            const detray::tracking_surface sf{det, bound_param.surface_link()};
+
+            if (sf.has_material()) {
+                const typename detector_t::geometry_context ctx{};
+                typename interactor_type::state interactor_state;
+
+                interactor_type{}.update(
+                    ctx,
+                    detail::correct_particle_hypothesis(cfg.ptc_hypothesis,
+                                                        bound_param),
+                    bound_param, interactor_state,
+                    static_cast<int>(detray::navigation::direction::e_forward),
+                    sf);
+            }
+        }
+    }
+
+    /*
      * Initialize the block-shared data; in particular, set the total size of
      * the candidate buffer to zero, and then set the number of candidates for
      * each parameter to zero.
@@ -86,6 +122,10 @@ TRACCC_HOST_DEVICE inline void find_tracks(
     shared_payload.shared_insertion_mutex[thread_id.getLocalThreadIdX()] =
         encode_insertion_mutex(false, 0, 0.f);
 
+    /*
+     * Barrier ensures all threads complete material interaction (if enabled)
+     * before any thread reads other parameters in the measurement finding loop.
+     */
     barrier.blockBarrier();
 
     /*

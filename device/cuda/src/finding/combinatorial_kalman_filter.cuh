@@ -14,7 +14,7 @@
 #include "../utils/get_size.hpp"
 #include "../utils/thread_id.hpp"
 #include "../utils/utils.hpp"
-#include "./kernels/apply_interaction.hpp"
+// Note: apply_interaction kernel is now fused into find_tracks
 #include "./kernels/build_tracks.cuh"
 #include "./kernels/fill_finding_duplicate_removal_sort_keys.cuh"
 #include "./kernels/fill_finding_propagation_sort_keys.cuh"
@@ -208,26 +208,7 @@ combinatorial_kalman_filter(
          step++) {
 
         /*****************************************************************
-         * Kernel2: Apply material interaction
-         ****************************************************************/
-
-        {
-            const unsigned int nThreads = warp_size * 2;
-            const unsigned int nBlocks =
-                (n_in_params + nThreads - 1) / nThreads;
-
-            apply_interaction<detector_t>(
-                nBlocks, nThreads, 0, stream, config,
-                device::apply_interaction_payload<detector_t>{
-                    .det_data = det,
-                    .n_params = n_in_params,
-                    .params_view = in_params_buffer,
-                    .params_liveness_view = param_liveness_buffer});
-            TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
-        }
-
-        /*****************************************************************
-         * Kernel3: Find valid tracks
+         * Kernel2: Find valid tracks (with fused material interaction)
          *****************************************************************/
 
         unsigned int n_candidates = 0;
@@ -323,6 +304,7 @@ combinatorial_kalman_filter(
                 .in_params_view = in_params_buffer,
                 .in_params_liveness_view = param_liveness_buffer,
                 .n_in_params = n_in_params,
+                .apply_material_interaction = true,
                 .measurement_ranges_view = meas_ranges_buffer,
                 .links_view = links_buffer,
                 .prev_links_idx =
