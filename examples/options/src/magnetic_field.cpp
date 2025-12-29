@@ -39,6 +39,10 @@ magnetic_field::magnetic_field() : interface("Magnetic Field Options") {
     m_desc.add_options()("bfield-value",
                          po::value(&value)->default_value(value),
                          "Magnetic field value (when not reading from a file)");
+    m_desc.add_options()("bfield-use-texture-memory",
+                         po::bool_switch(&use_texture_memory),
+                         "Use CUDA texture memory for B-field (better cache "
+                         "locality for inhomogeneous fields)");
 }
 
 void magnetic_field::read(const po::variables_map& vm) {
@@ -70,6 +74,8 @@ std::unique_ptr<configuration_printable> magnetic_field::as_printable() const {
         "Magnetic field file format", format_ss.str()));
     cat->add_child(std::make_unique<configuration_kv_pair>(
         "Magnetic field value", std::format("{} T", value / unit<float>::T)));
+    cat->add_child(std::make_unique<configuration_kv_pair>(
+        "Use texture memory for B-field", std::format("{}", use_texture_memory)));
 
     return cat;
 }

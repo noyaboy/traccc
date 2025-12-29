@@ -16,6 +16,7 @@
 #include "traccc/cuda/seeding/seeding_algorithm.hpp"
 #include "traccc/cuda/seeding/spacepoint_formation_algorithm.hpp"
 #include "traccc/cuda/seeding/track_params_estimation.hpp"
+#include "traccc/cuda/utils/make_magnetic_field.hpp"
 #include "traccc/cuda/utils/stream.hpp"
 #include "traccc/edm/silicon_cell_collection.hpp"
 #include "traccc/edm/track_collection.hpp"
@@ -83,7 +84,9 @@ class full_chain_algorithm
         const silicon_detector_description::host& det_descr,
         const magnetic_field& field,
         const detector_buffer* shared_device_detector,
-        std::unique_ptr<const traccc::Logger> logger);
+        std::unique_ptr<const traccc::Logger> logger,
+        magnetic_field_storage bfield_storage =
+            magnetic_field_storage::global_memory);
 
     /// Copy constructor
     ///

@@ -43,7 +43,8 @@ full_chain_algorithm::full_chain_algorithm(
     const silicon_detector_description::host& det_descr,
     const magnetic_field& field,
     const detector_buffer* shared_device_detector,
-    std::unique_ptr<const traccc::Logger> logger)
+    std::unique_ptr<const traccc::Logger> logger,
+    const magnetic_field_storage bfield_storage)
     : messaging(logger->clone()),
       m_host_mr(host_mr),
       m_pinned_host_mr(),
@@ -53,7 +54,7 @@ full_chain_algorithm::full_chain_algorithm(
       m_cached_device_mr(m_device_mr),
       m_copy(m_stream.cudaStream()),
       m_field_vec{0.f, 0.f, finder_config.bFieldInZ},
-      m_field(make_magnetic_field(field)),
+      m_field(make_magnetic_field(field, bfield_storage)),
       m_det_descr(det_descr),
       m_device_det_descr(
           static_cast<silicon_detector_description::buffer::size_type>(

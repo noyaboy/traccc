@@ -33,6 +33,8 @@ struct magnetic_field : public interface {
     traccc::data_format format = data_format::binary;
     /// Magnetic field value when not reading from a file
     float value = 2.f * unit<float>::T;
+    /// Use CUDA texture memory for B-field (better cache locality)
+    bool use_texture_memory = false;
 
     /// @}
 

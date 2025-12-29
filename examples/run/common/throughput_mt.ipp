@@ -49,6 +49,7 @@
 #if __has_include(<vecmem/memory/cuda/device_memory_resource.hpp>)
 #include <vecmem/memory/cuda/device_memory_resource.hpp>
 #include <vecmem/utils/cuda/async_copy.hpp>
+#include "traccc/cuda/utils/make_magnetic_field.hpp"
 #include "traccc/cuda/utils/stream.hpp"
 #define TRACCC_THROUGHPUT_MT_HAS_CUDA 1
 #endif
@@ -215,11 +216,17 @@ int throughput_mt(std::string_view description, int argc, char* argv[]) {
     for (std::size_t i = 0; i < threading_opts.threads + 1; ++i) {
         if constexpr (std::is_same_v<FULL_CHAIN_ALG,
                                      traccc::cuda::full_chain_algorithm>) {
+            // Determine B-field storage type based on CLI option
+            const auto bfield_storage =
+                bfield_opts.use_texture_memory
+                    ? traccc::cuda::magnetic_field_storage::texture_memory
+                    : traccc::cuda::magnetic_field_storage::global_memory;
             algs.push_back({host_mr, clustering_cfg, seedfinder_config,
                             spacepoint_grid_config, seedfilter_config,
                             track_params_estimation_config, finding_cfg,
                             fitting_cfg, det_descr, field,
-                            shared_device_detector, logger().clone()});
+                            shared_device_detector, logger().clone(),
+                            bfield_storage});
         } else {
             algs.push_back({host_mr, clustering_cfg, seedfinder_config,
                             spacepoint_grid_config, seedfilter_config,
