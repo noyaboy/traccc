@@ -40,3 +40,9 @@
 # Build system related files.
 CMakeUserPresets.json
 out/
+build/
+DartConfiguration.tcl
+
+# Data directories (symlinks or downloaded data)
+data/geometries
+data/odd
