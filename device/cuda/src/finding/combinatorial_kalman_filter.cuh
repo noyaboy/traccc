@@ -51,6 +51,12 @@
 #include <thrust/sort.h>
 #include <thrust/unique.h>
 
+// System include(s).
+#include <array>
+#include <iostream>
+#include <limits>
+#include <vector>
+
 namespace traccc::cuda::details {
 
 /// Templated implementation of the track finding algorithm.
@@ -201,6 +207,10 @@ combinatorial_kalman_filter(
 
     vecmem::unique_alloc_ptr<bound_matrix<typename detector_t::algebra_type>[]>
         tmp_jacobian_ptr = nullptr;
+
+    // Step count instrumentation - accumulate on host
+    std::vector<unsigned int> all_step_counts;
+    all_step_counts.reserve(1000000);  // Pre-allocate for performance
 
     unsigned int n_in_params = n_seeds;
     for (unsigned int step = 0;
@@ -485,6 +495,15 @@ combinatorial_kalman_filter(
                         mr.main, n_candidates);
                 }
 
+                // Allocate temporary step counts buffer for this propagation call
+                vecmem::data::vector_buffer<unsigned int>
+                    step_counts_tmp_buffer(n_candidates, mr.main);
+                copy.setup(step_counts_tmp_buffer)->wait();
+                // Zero-initialize the buffer to avoid garbage from early-exit threads
+                TRACCC_CUDA_ERROR_CHECK(cudaMemsetAsync(
+                    step_counts_tmp_buffer.ptr(), 0,
+                    n_candidates * sizeof(unsigned int), stream));
+
                 // Allocate the kernel's payload in host memory.
                 using payload_t = device::propagate_to_next_surface_payload<
                     traccc::details::ckf_propagator_t<detector_t, bfield_t>,
@@ -501,7 +520,8 @@ combinatorial_kalman_filter(
                     .n_in_params = n_candidates,
                     .tips_view = tips_buffer,
                     .tip_lengths_view = tip_length_buffer,
-                    .tmp_jacobian_ptr = tmp_jacobian_ptr.get()};
+                    .tmp_jacobian_ptr = tmp_jacobian_ptr.get(),
+                    .step_counts_view = step_counts_tmp_buffer};
 
                 const unsigned int nThreads = warp_size * 4;
                 const unsigned int nBlocks =
@@ -513,6 +533,16 @@ combinatorial_kalman_filter(
                 TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
                 str.synchronize();
+
+                // Copy step counts to host for accumulation
+                {
+                    vecmem::vector<unsigned int> step_counts_host(n_candidates,
+                                                                  mr.host);
+                    copy(step_counts_tmp_buffer, step_counts_host)->wait();
+                    all_step_counts.insert(all_step_counts.end(),
+                                           step_counts_host.begin(),
+                                           step_counts_host.end());
+                }
             }
         }
 
@@ -527,6 +557,49 @@ combinatorial_kalman_filter(
                  << ((100.f * static_cast<float>(copy.get_size(links_buffer))) /
                      static_cast<float>(link_buffer_capacity))
                  << "%)");
+
+    // Print step count histogram for instrumentation
+    if (!all_step_counts.empty()) {
+        // Build histogram (buckets: 1-9, 10-19, ..., 90-99, 100+)
+        // Skip zeros (early-exit threads that didn't propagate)
+        std::array<unsigned int, 11> histogram{};
+        unsigned int min_steps = std::numeric_limits<unsigned int>::max();
+        unsigned int max_steps = 0;
+        unsigned long long total_steps = 0;
+        unsigned long long n_actual_propagations = 0;
+
+        for (const auto& sc : all_step_counts) {
+            if (sc == 0) continue;  // Skip early-exit threads
+            n_actual_propagations++;
+            if (sc < min_steps) min_steps = sc;
+            if (sc > max_steps) max_steps = sc;
+            total_steps += sc;
+            const unsigned int bucket = (sc >= 100) ? 10 : (sc / 10);
+            histogram[bucket]++;
+        }
+
+        if (n_actual_propagations > 0) {
+            const double avg_steps =
+                static_cast<double>(total_steps) / n_actual_propagations;
+
+            // Print histogram
+            std::cerr << "\n=== STEP COUNT HISTOGRAM ===\n";
+            std::cerr << "Total propagations: " << n_actual_propagations
+                      << " (skipped " << (all_step_counts.size() - n_actual_propagations)
+                      << " early-exit)\n";
+            std::cerr << "Min steps: " << min_steps << ", Max steps: " << max_steps
+                      << ", Avg steps: " << avg_steps << "\n";
+            std::cerr << "Distribution:\n";
+            for (unsigned int i = 0; i < 11; i++) {
+                const unsigned int lo = (i == 0) ? 1 : (i * 10);
+                const unsigned int hi = (i == 10) ? 999 : (i * 10 + 9);
+                const double pct = 100.0 * histogram[i] / n_actual_propagations;
+                std::cerr << "  [" << lo << "-" << hi << "]: " << histogram[i]
+                          << " (" << pct << "%)\n";
+            }
+            std::cerr << "============================\n" << std::flush;
+        }
+    }
 
     /*****************************************************************
      * Kernel6: Build tracks

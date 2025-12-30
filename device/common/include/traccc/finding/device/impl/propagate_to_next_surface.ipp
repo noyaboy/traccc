@@ -122,6 +122,13 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // Propagate to the next surface
     propagator.propagate(propagation, detray::tie(s0, s1, s2, s3, s4, s5, s6));
 
+    // Record step count for instrumentation (if buffer provided)
+    if (payload.step_counts_view.ptr() != nullptr) {
+        vecmem::device_vector<unsigned int> step_counts(
+            payload.step_counts_view);
+        step_counts.at(globalIndex) = s6.count;
+    }
+
     // If a surface found, add the parameter for the next step
     if (s6.success) {
         assert(propagation._navigation.is_on_sensitive());
