@@ -46,3 +46,4 @@ DartConfiguration.tcl
 # Data directories (symlinks or downloaded data)
 data/geometries
 data/odd
+build*
