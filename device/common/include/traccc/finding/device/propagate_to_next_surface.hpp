@@ -82,12 +82,6 @@ struct propagate_to_next_surface_payload {
 
     bound_matrix<typename propagator_t::detector_type::algebra_type>*
         tmp_jacobian_ptr;
-
-    /**
-     * @brief View object to collect step counts for instrumentation
-     * (optional - can be null if not instrumenting)
-     */
-    vecmem::data::vector_view<unsigned int> step_counts_view;
 };
 
 /// Function for propagating the kalman-updated tracks to the next surface
