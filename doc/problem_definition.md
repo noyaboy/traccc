@@ -397,44 +397,37 @@ Above is theoretical calculation based on measured step count distribution.
 
 ---
 
-## Instrumentation Code (ACTIVE)
+## Instrumentation Code (REMOVED)
 
-The instrumentation is currently enabled on `feature/work-redistribution` branch.
+> **Note (2025-12-31):** The instrumentation code was removed from the codebase after
+> analysis was complete. The code below is archived for reference only.
+> See commit `8f1b60f5` for the removal.
 
-### 1. Payload Modification (`propagate_to_next_surface.hpp`)
+The instrumentation was used to collect step count and |qop| correlation data.
+Results are documented in `work_redistribution_plan.md` Section 2.
+
+### Archived: Payload Modification (`propagate_to_next_surface.hpp`)
 ```cpp
-// Added to propagate_to_next_surface_payload struct:
+// Was added to propagate_to_next_surface_payload struct (NOW REMOVED):
 vecmem::data::vector_view<unsigned int> step_counts_view;
+vecmem::data::vector_view<float> qop_values_view;
 ```
 
-### 2. Kernel Recording (`propagate_to_next_surface.ipp`)
+### Archived: Kernel Recording (`propagate_to_next_surface.ipp`)
 ```cpp
-// After propagator.propagate():
+// Was added after propagator.propagate() (NOW REMOVED):
 if (payload.step_counts_view.ptr() != nullptr) {
     vecmem::device_vector<unsigned int> step_counts(payload.step_counts_view);
     step_counts.at(globalIndex) = s6.count;
 }
 ```
 
-### 3. Histogram Collection (`combinatorial_kalman_filter.cuh`)
-- Allocates per-kernel temporary buffer (zero-initialized with cudaMemsetAsync)
-- Copies step counts to host after each propagation kernel
-- Accumulates in `std::vector<unsigned int> all_step_counts`
-- Prints histogram with 10-step buckets after CKF loop
-- Filters out zeros (early-exit threads)
-
-### To Run Instrumentation
-```bash
-cd /dicos_ui_home/noah/traccc/build
-./bin/traccc_throughput_mt_cuda \
-  --detector-file=../data/geometries/odd/odd-detray_geometry_detray.json \
-  --material-file=../data/geometries/odd/odd-detray_material_detray.json \
-  --grid-file=../data/geometries/odd/odd-detray_surface_grids_detray.json \
-  --digitization-file=../data/geometries/odd/odd-digi-geometric-config.json \
-  --use-acts-geom-source=true \
-  --input-directory=../data/odd/geant4_ttbar_mu200/ \
-  --input-events=36 --processed-events=500 --cpu-threads=1
-```
+### Archived: Histogram Collection (`combinatorial_kalman_filter.cuh`)
+The following was removed after analysis:
+- Buffer allocations for step counts and qop values
+- Host copy after each propagation kernel
+- Histogram output with 10-step buckets
+- Pearson correlation calculation for |qop| vs step count
 
 ---
 
