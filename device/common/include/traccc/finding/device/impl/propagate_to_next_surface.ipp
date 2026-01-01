@@ -122,6 +122,23 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
     // Propagate to the next surface
     propagator.propagate(propagation, detray::tie(s0, s1, s2, s3, s4, s5, s6));
 
+#ifdef TRACCC_COLLECT_STEP_CORRELATION
+    {
+        // Capture initial theta/eta/qop for correlation analysis
+        const scalar_t initial_theta = in_par.theta();
+        const scalar_t initial_qop = in_par.qop();
+        const scalar_t half_theta = initial_theta * scalar_t(0.5);
+        const scalar_t tan_half = math::tan(half_theta);
+        const scalar_t initial_eta = (tan_half > scalar_t(1e-10))
+            ? -math::log(tan_half) : scalar_t(10.0);
+        printf("CORR:%f,%f,%f,%u,%d\n",
+               static_cast<float>(initial_theta),
+               static_cast<float>(initial_eta),
+               static_cast<float>(initial_qop),
+               s6.count, s6.success ? 1 : 0);
+    }
+#endif
+
     // If a surface found, add the parameter for the next step
     if (s6.success) {
         assert(propagation._navigation.is_on_sensitive());
