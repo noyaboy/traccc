@@ -15,7 +15,10 @@ GitHub Issue #851 identifies **register pressure** as a key performance bottlene
 
 **Key Distinction:** Previous optimization work in this repository focused on **warp divergence** (~62% wasted cycles from variable RK4 step counts). Register pressure is a **separate problem** - too many registers per thread limiting concurrent warps on each SM.
 
-**Recommendation:** Start with CUDA 13's shared memory register spilling (`enable_smem_spilling` pragma), then profile and iterate.
+**Recommendation:**
+1. If CUDA 13 available: Try shared memory register spilling (`enable_smem_spilling` pragma)
+2. If MBF smoother not required: Implement conditional Jacobian transport (~64 regs saved, 25-50% occupancy)
+3. Otherwise: Consider kernel fission (high risk - prior chunked approach showed 5-13% regression)
 
 ---
 
@@ -176,19 +179,26 @@ Register pressure solutions must:
 
 ## 3. Register Pressure Solutions Survey
 
-### 3.1 Solutions Overview
+### 3.1 Solutions Overview (Updated 2026-01-01)
 
 | Solution | Viability | Effort | Expected Benefit | Complexity |
 |----------|-----------|--------|------------------|------------|
 | **CUDA 13 Shared Memory Spilling** | HIGH | LOW | 7-8% speedup | Add pragma |
-| **`--maxrregcount` Compiler Flag** | MEDIUM | LOW | Variable | Compiler flag |
-| **`__launch_bounds__` Tuning** | MEDIUM | LOW | 5-15% | Experiment |
-| **Kernel Fission** | MEDIUM | HIGH | 20-40% | Restructure |
+| ~~`--maxrregcount` Compiler Flag~~ | ~~MEDIUM~~ **NONE** | LOW | **No effect** | TESTED |
+| ~~`__launch_bounds__` Tuning~~ | ~~MEDIUM~~ **NONE** | LOW | **No effect** | TESTED |
+| **Kernel Fission** | MEDIUM-HIGH | HIGH | 20-40% | Restructure |
 | **Manual Shared Memory Spilling** | MEDIUM | HIGH | 10-20% | Identify hot vars |
-| **Symbolic Code Generation** | HIGH | VERY HIGH | 30-50% | Long-term |
+| ~~Symbolic Code Generation~~ | ~~HIGH~~ **NONE** | VERY HIGH | **No benefit** | TESTED |
 | **Mixed Precision (float16)** | LOW | MEDIUM | 10-20% | Precision risk |
-| **32-bit Integer Optimization** | LOW-MEDIUM | LOW | 5-10% | Code audit |
-| **Algorithmic Refactoring** | MEDIUM-HIGH | HIGH | 20-40% | Domain expertise |
+| ~~32-bit Integer Optimization~~ | ~~LOW-MEDIUM~~ **NONE** | LOW | **No benefit** | TESTED |
+| ~~Algorithmic Refactoring~~ | ~~HIGH~~ **LIMITED** | HIGH | **~64 regs (conditional)** | ANALYZED |
+
+> **Experimental Results (2026-01-02):** Five approaches were tested and found ineffective or limited:
+> - `--maxrregcount`: No effect due to `__launch_bounds__` precedence
+> - `__launch_bounds__` tuning: PTX spill operations (~5,836) remain constant
+> - Symbolic codegen: Matrix operations already optimized by nvcc
+> - 32-bit integers: 64-bit ops required for pointer arithmetic (see `32bit_integer_audit.md`)
+> - Algorithmic refactoring: Limited by detray's monolithic propagator; only conditional Jacobian viable
 
 ### 3.2 Viability Assessment Criteria
 
@@ -254,6 +264,8 @@ __global__ __launch_bounds__(128) void propagate_to_next_surface(
 
 Forces compiler to limit registers per thread, spilling excess to local memory.
 
+> **Status (2026-01-01):** TESTED - NOT EFFECTIVE. `__launch_bounds__` takes precedence.
+
 #### Implementation
 
 ```cmake
@@ -272,7 +284,30 @@ __global__ __launch_bounds__(128, 16) void kernel() {
 }
 ```
 
-#### Expected Outcome
+#### 4.2.1 Experiment Results (2026-01-01)
+
+**Kernel:** `propagate_to_next_surface` (ODD detector)
+**Hardware:** sm_70 (V100), CUDA 12.6
+
+| --maxrregcount | Registers Used | Spill Stores | Spill Loads | PTX ld.local | PTX st.local |
+|----------------|----------------|--------------|-------------|--------------|--------------|
+| 32 | 128 | 0 bytes | 0 bytes | 2,932 | 2,904 |
+| 40 | 128 | 0 bytes | 0 bytes | 2,932 | 2,904 |
+| 48 | 128 | 0 bytes | 0 bytes | 2,932 | 2,904 |
+| 64 | 128 | 0 bytes | 0 bytes | 2,932 | 2,904 |
+| 128 | 128 | 0 bytes | 0 bytes | 2,932 | 2,904 |
+| 255 | 128 | 0 bytes | 0 bytes | 2,932 | 2,904 |
+| No limit | 128 | 0 bytes | 0 bytes | 2,932 | 2,904 |
+
+**Finding:** `--maxrregcount` has **NO effect** on this kernel.
+
+#### 4.2.2 Why It Doesn't Work
+
+1. **`__launch_bounds__` takes precedence** - The kernel uses `__launch_bounds__(128)` which tells ptxas to use up to 128 registers regardless of `--maxrregcount`
+2. **Algorithm exceeds physical registers** - The algorithm needs ~500+ virtual registers; spilling to local memory is unavoidable
+3. **PTX generation is consistent** - nvcc generates the same PTX regardless of register limits; only ptxas allocation changes
+
+#### Expected Outcome (Theoretical)
 
 | Registers/Thread | Max Threads/SM | Occupancy |
 |------------------|----------------|-----------|
@@ -281,23 +316,17 @@ __global__ __launch_bounds__(128, 16) void kernel() {
 | 64 | 1024 | 50% |
 | 128 | 512 | 25% |
 
-#### Caveats
+#### Conclusion
 
-- **Increased spill traffic** to local memory (L2 cache)
-- **Potential performance regression** if ILP suffers
-- **Must benchmark** - occupancy increase may not offset spill cost
-
-#### When to Use
-
-- When occupancy is severely limited (<30%)
-- When kernel is memory-bound (not compute-bound)
-- As baseline comparison for other optimizations
+**Do NOT use `--maxrregcount`** for kernels with `__launch_bounds__`. The launch bounds attribute takes precedence and the flag has no effect.
 
 ---
 
 ### 4.3 `__launch_bounds__` Tuning
 
 Provides compiler hints about expected thread/block configuration.
+
+> **Status (2026-01-01):** TESTED - LIMITED BENEFIT. PTX spill operations remain constant.
 
 #### Current Usage
 
@@ -306,10 +335,53 @@ Provides compiler hints about expected thread/block configuration.
 __global__ __launch_bounds__(128) void propagate_to_next_surface(...)
 ```
 
-#### Optimization Options
+#### 4.3.1 Experiment Results (2026-01-01)
+
+**Kernel:** `propagate_to_next_surface` (ODD detector)
+**Hardware:** sm_70 (V100), CUDA 12.6
+
+| `__launch_bounds__` | Registers | Stack (bytes) | Spill St | Spill Ld | Max Occupancy |
+|---------------------|-----------|---------------|----------|----------|---------------|
+| (64) | 128 | 1,936 | 0 | 0 | 25% |
+| (128) | 128 | 1,928 | 0 | 0 | 25% |
+| (256) | 128 | 1,928 | 0 | 0 | 25% |
+| (128, 4) | 128 | 1,928 | 0 | 0 | 25% |
+| **(128, 8)** | **64** | 2,184 | **52** | **36** | **50%** |
+| (64, 8) | 128 | 1,936 | 0 | 0 | 25% |
+| (32, 16) | 128 | 1,936 | 0 | 0 | 25% |
+
+**PTX Analysis (constant across all configurations):**
+
+| Metric | Count |
+|--------|-------|
+| `ld.local` operations | 2,932 |
+| `st.local` operations | 2,904 |
+| **Total local ops** | **5,836** |
+
+#### 4.3.2 Key Finding
+
+`__launch_bounds__(128, 8)` forces 64 registers (2× occupancy improvement), **but**:
+- PTX .local operations remain **identical**: 2,932 ld.local + 2,904 st.local
+- Stack frame **increases** from 1,928 to 2,184 bytes (+256 bytes)
+- Explicit spill stores/loads **appear** (52/36 bytes)
+
+**Net effect:** Higher theoretical occupancy but potentially same or worse performance due to:
+1. Same number of memory operations
+2. Additional explicit spills
+3. Larger stack frame
+
+#### 4.3.3 Why PTX Spills Are Constant
+
+The ~5,800 local memory operations are **inherent to the algorithm**, not register allocation:
+- 7 actor states must be live simultaneously
+- Propagation state + navigation state
+- Jacobian transport (8×8 matrix = 64 floats)
+- Covariance matrix (6×6 = 36 floats)
+
+#### Optimization Options (For Reference)
 
 ```cpp
-// Option A: Target higher occupancy
+// Option A: Target higher occupancy (TESTED - see above)
 __global__ __launch_bounds__(128, 8) void kernel()  // 8 blocks/SM
 
 // Option B: Reduce thread count for more registers
@@ -319,23 +391,9 @@ __global__ __launch_bounds__(64, 16) void kernel()  // 64 threads, 16 blocks
 __global__ __launch_bounds__(256, 8) void kernel()  // 256 threads, 8 blocks
 ```
 
-#### Experimentation Matrix
+#### Conclusion
 
-| `__launch_bounds__` | Expected Regs/Thread | Expected Occupancy |
-|---------------------|----------------------|-------------------|
-| `(128)` (current) | ~120 | 25% |
-| `(128, 8)` | ~64 | 50% |
-| `(128, 16)` | ~32 | 100% |
-| `(64, 16)` | ~64 | 50% |
-| `(256, 8)` | ~32 | 100% |
-
-#### Implementation
-
-Test each configuration with profiling:
-```bash
-nvcc --ptxas-options=-v -o kernel.o kernel.cu
-# Look for "Used N registers" in output
-```
+**`__launch_bounds__` tuning does NOT reduce inherent spilling.** The algorithm requires ~5,800 local memory operations regardless of register allocation strategy. Only architectural changes (kernel fission, actor state reduction) can address this.
 
 ---
 
@@ -697,6 +755,8 @@ float result = __half2float(result_h);
 
 Replace 64-bit integers with 32-bit where possible.
 
+> **Status (2026-01-02):** TESTED - NOT VIABLE. 64-bit operations are inherent to GPU pointer arithmetic.
+
 #### Problem
 
 ```cpp
@@ -706,25 +766,85 @@ size_t idx = blockIdx.x * blockDim.x + threadIdx.x;  // 64-bit
 
 Each 64-bit integer uses 2 registers instead of 1.
 
-#### Solution
+#### 4.8.1 PTX Analysis Results
 
-```cpp
-// Use 32-bit explicitly
-unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;  // 32-bit
+Analysis of `propagate_to_next_surface` kernel PTX:
+
+| Register Type | Count | Purpose |
+|---------------|-------|---------|
+| `.b64 %rd` | 236 | 64-bit integers/pointers |
+| `.b32 %r` | 121 | 32-bit integers |
+| `.f32 %f` | 288 | 32-bit floats |
+
+| 64-bit Operation | Count | Purpose |
+|------------------|-------|---------|
+| `add.s64` | 1,647 | Pointer arithmetic |
+| `mul.wide.u32` | 488 | Index × element_size |
+| `cvt.u64` | 145 | 32-bit to 64-bit conversion |
+| `.b64` loads | 490 | 64-bit memory access |
+
+#### 4.8.2 Why Optimization is NOT Viable
+
+**1. Pointer Arithmetic Requires 64-bit**
+
+GPU memory uses 64-bit addresses. Array access compiles to:
+```ptx
+// Source: array[index]
+mul.wide.u32  %rd29, %r1, 4;      // index * sizeof(element) → 64-bit
+add.s64       %rd30, %rd28, %rd29; // base_ptr + offset → 64-bit
+ld.global.f32 %f1, [%rd30];        // load from 64-bit address
 ```
 
-#### Code Audit Targets
+Even with 32-bit index in source code:
+```cpp
+uint32_t i = threadIdx.x;  // 32-bit
+float val = array[i];       // Still uses 64-bit pointer math
+```
 
-- Index calculations
-- Loop counters
-- Temporary arithmetic
-- `size_t` usage (often unnecessary for GPU indices)
+**2. Compiler Already Optimizes**
 
-#### Expected Benefit
+The `mul.wide.u32` instruction efficiently computes `32-bit × constant = 64-bit` in one operation. Changing source types won't improve this.
 
-- 5-10% register reduction if widespread 64-bit usage
-- Low effort, low risk
-- Should be done regardless of other optimizations
+**3. Template Parameters Are Compile-Time**
+
+```cpp
+template <std::size_t ROWS, std::size_t COLS>  // No runtime registers
+```
+
+**4. Loop Indices Already Efficient**
+
+```cpp
+for (std::size_t i = 0u; i < k_cache_capacity; ++i)  // Typically < 256
+```
+These compile to 32-bit loop counters with 64-bit address computation only when needed.
+
+#### 4.8.3 Source Code Audit
+
+| Location | `size_t` Count | Pattern |
+|----------|----------------|---------|
+| `device/common/include` | 53 | Array indices, prefix sums |
+| `device/cuda/src` | 43 | Kernel parameters, buffer sizes |
+| `device/cuda/include` | 2 | Utility functions |
+| detray `propagator/*.hpp` | 11 | Template params, loop indices |
+| detray `navigation/*.hpp` | 20+ | Cache indices, array access |
+
+| `uint64_t` Location | Purpose | Reducible? |
+|---------------------|---------|------------|
+| `array_insertion_mutex.hpp` | Atomic mutex encoding | NO - bitpacking |
+| `find_tracks.ipp` | Atomic operations | NO - atomicCAS |
+| `remove_tracks.cu` | Sorting keys | NO - bitpacking |
+| `gbts_seeding` | Edge bidding | NO - atomics |
+
+#### 4.8.4 Conclusion
+
+| Component | 64-bit Usage | Optimization Potential |
+|-----------|--------------|------------------------|
+| Finding kernels | Moderate | **NONE** - pointer math |
+| Fitting kernels | Moderate | **NONE** - pointer math |
+| Propagator | Low | **NONE** - template params |
+| Navigator | Moderate | **NONE** - array indexing |
+
+**Do NOT pursue** replacing `size_t` with `uint32_t` - no register benefit possible.
 
 ---
 
@@ -732,30 +852,104 @@ unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;  // 32-bit
 
 Restructure algorithms to reduce simultaneous live variables.
 
-#### Example: Covariance Transport
+> **Status (2026-01-02):** ANALYZED - Limited potential due to detray's monolithic propagator design.
+> Only **conditional Jacobian transport** is viable, saving ~64 registers when MBF smoother is disabled.
 
-Current (all elements live):
-```cpp
-float cov[6][6];  // 36 registers
-jacobian_transport(cov, jacobian);  // All elements modified
+#### 4.9.1 The 7 Actors Analysis
+
+The `propagate_to_next_surface` kernel uses 7 actors that are kept live simultaneously:
+
+| Actor | State | Registers | Required? | Can Defer? |
+|-------|-------|-----------|-----------|------------|
+| s0 `pathlimit_aborter` | path limit | ~4 | YES | NO - safety |
+| **s1 `parameter_transporter`** | **8×8 Jacobian** | **~64** | YES* | NO - path-dependent |
+| s2 `interaction_register` | reference to s3 | ~2 | YES | NO - controls s3 |
+| s3 `pointwise_material_interactor` | flags | ~5 | YES | PARTIAL (5-10% of steps) |
+| s4 `parameter_resetter` | config ref | ~2 | YES | NO - resets Jacobian |
+| s5 `momentum_aborter` | min pT/p | ~2 | OPTIONAL | YES - post-pass check |
+| s6 `ckf_aborter` | count, path, success | ~5 | YES | NO - core algorithm |
+
+*Required only when `finding_config.run_mbf_smoother == true`
+
+#### 4.9.2 Why Jacobian Cannot Be Deferred
+
+The Jacobian is accumulated multiplicatively during propagation:
+```
+J_final = J_step_0 × J_step_1 × ... × J_step_N
 ```
 
-Restructured (row-by-row):
+- Missing any step breaks the product (path-dependent)
+- Cannot compute after-the-fact
+- Cannot store intermediate Jacobians (~32MB for 1000 tracks)
+
+#### 4.9.3 Why Row-by-Row Covariance Doesn't Help
+
+Covariance transport requires full matrix operation:
 ```cpp
-for (int row = 0; row < 6; row++) {
-    float cov_row[6];  // 6 registers
-    load_row(cov_row, row);
-    transform_row(cov_row, jacobian);
-    store_row(cov_row, row);
-}
+C' = J × C × J^T   // Cannot decompose into row operations
 ```
 
-#### Trade-offs
+- Still need full 8×8 Jacobian in registers (~64)
+- Net register savings: **0**
 
-- Reduces peak register usage
-- May increase memory traffic
-- May reduce instruction-level parallelism
-- Requires deep understanding of algorithm
+#### 4.9.4 Viable Refactoring: Conditional Jacobian Transport
+
+When `run_mbf_smoother == false`, skip s1 (parameter_transporter) entirely:
+
+```cpp
+// Create alternate actor chain without s1
+using ckf_actor_chain_no_mbf_t =
+    detray::actor_chain<
+        detray::pathlimit_aborter<scalar>,           // s0
+        interaction_register<interactor_t>,          // s2
+        interactor_t,                                // s3
+        detray::parameter_resetter<algebra>,         // s4
+        detray::momentum_aborter<scalar>,            // s5
+        ckf_aborter                                  // s6
+    >;
+```
+
+| Metric | With Jacobian | Without Jacobian |
+|--------|---------------|------------------|
+| Registers | 128-203 | ~64-139 |
+| Occupancy | 16-25% | 25-50% |
+| MBF smoother | Enabled | Disabled |
+
+**Implementation:** Requires additional kernel specialization (compile-time selection based on `run_mbf_smoother`).
+
+#### 4.9.5 Register Budget Reality
+
+```
+Minimum required state:
+  Bound parameters:     6 regs
+  Covariance (6×6):    21 regs
+  Jacobian (8×8):      64 regs  ← Can skip when MBF disabled
+  Actor states:        20 regs
+  RK temporaries:      15 regs
+  ─────────────────────────────
+  Total:              126 regs (with Jacobian)
+                       62 regs (without Jacobian)
+```
+
+V100 needs ≤32 regs for 100% occupancy → **Algorithmic refactoring alone cannot reach 100% occupancy**
+
+#### 4.9.6 What's NOT Viable
+
+| Approach | Why Not |
+|----------|---------|
+| Defer Jacobian | Path-dependent multiplicative product |
+| Row-wise covariance | Still need full Jacobian (64 regs) |
+| Actor consolidation | Saves only 5-10 regs max |
+| Chunking/checkpointing | 5-13% regression (tested) |
+| Remove safety actors | Physics/safety regression |
+
+#### 4.9.7 Conclusion
+
+**Single viable algorithmic change:** Conditional Jacobian transport
+- When: `finding_config.run_mbf_smoother == false`
+- Benefit: ~64 registers saved → 25-50% occupancy
+- Effort: Medium (add kernel specialization)
+- Risk: Low (physics correct when MBF not used)
 
 ---
 
@@ -793,6 +987,95 @@ The NVCC compiler:
 3. Only spills to local memory (L2) when absolutely necessary
 4. Does not use shared memory for spilling (until CUDA 13)
 
+### 5.4 Experimental Validation (2026-01-01 to 2026-01-02)
+
+This section consolidates findings from all register pressure experiments.
+
+#### 5.4.1 --maxrregcount Experiment
+
+**Setup:** `propagate_to_next_surface` kernel, ODD detector, sm_70 (V100), CUDA 12.6
+
+| --maxrregcount | Registers Used | PTX ld.local | PTX st.local |
+|----------------|----------------|--------------|--------------|
+| 32 | 128 | 2,932 | 2,904 |
+| 40 | 128 | 2,932 | 2,904 |
+| 48 | 128 | 2,932 | 2,904 |
+| 64 | 128 | 2,932 | 2,904 |
+| 128 | 128 | 2,932 | 2,904 |
+| 255 | 128 | 2,932 | 2,904 |
+
+**Finding:** `--maxrregcount` has **NO effect** because `__launch_bounds__(128)` takes precedence.
+
+#### 5.4.2 __launch_bounds__ Experiment
+
+| __launch_bounds__ | Registers | Stack (bytes) | Spill St | Spill Ld | Occupancy |
+|-------------------|-----------|---------------|----------|----------|-----------|
+| (64) | 128 | 1,936 | 0 | 0 | 25% |
+| (128) | 128 | 1,928 | 0 | 0 | 25% |
+| (256) | 128 | 1,928 | 0 | 0 | 25% |
+| (128, 4) | 128 | 1,928 | 0 | 0 | 25% |
+| **(128, 8)** | **64** | 2,184 | **52** | **36** | **50%** |
+| (64, 8) | 128 | 1,936 | 0 | 0 | 25% |
+| (32, 16) | 128 | 1,936 | 0 | 0 | 25% |
+
+**Finding:** `__launch_bounds__(128, 8)` forces 64 registers but PTX local operations remain constant at ~5,836.
+
+#### 5.4.3 32-bit Integer Audit
+
+**PTX Register Distribution:**
+
+| Register Type | Count | Purpose |
+|---------------|-------|---------|
+| `.b64 %rd` | 236 | 64-bit integers/pointers |
+| `.b32 %r` | 121 | 32-bit integers |
+| `.f32 %f` | 288 | 32-bit floats |
+
+**64-bit Operations:**
+
+| Operation | Count | Purpose |
+|-----------|-------|---------|
+| `add.s64` | 1,647 | Pointer arithmetic |
+| `mul.wide.u32` | 488 | Index × element_size |
+| `cvt.u64` | 145 | 32-bit to 64-bit conversion |
+| `.b64` loads | 490 | 64-bit memory access |
+
+**Finding:** 64-bit operations are inherent to GPU pointer arithmetic and cannot be eliminated by source-level type changes.
+
+#### 5.4.4 Root Cause Confirmed
+
+The ~5,800 local memory operations come from the algorithm itself:
+- 7 actor states must be live simultaneously
+- Propagation state + navigation state
+- Jacobian transport (8×8 matrix = 64 floats)
+- Covariance matrix (6×6 = 36 floats)
+
+**Conclusion:** Register tuning via compiler flags is NOT viable. Only architectural changes can address the fundamental algorithm requirements.
+
+#### 5.4.5 Commands Used
+
+```bash
+# Test --maxrregcount
+nvcc -Xptxas -v -c --maxrregcount=N kernel.cu
+
+# Test __launch_bounds__
+# Modify propagate_to_next_surface_src.cuh:21
+__global__ __launch_bounds__(128, 8) void propagate_to_next_surface(...)
+
+# Count PTX local operations
+grep -c "ld\.local" kernel.ptx
+grep -c "st\.local" kernel.ptx
+
+# Check PTX 64-bit operations
+nvcc -ptx kernel.cu -o kernel.ptx
+grep -c "add\.s64" kernel.ptx
+grep -c "mul\.wide" kernel.ptx
+grep -c "cvt\.u64" kernel.ptx
+
+# Search for size_t usage
+grep -rn "size_t" device/common/include/
+grep -rn "uint64_t" device/cuda/src/
+```
+
 ---
 
 ## 6. Recommendations
@@ -814,13 +1097,13 @@ The NVCC compiler:
 
 ### 6.2 Short-term Actions (Medium Effort)
 
-4. **Experiment with `--maxrregcount`**
-   - Try values: 32, 40, 48, 64
-   - Benchmark each configuration
+4. ~~**Experiment with `--maxrregcount`**~~ **TESTED - NOT EFFECTIVE**
+   - ~~Try values: 32, 40, 48, 64~~
+   - Result: No effect due to `__launch_bounds__(128)` taking precedence
 
-5. **Tune `__launch_bounds__`**
-   - Add minBlocksPerSM hint: `__launch_bounds__(128, 8)`
-   - Experiment with thread counts: 64, 128, 256
+5. ~~**Tune `__launch_bounds__`**~~ **TESTED - NOT EFFECTIVE**
+   - ~~Add minBlocksPerSM hint: `__launch_bounds__(128, 8)`~~
+   - Result: PTX spill operations (~5,836) remain constant regardless of settings
 
 6. **Profile with Nsight Compute**
    ```bash
@@ -832,45 +1115,66 @@ The NVCC compiler:
 
 ### 6.3 Long-term Actions (High Effort)
 
-7. **Investigate kernel fission**
+7. **Implement conditional Jacobian transport** (RECOMMENDED)
+   - Skip s1 (parameter_transporter) when `run_mbf_smoother == false`
+   - Create alternate actor chain without Jacobian accumulation
+   - Expected benefit: ~64 registers saved → 25-50% occupancy
+   - File to modify: `core/include/traccc/finding/details/combinatorial_kalman_filter_types.hpp`
+
+8. **Investigate kernel fission**
    - Prototype split propagation kernel
    - Measure launch overhead vs occupancy benefit
+   - Note: Prior chunked propagation showed 5-13% regression
 
-8. **Support symbolic code generation effort**
+9. **Support symbolic code generation effort**
    - Coordinate with Yuki Asami's work
    - Identify highest-impact code sections
 
-9. **Consider upstream detray changes**
-   - Propose register-optimized stepper variant
-   - Explore compile-time options for reduced state
+10. **Consider upstream detray changes**
+    - Propose register-optimized stepper variant
+    - Explore compile-time options for reduced state
 
-### 6.4 Priority Matrix
+### 6.4 Priority Matrix (Updated 2026-01-02)
 
 ```
                     LOW EFFORT              HIGH EFFORT
                          |                       |
     +--------------------|----------------------+
     |                    |                      |
-H   | CUDA 13 smem spill | Symbolic codegen    |
-I   | --maxrregcount     | Kernel fission      |
-G   | launch_bounds tune |                     |
-H   | 32-bit integers    |                     |
+H   | CUDA 13 smem spill | Conditional Jacobian|
+I   | (requires CUDA 13) | (when MBF disabled) |
+G   |                    | ~64 regs saved      |
+H   |                    |                      |
     |                    |                      |
     +--------------------|----------------------|
 P   |                    |                      |
 O   | Profile registers  | Manual smem spill   |
-T   |                    | Algorithmic refactor|
+T   | (DONE)             | Kernel fission      |
 E   |                    |                      |
 N   |                    |                      |
 T   +--------------------|----------------------+
-I   |                    |                      |
-A   |                    | Mixed precision     |
-L   |                    | (NOT RECOMMENDED)   |
-    |                    |                      |
-L   |                    |                      |
-O   |                    |                      |
-W   +--------------------|----------------------+
+I   | --maxrregcount     |                      |
+A   | (TESTED-NO EFFECT) | Symbolic codegen    |
+L   | launch_bounds tune | (TESTED-NO BENEFIT) |
+    | (TESTED-NO EFFECT) | Mixed precision     |
+L   | 32-bit integers    | (NOT RECOMMENDED)   |
+O   | (TESTED-NO BENEFIT)| General algorithmic |
+W   |                    | (ANALYZED-LIMITED)  |
+    +--------------------|----------------------+
 ```
+
+**Tested approaches that showed NO or LIMITED benefit:**
+- `--maxrregcount`: No effect due to `__launch_bounds__` precedence
+- `__launch_bounds__` tuning: PTX spills remain constant (~5,836 ops)
+- Symbolic codegen: Matrix ops already optimized (see `question_on_symbolic_codegen.md`)
+- 32-bit integers: 64-bit ops required for pointer arithmetic (see `32bit_integer_audit.md`)
+- Algorithmic refactoring: Limited by detray's monolithic propagator (see §4.9)
+
+**Remaining viable options:**
+1. **CUDA 13 smem spilling** - 7-8% speedup (requires CUDA 13)
+2. **Conditional Jacobian** - ~64 regs saved when MBF disabled (medium effort)
+3. **Kernel fission** - 20-40% potential but high risk (5-13% regression in prior testing)
+4. **Manual smem spilling** - 10-20% but needs 72KB (exceeds 48KB default)
 
 ---
 
@@ -889,7 +1193,19 @@ W   +--------------------|----------------------+
 - `doc/problem_definition.md` - Warp divergence analysis (different problem)
 - `doc/work_redistribution_approaches_summary.md` - Previous optimization attempts
 - `doc/chunked_propagator_redesign_plan.md` - Serialization size analysis
+- `doc/issue_of_chunked_propagator.md` - Chunked propagation 5-13% regression analysis
+- `doc/question_on_symbolic_codegen.md` - Symbolic codegen experiment (NOT recommended)
 - GitHub Issue #851 - Original problem report
+
+> **Consolidated into this document (2026-01-02):**
+> - `doc/maxrregcount_experiment.md` → See §4.2, §4.3, §5.4.1-5.4.2
+> - `doc/32bit_integer_audit.md` → See §4.8, §5.4.3
+
+**Experiment findings consolidated in this document:**
+- **--maxrregcount experiment** (§4.2, §5.4.1): No effect due to `__launch_bounds__` precedence
+- **__launch_bounds__ tuning** (§4.3, §5.4.2): PTX spills constant at ~5,836 ops
+- **32-bit integer audit** (§4.8, §5.4.3): 64-bit ops required for pointer arithmetic
+- **Algorithmic refactoring** (§4.9): Only conditional Jacobian transport viable
 
 ### Key Code Locations
 
@@ -898,6 +1214,8 @@ W   +--------------------|----------------------+
 | `device/cuda/src/finding/kernels/specializations/propagate_to_next_surface_src.cuh` | Main propagation kernel |
 | `device/cuda/src/fitting/kernels/specializations/fit_forward_src.cuh` | Forward fitting kernel |
 | `device/cuda/src/fitting/kernels/specializations/fit_backward_src.cuh` | Backward fitting kernel |
+| `core/include/traccc/finding/details/combinatorial_kalman_filter_types.hpp` | Actor chain definition (7 actors) |
+| `core/include/traccc/finding/finding_config.hpp` | `run_mbf_smoother` config flag |
 | `detray-fork/core/include/detray/propagator/rk_stepper.ipp` | RK4 stepper (register-heavy) |
 | `detray-fork/core/include/detray/propagator/propagator.hpp` | Propagation loop |
 
