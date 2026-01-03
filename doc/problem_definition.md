@@ -468,4 +468,4 @@ Given the **confirmed severe warp divergence** (~62% wasted cycles), optimizatio
 - traccc repository: `/dicos_ui_home/noah/traccc`
 - detray repository: `/dicos_ui_home/noah/detray-fork`
 - Optimization workflow: `.claude/skills/optimization-workflow`
-- Benchmark baseline: 57.82 events/s @ 8 threads (Tesla V100-32GB)
+- Benchmark baseline: 35.22 events/s @ 8 threads (Tesla V100-32GB, commit 111f69cc, geant4_ttbar_mu200)
