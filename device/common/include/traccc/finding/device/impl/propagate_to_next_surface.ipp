@@ -8,6 +8,7 @@
 #pragma once
 
 // Project include(s).
+#include "traccc/finding/details/combinatorial_kalman_filter_types.hpp"
 #include "traccc/utils/logging.hpp"
 #include "traccc/utils/particle.hpp"
 
@@ -76,54 +77,105 @@ TRACCC_HOST_DEVICE inline void propagate_to_next_surface(
         .template set_constraint<detray::step::constraint::e_accuracy>(
             cfg.propagation.stepping.step_constraint);
 
-    // Actor state
-    // @TODO: simplify the syntax here
-    // @NOTE: Post material interaction might be required here
+    // Actor state initialization and propagation
+    // Uses if constexpr to handle both 7-actor (with Jacobian) and 6-actor
+    // (without Jacobian) chains at compile time.
     using actor_tuple_type =
         typename propagator_t::actor_chain_type::actor_tuple;
-    // Pathlimit aborter
-    typename detray::detail::tuple_element<0, actor_tuple_type>::type::state
-        s0{};
-    typename detray::detail::tuple_element<1, actor_tuple_type>::type::state
-        s1{};
-    // CKF-interactor
-    typename detray::detail::tuple_element<3, actor_tuple_type>::type::state
-        s3{};
-    // Interaction register
-    typename detray::detail::tuple_element<2, actor_tuple_type>::type::state s2{
-        s3};
-    // Parameter resetter
-    typename detray::detail::tuple_element<4, actor_tuple_type>::type::state s4{
-        prop_cfg};
-    // Momentum aborter
-    typename detray::detail::tuple_element<5, actor_tuple_type>::type::state s5;
-    // CKF aborter
-    typename detray::detail::tuple_element<6, actor_tuple_type>::type::state s6;
 
-    /*
-     * If we are running the MBF smoother, we need to accumulate the Jacobians
-     * between the two sensitives multiplicatively. To this end, we ask the
-     * parameter transporter to multiply the Jacobians into this matrix, which
-     * is set to the multiplicative identity.
-     */
-    if (cfg.run_mbf_smoother) {
+    // Propagation success flag - set by ckf_aborter in each branch
+    bool propagation_success = false;
+
+    if constexpr (details::has_jacobian_transport_v<propagator_t>) {
+        // 7-actor chain: includes parameter_transporter for Jacobian transport
+        // Actor indices: 0=pathlimit, 1=param_transporter, 2=interaction_reg,
+        //                3=interactor, 4=resetter, 5=momentum, 6=ckf_aborter
+
+        // Pathlimit aborter
+        typename detray::detail::tuple_element<0, actor_tuple_type>::type::state
+            s0{};
+        // Parameter transporter (Jacobian accumulation)
+        typename detray::detail::tuple_element<1, actor_tuple_type>::type::state
+            s1{};
+        // CKF-interactor
+        typename detray::detail::tuple_element<3, actor_tuple_type>::type::state
+            s3{};
+        // Interaction register
+        typename detray::detail::tuple_element<2,
+                                               actor_tuple_type>::type::state
+            s2{s3};
+        // Parameter resetter
+        typename detray::detail::tuple_element<4,
+                                               actor_tuple_type>::type::state
+            s4{prop_cfg};
+        // Momentum aborter
+        typename detray::detail::tuple_element<5, actor_tuple_type>::type::state
+            s5;
+        // CKF aborter
+        typename detray::detail::tuple_element<6, actor_tuple_type>::type::state
+            s6;
+
+        // Initialize Jacobian for MBF smoother
         assert(payload.tmp_jacobian_ptr != nullptr);
-
         payload.tmp_jacobian_ptr[param_id] = matrix::identity<
             bound_matrix<typename propagator_t::detector_type::algebra_type>>();
         s1._full_jacobian_ptr = &payload.tmp_jacobian_ptr[param_id];
+
+        s5.min_pT(static_cast<scalar_t>(cfg.min_pT));
+        s5.min_p(static_cast<scalar_t>(cfg.min_p));
+        s6.min_step_length = cfg.min_step_length_for_next_surface;
+        s6.max_count = cfg.max_step_counts_for_next_surface;
+
+        // Propagate with 7 actors
+        propagator.propagate(propagation,
+                             detray::tie(s0, s1, s2, s3, s4, s5, s6));
+
+        propagation_success = s6.success;
+    } else {
+        // 7-actor chain with bound_updater (no Jacobian transport)
+        // Uses bound_updater instead of parameter_transporter for lighter
+        // free-to-bound conversion without Jacobian/covariance transport.
+        // Actor indices: 0=pathlimit, 1=bound_updater, 2=interaction_reg,
+        //                3=interactor, 4=resetter, 5=momentum, 6=ckf_aborter
+
+        // Pathlimit aborter
+        typename detray::detail::tuple_element<0, actor_tuple_type>::type::state
+            s0{};
+        // Bound updater (lightweight free-to-bound conversion)
+        typename detray::detail::tuple_element<1, actor_tuple_type>::type::state
+            s1{};
+        // CKF-interactor
+        typename detray::detail::tuple_element<3, actor_tuple_type>::type::state
+            s3{};
+        // Interaction register
+        typename detray::detail::tuple_element<2,
+                                               actor_tuple_type>::type::state
+            s2{s3};
+        // Parameter resetter
+        typename detray::detail::tuple_element<4,
+                                               actor_tuple_type>::type::state
+            s4{prop_cfg};
+        // Momentum aborter
+        typename detray::detail::tuple_element<5, actor_tuple_type>::type::state
+            s5;
+        // CKF aborter
+        typename detray::detail::tuple_element<6, actor_tuple_type>::type::state
+            s6;
+
+        s5.min_pT(static_cast<scalar_t>(cfg.min_pT));
+        s5.min_p(static_cast<scalar_t>(cfg.min_p));
+        s6.min_step_length = cfg.min_step_length_for_next_surface;
+        s6.max_count = cfg.max_step_counts_for_next_surface;
+
+        // Propagate with 7 actors (bound_updater instead of param_transporter)
+        propagator.propagate(propagation,
+                             detray::tie(s0, s1, s2, s3, s4, s5, s6));
+
+        propagation_success = s6.success;
     }
 
-    s5.min_pT(static_cast<scalar_t>(cfg.min_pT));
-    s5.min_p(static_cast<scalar_t>(cfg.min_p));
-    s6.min_step_length = cfg.min_step_length_for_next_surface;
-    s6.max_count = cfg.max_step_counts_for_next_surface;
-
-    // Propagate to the next surface
-    propagator.propagate(propagation, detray::tie(s0, s1, s2, s3, s4, s5, s6));
-
     // If a surface found, add the parameter for the next step
-    if (s6.success) {
+    if (propagation_success) {
         assert(propagation._navigation.is_on_sensitive());
         assert(!propagation._stepping.bound_params().is_invalid());
 

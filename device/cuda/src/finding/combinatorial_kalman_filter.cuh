@@ -476,40 +476,70 @@ combinatorial_kalman_filter(
 
             /*****************************************************************
              * Kernel5: Propagate to the next surface
+             *
+             * Dispatch to MBF-enabled or MBF-disabled kernel based on config.
+             * MBF-disabled kernel uses 6-actor chain (no Jacobian transport),
+             * saving ~64 registers and improving GPU occupancy.
              *****************************************************************/
 
             {
-                if (config.run_mbf_smoother) {
-                    tmp_jacobian_ptr = vecmem::make_unique_alloc<
-                        bound_matrix<typename detector_t::algebra_type>[]>(
-                        mr.main, n_candidates);
-                }
-
-                // Allocate the kernel's payload in host memory.
-                using payload_t = device::propagate_to_next_surface_payload<
-                    traccc::details::ckf_propagator_t<detector_t, bfield_t>,
-                    bfield_t>;
-                const payload_t host_payload{
-                    .det_data = det,
-                    .field_data = field,
-                    .params_view = in_params_buffer,
-                    .params_liveness_view = param_liveness_buffer,
-                    .param_ids_view = param_ids_buffer,
-                    .links_view = links_buffer,
-                    .prev_links_idx = step_to_link_idx_map[step],
-                    .step = step,
-                    .n_in_params = n_candidates,
-                    .tips_view = tips_buffer,
-                    .tip_lengths_view = tip_length_buffer,
-                    .tmp_jacobian_ptr = tmp_jacobian_ptr.get()};
-
                 const unsigned int nThreads = warp_size * 4;
                 const unsigned int nBlocks =
                     (n_candidates + nThreads - 1) / nThreads;
-                propagate_to_next_surface<
-                    traccc::details::ckf_propagator_t<detector_t, bfield_t>,
-                    bfield_t>(nBlocks, nThreads, 0, stream, config,
-                              host_payload);
+
+                if (config.run_mbf_smoother) {
+                    // MBF-enabled: use 7-actor chain with Jacobian transport
+                    tmp_jacobian_ptr = vecmem::make_unique_alloc<
+                        bound_matrix<typename detector_t::algebra_type>[]>(
+                        mr.main, n_candidates);
+
+                    using propagator_t =
+                        traccc::details::ckf_propagator_t<detector_t, bfield_t>;
+                    using payload_t =
+                        device::propagate_to_next_surface_payload<propagator_t,
+                                                                  bfield_t>;
+                    const payload_t host_payload{
+                        .det_data = det,
+                        .field_data = field,
+                        .params_view = in_params_buffer,
+                        .params_liveness_view = param_liveness_buffer,
+                        .param_ids_view = param_ids_buffer,
+                        .links_view = links_buffer,
+                        .prev_links_idx = step_to_link_idx_map[step],
+                        .step = step,
+                        .n_in_params = n_candidates,
+                        .tips_view = tips_buffer,
+                        .tip_lengths_view = tip_length_buffer,
+                        .tmp_jacobian_ptr = tmp_jacobian_ptr.get()};
+
+                    propagate_to_next_surface<propagator_t, bfield_t>(
+                        nBlocks, nThreads, 0, stream, config, host_payload);
+                } else {
+                    // MBF-disabled: use 6-actor chain without Jacobian transport
+                    // This saves ~64 registers and improves GPU occupancy
+                    using propagator_t =
+                        traccc::details::ckf_propagator_no_mbf_t<detector_t,
+                                                                 bfield_t>;
+                    using payload_t =
+                        device::propagate_to_next_surface_payload<propagator_t,
+                                                                  bfield_t>;
+                    const payload_t host_payload{
+                        .det_data = det,
+                        .field_data = field,
+                        .params_view = in_params_buffer,
+                        .params_liveness_view = param_liveness_buffer,
+                        .param_ids_view = param_ids_buffer,
+                        .links_view = links_buffer,
+                        .prev_links_idx = step_to_link_idx_map[step],
+                        .step = step,
+                        .n_in_params = n_candidates,
+                        .tips_view = tips_buffer,
+                        .tip_lengths_view = tip_length_buffer,
+                        .tmp_jacobian_ptr = nullptr};
+
+                    propagate_to_next_surface<propagator_t, bfield_t>(
+                        nBlocks, nThreads, 0, stream, config, host_payload);
+                }
                 TRACCC_CUDA_ERROR_CHECK(cudaGetLastError());
 
                 str.synchronize();

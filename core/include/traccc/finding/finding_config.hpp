@@ -44,7 +44,7 @@ struct finding_config {
     float min_measurement_voting_fraction = 0.5f;
 
     /// Enable the MBF smoother
-    bool run_mbf_smoother = true;
+    bool run_mbf_smoother = false;
 
     /// Minimum step length that track should make to reach the next surface. It
     /// should be set higher than the overstep tolerance not to make it stay on

@@ -131,6 +131,11 @@ combinatorial_kalman_filter(
     std::vector<std::pair<unsigned int, unsigned int>> tips;
 
     // Create propagator
+    // Note: The CPU implementation always uses ckf_propagator_t (7-actor chain
+    // with Jacobian transport). Unlike the CUDA implementation which uses
+    // ckf_propagator_no_mbf_t when run_mbf_smoother is disabled to reduce GPU
+    // register pressure, the CPU version doesn't benefit from this optimization
+    // since CPU register pressure is not a bottleneck.
     auto prop_cfg{config.propagation};
     prop_cfg.navigation.estimate_scattering_noise = false;
     traccc::details::ckf_propagator_t<detector_t, bfield_t> propagator(

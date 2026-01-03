@@ -161,25 +161,31 @@ foreach(DETECTOR_NAME ${TRACCC_SUPPORTED_DETECTORS})
 endforeach()
 
 # Generate specializations for propagate_to_next_surface
+# MBF variants: "on" uses ckf_propagator_t (7 actors, with Jacobian transport)
+#               "off" uses ckf_propagator_no_mbf_t (6 actors, no Jacobian, saves ~64 registers)
+set(TRACCC_MBF_VARIANTS "on;off")
 foreach(DETECTOR_NAME ${TRACCC_SUPPORTED_DETECTORS})
     foreach(BFIELD_NAME ${TRACCC_CUDA_SUPPORTED_BFIELDS})
-        set(GENERATED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/src/finding/kernels/specializations/propagate_to_next_surface_${DETECTOR_NAME}_${BFIELD_NAME}.cu")
-        set(TEMPLATE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/finding/kernels/specializations/propagate_to_next_surface.cu.template")
-        add_custom_command(
-            OUTPUT "${GENERATED_SOURCE}"
-            COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/finding/kernels/specializations/"
-            COMMAND
-                Python::Interpreter
-                "${KERNEL_SPECIALIZATION_PY}"
-                "${TEMPLATE_SOURCE}"
-                -o "${GENERATED_SOURCE}"
-                --detector "${DETECTOR_NAME}"
-                --bfield "${BFIELD_NAME}"
-                --model cuda
-            DEPENDS "${KERNEL_SPECIALIZATION_PY}" "${TEMPLATE_SOURCE}"
-            COMMENT "Generating kernel specialization of `propagate_to_next_surface` for ${DETECTOR_NAME} and ${BFIELD_NAME}"
-        )
-        target_sources(traccc_cuda PRIVATE ${GENERATED_SOURCE})
+        foreach(MBF_VARIANT ${TRACCC_MBF_VARIANTS})
+            set(GENERATED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/src/finding/kernels/specializations/propagate_to_next_surface_${DETECTOR_NAME}_${BFIELD_NAME}_mbf_${MBF_VARIANT}.cu")
+            set(TEMPLATE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/finding/kernels/specializations/propagate_to_next_surface.cu.template")
+            add_custom_command(
+                OUTPUT "${GENERATED_SOURCE}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/finding/kernels/specializations/"
+                COMMAND
+                    Python::Interpreter
+                    "${KERNEL_SPECIALIZATION_PY}"
+                    "${TEMPLATE_SOURCE}"
+                    -o "${GENERATED_SOURCE}"
+                    --detector "${DETECTOR_NAME}"
+                    --bfield "${BFIELD_NAME}"
+                    --model cuda
+                    --mbf "${MBF_VARIANT}"
+                DEPENDS "${KERNEL_SPECIALIZATION_PY}" "${TEMPLATE_SOURCE}"
+                COMMENT "Generating kernel specialization of `propagate_to_next_surface` for ${DETECTOR_NAME}, ${BFIELD_NAME}, MBF=${MBF_VARIANT}"
+            )
+            target_sources(traccc_cuda PRIVATE ${GENERATED_SOURCE})
+        endforeach()
     endforeach()
 endforeach()
 

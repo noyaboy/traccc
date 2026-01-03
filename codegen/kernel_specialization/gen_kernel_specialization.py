@@ -38,6 +38,13 @@ if __name__ == "__main__":
         default="cpu",
     )
 
+    parser.add_argument(
+        "--mbf",
+        type=str,
+        choices=["on", "off"],
+        help="MBF smoother enabled (on) or disabled (off)",
+    )
+
     args = parser.parse_args()
 
     with open(args.template, "r") as f:
@@ -66,6 +73,14 @@ if __name__ == "__main__":
             bfield_name += "<scalar>"
 
         subs["BFIELD_NAME"] = bfield_name
+
+    mbf = getattr(args, "mbf", None)
+    if mbf is not None:
+        # Select propagator type based on MBF smoother enablement
+        if mbf == "on":
+            subs["PROPAGATOR_TYPE"] = "ckf_propagator_t"
+        else:
+            subs["PROPAGATOR_TYPE"] = "ckf_propagator_no_mbf_t"
 
     result = src.substitute(subs)
 

@@ -93,6 +93,12 @@ track_finding::track_finding() : interface("Track Finding Options") {
         po::value(&m_config.duplicate_removal_minimum_length)
             ->default_value(m_config.duplicate_removal_minimum_length),
         "Minimum track length for deduplication (0 to disable) [cardinal]");
+    m_desc.add_options()(
+        "run-mbf-smoother",
+        po::value(&m_config.run_mbf_smoother)
+            ->default_value(m_config.run_mbf_smoother),
+        "Enable the MBF (Multi-Branch Fit) smoother for track quality "
+        "improvement. Disabling saves GPU registers but disables MBF output.");
 }
 
 void track_finding::read(const po::variables_map &) {

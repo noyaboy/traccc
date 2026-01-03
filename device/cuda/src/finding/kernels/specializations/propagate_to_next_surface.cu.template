@@ -19,7 +19,7 @@
 namespace traccc::cuda {
 
 using bfield_t = covfie::field<${BFIELD_NAME}>::view_t;
-using propagator_t = traccc::details::ckf_propagator_t<${DETECTOR_NAME}::device, bfield_t>;
+using propagator_t = traccc::details::${PROPAGATOR_TYPE}<${DETECTOR_NAME}::device, bfield_t>;
 
 template void propagate_to_next_surface<propagator_t, bfield_t>(
     const dim3& grid_size, const dim3& block_size, std::size_t shared_mem_size,
