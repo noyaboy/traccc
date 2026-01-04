@@ -4,7 +4,7 @@
 **Test Environment:** Tesla V100-SXM2-32GB (compute capability 7.0)
 **Dataset:** `odd/geant4_ttbar_mu200/` (10 events for profiling)
 **Configuration:** 1 CPU thread (to isolate GPU behavior)
-**Tools:** Nsight Systems (nsys) 2024.5.1
+**Tools:** Nsight Systems (nsys) 2024.5.1, cuobjdump (register analysis)
 
 ---
 
@@ -160,9 +160,79 @@ The primary optimization target kernel.
 
 ---
 
-## 6. Analysis and Conclusions
+## 6. Register Analysis (cuobjdump)
 
-### 6.1 Primary Findings
+**Note:** Full ncu profiling requires `RmProfilingAdminOnly=0` (admin privileges not available). Register counts were extracted from compiled binaries using `cuobjdump --dump-resource-usage`.
+
+### 6.1 Baseline Register Counts (`a48cc783`)
+
+| Kernel Variant | Registers | Stack (bytes) |
+|---------------|-----------|---------------|
+| `odd_detector_const` | 128 | 1,856 |
+| `odd_detector_inhom_global` | 128 | 2,024 |
+| `odd_detector_inhom_texture` | 128 | 1,896 |
+| `default_detector_const` | 128 | 2,736 |
+| `default_detector_inhom_global` | 128 | 2,920 |
+| `default_detector_inhom_texture` | 128 | 2,776 |
+| `telescope_detector_const` | 128 | 1,072 |
+| `telescope_detector_inhom_global` | 161 | 1,184 |
+| `telescope_detector_inhom_texture` | 128 | 1,112 |
+
+### 6.2 Optimization Register Counts (`25894cca`)
+
+The optimization creates two kernel variants: `mbf_on` (with Jacobian transport) and `mbf_off` (without).
+
+#### MBF ON Variant (with `parameter_transporter`)
+
+| Kernel Variant | Registers | Stack (bytes) |
+|---------------|-----------|---------------|
+| `odd_detector_const_mbf_on` | 128 | 1,856 |
+| `odd_detector_inhom_global_mbf_on` | 128 | 2,024 |
+| `odd_detector_inhom_texture_mbf_on` | 128 | 1,896 |
+| `default_detector_const_mbf_on` | 128 | 2,736 |
+| `default_detector_inhom_global_mbf_on` | 128 | 2,920 |
+| `default_detector_inhom_texture_mbf_on` | 128 | 2,776 |
+
+#### MBF OFF Variant (with `bound_updater`)
+
+| Kernel Variant | Registers | Stack (bytes) | Stack Change |
+|---------------|-----------|---------------|--------------|
+| `odd_detector_const_mbf_off` | 128 | 1,848 | -8 |
+| `odd_detector_inhom_global_mbf_off` | 128 | 2,016 | -8 |
+| `odd_detector_inhom_texture_mbf_off` | 128 | 1,888 | -8 |
+| `default_detector_const_mbf_off` | 128 | 2,728 | -8 |
+| `default_detector_inhom_global_mbf_off` | 128 | 2,904 | -16 |
+| `default_detector_inhom_texture_mbf_off` | 128 | 2,768 | -8 |
+
+### 6.3 Key Finding: No Register Reduction
+
+**The `propagate_to_next_surface` kernel uses 128 registers in ALL variants** (baseline, mbf_on, mbf_off).
+
+| Comparison | Expected | Actual |
+|------------|----------|--------|
+| Register reduction | -64 registers | **0 registers** |
+| Stack reduction | N/A | -8 to -16 bytes |
+
+### 6.4 Why No Register Reduction?
+
+The theoretical claim of ~64 register savings (8x8 Jacobian matrix) was **NOT achieved**. Possible reasons:
+
+1. **Compiler optimization**: The CUDA compiler (nvcc) may have optimized both variants to use the same number of registers through:
+   - Register spilling to stack (note ~2KB stack usage)
+   - Aggressive inlining that masks the difference
+   - Register reuse optimizations
+
+2. **Jacobian not stored in registers**: The 8x8 Jacobian matrix may already be stored in local memory (stack) rather than registers in the baseline.
+
+3. **Actor state overhead**: The `bound_updater` actor, while having an empty `state {}`, may still require similar register usage for its computation.
+
+4. **V100 register limit**: The kernel already uses 128 registers (50% of the 256 register limit per thread), suggesting the compiler aggressively spills to stack.
+
+---
+
+## 7. Analysis and Conclusions
+
+### 7.1 Primary Findings
 
 1. **`propagate_to_next_surface` kernel unchanged**: The per-instance execution time remained essentially the same (~940-954 µs). The optimization did not improve this kernel's performance.
 
@@ -175,42 +245,43 @@ The primary optimization target kernel.
    - `find_tracks` instances: 2,254 → 2,295 (+1.8%)
    - `remove_duplicates` instances: 1,594 → 1,635 (+2.6%)
 
-### 6.2 Hypothesis Evaluation
+### 7.2 Hypothesis Evaluation
 
 | Claim | Expected | Observed | Status |
 |-------|----------|----------|--------|
 | `propagate_to_next_surface` speedup | -10-15% per instance | +1.5% per instance | **NOT VALIDATED** |
-| Register pressure reduction | ~64 registers saved | Unknown (needs ncu) | **NEEDS VERIFICATION** |
-| Occupancy improvement | +10-25% | Unknown (needs ncu) | **NEEDS VERIFICATION** |
+| Register pressure reduction | ~64 registers saved | 0 registers saved | **NOT VALIDATED** |
+| Occupancy improvement | +10-25% | No change (128 regs in all variants) | **NOT VALIDATED** |
 | Overall throughput gain | +5-15% | +11.67% (benchmark) | **VALIDATED** |
 
-### 6.3 Possible Explanations
+### 7.3 Possible Explanations
 
 1. **Throughput gain from different source**: The +11.67% throughput improvement appears to come from `build_tracks` (-86.3%) and `find_tracks` (-12.5%), not from `propagate_to_next_surface`.
 
 2. **Kernel is memory-bound**: The `propagate_to_next_surface` kernel may be memory-bound rather than compute-bound, meaning register pressure reduction has limited impact.
 
-3. **Register savings may be smaller than expected**: The actual register reduction may be less than the theoretical 64 registers.
+3. **Register savings not achieved**: cuobjdump analysis confirms 0 register reduction - all variants use 128 registers.
 
 4. **Profiling overhead**: nsys profiling adds overhead that may obscure small performance differences.
 
-### 6.4 Recommended Next Steps
+### 7.4 Recommended Next Steps
 
-1. **Run ncu profiling** to verify:
-   - Actual register count per thread (`launch__registers_per_thread`)
-   - Achieved occupancy (`sm__warps_active.avg.pct_of_peak_sustained_active`)
-   - Occupancy limiter (registers vs shared memory vs block size)
-   - Memory throughput and compute utilization
+1. **Investigate `build_tracks` improvement**: Understand why this kernel improved so dramatically (-86.3%). This appears to be the actual source of the throughput gain.
 
-2. **Investigate `build_tracks` improvement**: Understand why this kernel improved so dramatically.
+2. **Re-evaluate the optimization approach**: Since register reduction was not achieved, consider:
+   - Whether the `bound_updater` actor is functionally equivalent but not optimized differently by the compiler
+   - Whether explicit `__launch_bounds__` or register limiting could force different behavior
+   - Whether the Jacobian matrix is already spilled to stack in the baseline
 
 3. **Profile with larger dataset**: Use more events to reduce variance and profiling overhead impact.
 
+4. **Verify with different GPU architectures**: Test on newer GPUs (A100, H100) where register pressure characteristics may differ.
+
 ---
 
-## 7. Raw Data
+## 8. Raw Data
 
-### 7.1 Profile Files
+### 8.1 Profile Files
 
 | File | Size | Location |
 |------|------|----------|
@@ -219,7 +290,7 @@ The primary optimization target kernel.
 | `baseline_nsys.sqlite` | - | `build/baseline_nsys.sqlite` |
 | `optimization_nsys.sqlite` | - | `build/optimization_nsys.sqlite` |
 
-### 7.2 Commands Used
+### 8.2 Commands Used
 
 ```bash
 # Baseline profiling
@@ -251,13 +322,19 @@ cmake --build . -j4
 # Generate stats
 /usr/local/cuda-12.6/bin/nsys stats baseline_nsys.nsys-rep
 /usr/local/cuda-12.6/bin/nsys stats optimization_nsys.nsys-rep
+
+# Register analysis (cuobjdump)
+/usr/local/cuda-12.6/bin/cuobjdump --dump-resource-usage lib64/libtraccc_cuda.so 2>&1 | \
+  grep -E "(propagate_to_next_surface.*\.cu$|REG:.*STACK:)"
 ```
 
 ---
 
-## 8. References
+## 9. References
 
 - `doc/conditional_jacobian_transport_report.md` - Benchmark results and implementation details
 - `doc/conditional_jacobian_transport_plan.md` - Implementation plan
 - `doc/conditional_jacobian_transport_profile_plan.md` - Profiling plan
 - [Nsight Systems User Guide](https://docs.nvidia.com/nsight-systems/)
+- [Nsight Compute User Guide](https://docs.nvidia.com/nsight-compute/)
+- [cuobjdump Documentation](https://docs.nvidia.com/cuda/cuda-binary-utilities/)
