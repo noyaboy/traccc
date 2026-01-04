@@ -1,4 +1,4 @@
-# Conditional Jacobian Transport Profiling Report
+# Conditional Jacobian Aggregation Profiling Report
 
 **Date:** 2026-01-04
 **Test Environment:** Tesla V100-SXM2-32GB (compute capability 7.0)

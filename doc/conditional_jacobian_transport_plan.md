@@ -1,14 +1,33 @@
-# Conditional Jacobian Transport Implementation Plan
+# Conditional Jacobian Aggregation Implementation Plan
 
 **Date:** 2026-01-02
-**Status:** Planning
+**Status:** ~~Planning~~ **IMPLEMENTED & PROFILED**
 **Related:** GitHub #851, `register_pressure_survey.md` §4.9
+
+---
+
+> ## ⚠️ Post-Implementation Profiling Results
+>
+> **This plan's theoretical claims about register pressure reduction were NOT validated by profiling.**
+>
+> | Original Claim | Profiling Result |
+> |----------------|------------------|
+> | Save ~64 registers | **0 registers saved** (128 in all variants) |
+> | Improve occupancy 16-25% → 25-50% | **No occupancy change** |
+> | Skip Jacobian computation | **Jacobian still computed, only aggregation skipped** |
+> | +5-15% throughput | **+18.3% validated** (apples-to-apples) |
+>
+> **Actual mechanism:** The benefit comes from skipping **Jacobian aggregation** (6x6 matrix multiplications + memory I/O), not from register pressure reduction. Both `bound_updater` and `parameter_transporter` compute the full Jacobian identically.
+>
+> See `doc/conditional_jacobian_transport_profile_report.md` for detailed analysis.
 
 ---
 
 ## Executive Summary
 
-When `finding_config.run_mbf_smoother == false`, skip the `parameter_transporter` actor (s1) to save ~64 registers (8×8 Jacobian matrix). This improves GPU occupancy from 16-25% to 25-50%.
+When `finding_config.run_mbf_smoother == false`, use `bound_updater` actor instead of `parameter_transporter` to skip Jacobian aggregation. ~~This saves ~64 registers (8×8 Jacobian matrix) and improves GPU occupancy from 16-25% to 25-50%.~~
+
+**Actual benefit:** Skipping 6x6 matrix multiplications and global memory accesses at each surface provides **+18.3% throughput improvement**.
 
 **Feasibility:** HIGHLY FEASIBLE - infrastructure already exists
 **Effort:** 11-13 engineering hours
@@ -391,16 +410,33 @@ struct propagate_to_next_surface_payload {
 
 ## 9. Success Criteria
 
-1. **Register reduction:** MBF-disabled kernel uses <120 registers (currently 150-180)
-2. **Occupancy improvement:** V100 occupancy >40% (currently 16-25%)
+### Original Criteria (Theoretical)
+
+1. ~~**Register reduction:** MBF-disabled kernel uses <120 registers (currently 150-180)~~
+2. ~~**Occupancy improvement:** V100 occupancy >40% (currently 16-25%)~~
 3. **Physics correctness:** Track reconstruction identical to baseline
 4. **No regression:** MBF-enabled path unchanged
 5. **Build success:** All 18 kernel specializations compile
+
+### Actual Results (Post-Profiling)
+
+| Criterion | Expected | Actual | Status |
+|-----------|----------|--------|--------|
+| Register reduction | <120 registers | 128 registers | ❌ **NOT MET** |
+| Occupancy improvement | >40% | No change | ❌ **NOT MET** |
+| Physics correctness | Identical | Identical | ✅ **MET** |
+| No regression | MBF path unchanged | Unchanged | ✅ **MET** |
+| Build success | 18 specializations | 18 compile | ✅ **MET** |
+| Throughput improvement | +5-15% | **+18.3%** | ✅ **EXCEEDED** |
+
+**Conclusion:** The optimization achieved better throughput than expected (+18.3% vs +5-15%), but through a different mechanism than planned (skipped aggregation vs register reduction).
 
 ---
 
 ## 10. References
 
+- `doc/conditional_jacobian_transport_profile_report.md` - **Profiling results showing actual mechanism**
+- `doc/conditional_jacobian_transport_report.md` - Benchmark results
 - `doc/register_pressure_survey.md` §4.9 - Algorithmic refactoring analysis
 - `doc/register_pressure_survey.md` §6.3 - Recommendation for conditional Jacobian
 - GitHub Issue #851 - Original register pressure report

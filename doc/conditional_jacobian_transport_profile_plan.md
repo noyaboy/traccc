@@ -1,14 +1,23 @@
-# Conditional Jacobian Transport Profiling Plan
+# Conditional Jacobian Aggregation Profiling Plan
 
 **Date:** 2026-01-04
+**Status:** ~~Planning~~ **COMPLETED** - See `conditional_jacobian_transport_profile_report.md`
 **Purpose:** Validate optimization claims with nsys and ncu profiling
 **Related:** `doc/conditional_jacobian_transport_report.md`
 
 ---
 
+> ## ✅ Profiling Complete
+>
+> This profiling plan has been executed. Results are documented in `doc/conditional_jacobian_transport_profile_report.md`.
+>
+> **Key Finding:** The theoretical claims about register pressure reduction were **NOT validated**. The actual optimization mechanism is **skipped Jacobian aggregation** (6x6 matrix multiplications), providing +18.3% throughput improvement.
+
+---
+
 ## 1. Overview
 
-The conditional Jacobian transport optimization achieved **+11.67% throughput improvement** in benchmarks. This profiling plan aims to validate the theoretical claims about register pressure reduction and occupancy improvement.
+The conditional Jacobian aggregation optimization achieved **+11.67% throughput improvement** in benchmarks (+18.3% in apples-to-apples comparison). This profiling plan aims to validate the theoretical claims about register pressure reduction and occupancy improvement.
 
 ### Current Benchmark Results
 
@@ -19,11 +28,11 @@ The conditional Jacobian transport optimization achieved **+11.67% throughput im
 
 ### Theoretical Claims to Validate
 
-| Metric | Expected Baseline | Expected Optimization | Expected Change |
-|--------|-------------------|----------------------|-----------------|
-| Registers/thread | ~150-180 | ~86-116 | -64 registers |
-| V100 Occupancy | 16-25% | 25-50% | +10-25% |
-| Jacobian storage | 64 registers (8x8 floats) | 0 registers | -64 registers |
+| Metric | Expected Baseline | Expected Optimization | Expected Change | **Actual Result** |
+|--------|-------------------|----------------------|-----------------|-------------------|
+| Registers/thread | ~150-180 | ~86-116 | -64 registers | **128 → 128 (0 saved)** |
+| V100 Occupancy | 16-25% | 25-50% | +10-25% | **No change** |
+| Jacobian storage | 64 registers (8x8 floats) | 0 registers | -64 registers | **Still computed** |
 
 ---
 
