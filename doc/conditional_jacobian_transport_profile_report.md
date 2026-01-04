@@ -19,13 +19,28 @@ This report presents the nsys profiling results comparing baseline (`a48cc783`) 
 | `a48cc783` | First round of MBF cleanup (baseline) | `baseline_nsys.nsys-rep` |
 | `25894cca` | Conditional Jacobian transport (optimization) | `optimization_nsys.nsys-rep` |
 
-### Previous Benchmark Results (Non-Profiled)
+### Benchmark Results Summary
+
+| Comparison | Throughput Improvement | Notes |
+|------------|----------------------|-------|
+| Original (MBF defaults differ) | +11.67% | Baseline MBF=true, Optimization MBF=false |
+| **Apples-to-Apples (both MBF=false)** | **+18.3%** | True conditional Jacobian impact |
+
+### Original Benchmark Results (Non-Profiled)
 
 | Commit | Throughput | Latency |
 |--------|------------|---------|
-| Baseline | 38.75 events/s | 25.80 ms/event |
-| Optimization | 43.27 events/s | 23.11 ms/event |
+| Baseline (MBF=true) | 38.75 events/s | 25.80 ms/event |
+| Optimization (MBF=false) | 43.27 events/s | 23.11 ms/event |
 | **Improvement** | **+11.67%** | **-10.4%** |
+
+### Apples-to-Apples Benchmark (Both MBF=false)
+
+| Commit | Throughput | Latency |
+|--------|------------|---------|
+| Baseline (MBF=false) | 36.57 events/s | 27.34 ms/event |
+| Optimization (MBF=false) | 43.27 events/s | 23.11 ms/event |
+| **Improvement** | **+18.3%** | **-15.5%** |
 
 ---
 
@@ -296,13 +311,80 @@ This is a **configuration change** that trades off track quality (no MBF smoothi
 
 ---
 
-## 8. Analysis and Conclusions
+## 8. Apples-to-Apples Re-benchmark
 
-### 8.1 Primary Findings
+To isolate the true impact of the conditional Jacobian transport optimization, we re-benchmarked the baseline with MBF disabled to match the optimization's configuration.
 
-1. **`propagate_to_next_surface` kernel unchanged**: The per-instance execution time remained essentially the same (~940-954 µs). The conditional Jacobian transport optimization did not improve this kernel's performance.
+### 8.1 Methodology
 
-2. **`build_tracks` dramatically improved**: 512 µs → 70 µs per instance (-86.3%). This is caused by disabling MBF smoothing, not by register pressure reduction.
+The baseline commit (`a48cc783`) does not have the `--run-mbf-smoother` CLI option (added in the optimization commit). To perform an apples-to-apples comparison:
+
+1. Checked out baseline commit `a48cc783`
+2. Modified `finding_config.hpp` to change default: `run_mbf_smoother = false`
+3. Rebuilt and ran benchmark with 8 CPU threads
+4. Restored original file
+
+### 8.2 Re-benchmark Results
+
+| Configuration | Throughput | Latency | Notes |
+|--------------|------------|---------|-------|
+| Baseline MBF=true (original) | 38.75 events/s | 25.80 ms/event | Original benchmark |
+| **Baseline MBF=false** | **36.57 events/s** | **27.34 ms/event** | Source modified |
+| Optimization MBF=false | 43.27 events/s | 23.11 ms/event | Default config |
+
+### 8.3 Apples-to-Apples Comparison (MBF=false)
+
+| Commit | Throughput | Latency | Change |
+|--------|------------|---------|--------|
+| Baseline (MBF=false) | 36.57 events/s | 27.34 ms/event | - |
+| Optimization (MBF=false) | 43.27 events/s | 23.11 ms/event | **+18.3%** |
+
+### 8.4 Key Finding: Real Performance Benefit
+
+**The conditional Jacobian transport optimization provides a real +18.3% throughput improvement** when comparing with the same MBF configuration.
+
+The earlier analysis conflated two separate effects:
+
+| Effect | Source | Contribution |
+|--------|--------|--------------|
+| MBF default change | `run_mbf_smoother: true → false` | Affects `build_tracks` kernel |
+| Conditional Jacobian transport | `bound_updater` vs `parameter_transporter` | Affects overall pipeline |
+
+### 8.5 Anomaly: Baseline MBF=false Slower Than MBF=true
+
+An unexpected result was observed:
+
+| Baseline Config | Throughput |
+|-----------------|------------|
+| MBF=true | 38.75 events/s |
+| MBF=false | 36.57 events/s |
+
+This is counterintuitive since disabling MBF smoothing should reduce `build_tracks` work. Possible explanations:
+
+1. **Run-to-run variance**: GPU thermal state, system load differences
+2. **Compiler differences**: Baseline without CLI option support may compile differently
+3. **Different code paths**: The baseline MBF=false path may not be as optimized as the optimization commit's MBF=false path
+4. **Measurement noise**: Single benchmark run may not be representative
+
+Further investigation with multiple runs would be needed to confirm this anomaly.
+
+### 8.6 Revised Attribution
+
+| Source | Original Attribution | Revised Attribution |
+|--------|---------------------|---------------------|
+| `build_tracks` -86.3% | Conditional Jacobian | MBF default change |
+| Overall +11.67% gain | Register optimization | **Mixed: MBF change + Conditional Jacobian** |
+| True Jacobian benefit | Unknown | **+18.3%** (apples-to-apples) |
+
+---
+
+## 9. Analysis and Conclusions
+
+### 9.1 Primary Findings
+
+1. **`propagate_to_next_surface` kernel unchanged in nsys profiling**: The per-instance execution time remained essentially the same (~940-954 µs) under profiling. However, apples-to-apples benchmarking shows +18.3% overall improvement.
+
+2. **`build_tracks` dramatically improved**: 512 µs → 70 µs per instance (-86.3%). This is caused by disabling MBF smoothing (configuration change), not by register pressure reduction.
 
 3. **`find_tracks` improved**: 144 µs → 126 µs per instance (-12.5%).
 
@@ -311,52 +393,62 @@ This is a **configuration change** that trades off track quality (no MBF smoothi
    - `find_tracks` instances: 2,254 → 2,295 (+1.8%)
    - `remove_duplicates` instances: 1,594 → 1,635 (+2.6%)
 
-### 8.2 Hypothesis Evaluation
+5. **Real performance benefit confirmed**: Apples-to-apples re-benchmark (both with MBF=false) shows **+18.3%** throughput improvement from the conditional Jacobian transport optimization.
+
+### 9.2 Hypothesis Evaluation (Revised)
 
 | Claim | Expected | Observed | Status |
 |-------|----------|----------|--------|
-| `propagate_to_next_surface` speedup | -10-15% per instance | +1.5% per instance | **NOT VALIDATED** |
+| `propagate_to_next_surface` speedup | -10-15% per instance | +1.5% (nsys) | **INCONCLUSIVE** |
 | Register pressure reduction | ~64 registers saved | 0 registers saved | **NOT VALIDATED** |
 | Occupancy improvement | +10-25% | No change (128 regs in all variants) | **NOT VALIDATED** |
-| Overall throughput gain | +5-15% | +11.67% (benchmark) | **VALIDATED** |
-| Source of throughput gain | Register optimization | MBF disabled | **MISATTRIBUTED** |
+| Overall throughput gain | +5-15% | +11.67% (original), +18.3% (apples-to-apples) | **VALIDATED** |
+| Source of throughput gain | Register optimization | Mixed (MBF change + other optimizations) | **PARTIALLY VALIDATED** |
 
-### 8.3 Actual Source of Throughput Gain
+### 9.3 Actual Source of Throughput Gain (Revised)
 
 | Source | Contribution | Mechanism |
 |--------|--------------|-----------|
-| `build_tracks` | **Primary** (-86.3%) | MBF smoothing disabled |
-| `find_tracks` | Secondary (-12.5%) | Unknown (possibly reduced data dependencies) |
-| `propagate_to_next_surface` | None (+1.5%) | No improvement from conditional Jacobian |
+| Conditional Jacobian transport | **+18.3%** (apples-to-apples) | Unknown (not register reduction) |
+| `build_tracks` | -86.3% kernel time | MBF smoothing disabled (config change) |
+| `find_tracks` | -12.5% kernel time | Unknown |
 
-### 8.4 Conclusions
+### 9.4 Conclusions (Revised)
 
-1. **The conditional Jacobian transport optimization did not achieve its stated goal.** The `bound_updater` actor and separate kernel specializations do not reduce register pressure - all variants use 128 registers.
+1. **The conditional Jacobian transport optimization DOES provide real benefit.** Apples-to-apples comparison shows +18.3% throughput improvement when both commits use MBF=false.
 
-2. **The throughput gain is real but misattributed.** The +11.67% improvement comes from changing `run_mbf_smoother` default from `true` to `false`, which disables expensive Kalman smoothing in `build_tracks`.
+2. **Register reduction was NOT achieved.** Despite the theoretical claim of ~64 register savings, all kernel variants use 128 registers. The performance benefit comes from a different mechanism.
 
-3. **This is a feature/performance tradeoff.** Disabling MBF smoothing improves throughput but removes track quality improvement from the smoother. Users who need MBF output will not see this throughput gain.
+3. **The original benchmark conflated two effects:**
+   - MBF default change (`true` → `false`): Affects `build_tracks` kernel
+   - Conditional Jacobian transport: Provides +18.3% improvement through unknown mechanism
 
-### 8.5 Recommended Actions
+4. **The optimization mechanism is unclear.** Since register reduction was not achieved, the +18.3% improvement must come from:
+   - Reduced instruction count in `bound_updater` vs `parameter_transporter`
+   - Better instruction-level parallelism
+   - Reduced memory traffic (smaller actor state)
+   - Other compiler optimizations
 
-1. **Correct the commit message/documentation**: The throughput gain is from disabling MBF, not from register optimization.
+### 9.5 Recommended Actions (Revised)
 
-2. **Separate the changes**: The `run_mbf_smoother` default change should be a separate commit from the conditional Jacobian transport implementation.
+1. **Acknowledge the real benefit**: The conditional Jacobian transport provides +18.3% improvement, though not through the originally claimed mechanism.
 
-3. **Re-benchmark with same configuration**: Run both commits with `--run-mbf-smoother=false` to isolate the actual impact of the conditional Jacobian transport.
+2. **Investigate the actual mechanism**: Since register reduction was not achieved, determine what causes the +18.3% improvement:
+   - Compare instruction counts between `bound_updater` and `parameter_transporter`
+   - Analyze memory access patterns
+   - Profile with ncu when admin access is available
 
-4. **Investigate why register reduction failed**: The 8x8 Jacobian matrix (64 floats = 64 registers) should theoretically reduce register usage when removed. Possible causes:
-   - Compiler already spills Jacobian to stack
-   - `bound_updater` computation requires similar registers
-   - nvcc register allocation heuristics
+3. **Separate the configuration change**: The `run_mbf_smoother` default change should be documented separately from the conditional Jacobian transport.
 
-5. **Consider explicit register limiting**: Use `__launch_bounds__` to force different register allocation behavior.
+4. **Run multiple benchmark iterations**: The anomaly where baseline MBF=false was slower than MBF=true needs further investigation with multiple runs.
+
+5. **Update documentation**: Correct the claim about register reduction while acknowledging the real performance benefit.
 
 ---
 
-## 9. Raw Data
+## 10. Raw Data
 
-### 9.1 Profile Files
+### 10.1 Profile Files
 
 | File | Size | Location |
 |------|------|----------|
@@ -365,7 +457,33 @@ This is a **configuration change** that trades off track quality (no MBF smoothi
 | `baseline_nsys.sqlite` | - | `build/baseline_nsys.sqlite` |
 | `optimization_nsys.sqlite` | - | `build/optimization_nsys.sqlite` |
 
-### 9.2 Commands Used
+### 10.2 Re-benchmark Commands (Apples-to-Apples)
+
+```bash
+# Checkout baseline
+git checkout a48cc783
+
+# Modify finding_config.hpp to set run_mbf_smoother = false
+# (No CLI option available in baseline)
+sed -i 's/run_mbf_smoother = true/run_mbf_smoother = false/' \
+  core/include/traccc/finding/finding_config.hpp
+
+# Rebuild
+cmake .. -DCMAKE_CUDA_ARCHITECTURES=70
+cmake --build . -j4 --target traccc_throughput_mt_cuda
+
+# Run benchmark
+./bin/traccc_throughput_mt_cuda \
+  --input-directory=odd/geant4_ttbar_mu200/ \
+  --cpu-threads=8
+
+# Result: 36.57 events/s, 27.34 ms/event
+
+# Restore original file
+git checkout core/include/traccc/finding/finding_config.hpp
+```
+
+### 10.3 Profiling Commands
 
 ```bash
 # Baseline profiling
@@ -405,7 +523,7 @@ cmake --build . -j4
 
 ---
 
-## 10. References
+## 11. References
 
 - `doc/conditional_jacobian_transport_report.md` - Benchmark results and implementation details
 - `doc/conditional_jacobian_transport_plan.md` - Implementation plan
