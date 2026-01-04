@@ -230,13 +230,79 @@ The theoretical claim of ~64 register savings (8x8 Jacobian matrix) was **NOT ac
 
 ---
 
-## 7. Analysis and Conclusions
+## 7. Root Cause Analysis: `build_tracks` Improvement
 
-### 7.1 Primary Findings
+### 7.1 Discovery: Configuration Change
 
-1. **`propagate_to_next_surface` kernel unchanged**: The per-instance execution time remained essentially the same (~940-954 µs). The optimization did not improve this kernel's performance.
+Investigation revealed the dramatic `build_tracks` improvement (-86.3%) is **NOT** from the conditional Jacobian transport optimization. It is caused by a **change in the default value of `run_mbf_smoother`**:
 
-2. **`build_tracks` dramatically improved**: 512 µs → 70 µs per instance (-86.3%). This is the primary contributor to throughput gains.
+| Commit | `run_mbf_smoother` Default | Source |
+|--------|---------------------------|--------|
+| Baseline (`a48cc783`) | `true` | `finding_config.hpp:47` |
+| Optimization (`25894cca`) | `false` | `finding_config.hpp:47` |
+
+The optimization commit explicitly changed this default:
+```diff
+-    bool run_mbf_smoother = true;
++    bool run_mbf_smoother = false;
+```
+
+### 7.2 How `run_mbf_smoother` Affects `build_tracks`
+
+The `build_tracks` kernel has two code paths controlled by `run_mbf` parameter:
+
+**When `run_mbf = true` (baseline behavior):**
+- Full Multi-Branch Fit (MBF) smoothing runs
+- Expensive matrix operations:
+  - `accumulated_jacobian = accumulated_jacobian * payload.jacobian_ptr[link_idx]`
+  - `S_inv = matrix::inverse(S)` (2x2 matrix inverse)
+  - Kalman gain computation: `K = predicted_covariance * transpose(H) * S_inv`
+  - Smoothed parameter computation with λ matrices
+- Creates track states with smoothed parameters
+- **Result: 512 µs per instance**
+
+**When `run_mbf = false` (optimization behavior):**
+- Minimal work - just links measurements to tracks
+- Single assignment: `*it = {edm::track_constituent_link::measurement, L.meas_idx}`
+- No matrix operations at all
+- **Result: 70 µs per instance**
+
+### 7.3 Code Evidence
+
+From `device/common/include/traccc/finding/device/impl/build_tracks.ipp`:
+
+```cpp
+if (run_mbf) {
+    // ~100 lines of Kalman filter math:
+    // - accumulated_jacobian multiplication
+    // - matrix::inverse(S)
+    // - Kalman gain K computation
+    // - smoothed parameter computation
+    *it = {edm::track_constituent_link::track_state, track_state_index};
+} else {
+    // Single line - no math:
+    *it = {edm::track_constituent_link::measurement, L.meas_idx};
+}
+```
+
+### 7.4 Implications
+
+The throughput improvement is **not** from the conditional Jacobian transport in `propagate_to_next_surface`. The claimed register reduction (-64 registers) was never achieved. The actual improvement comes from:
+
+1. **Disabling MBF smoothing** → `build_tracks` -86.3%
+2. **Secondary effects** → `find_tracks` -12.5%
+
+This is a **configuration change** that trades off track quality (no MBF smoothing) for throughput.
+
+---
+
+## 8. Analysis and Conclusions
+
+### 8.1 Primary Findings
+
+1. **`propagate_to_next_surface` kernel unchanged**: The per-instance execution time remained essentially the same (~940-954 µs). The conditional Jacobian transport optimization did not improve this kernel's performance.
+
+2. **`build_tracks` dramatically improved**: 512 µs → 70 µs per instance (-86.3%). This is caused by disabling MBF smoothing, not by register pressure reduction.
 
 3. **`find_tracks` improved**: 144 µs → 126 µs per instance (-12.5%).
 
@@ -245,7 +311,7 @@ The theoretical claim of ~64 register savings (8x8 Jacobian matrix) was **NOT ac
    - `find_tracks` instances: 2,254 → 2,295 (+1.8%)
    - `remove_duplicates` instances: 1,594 → 1,635 (+2.6%)
 
-### 7.2 Hypothesis Evaluation
+### 8.2 Hypothesis Evaluation
 
 | Claim | Expected | Observed | Status |
 |-------|----------|----------|--------|
@@ -253,35 +319,44 @@ The theoretical claim of ~64 register savings (8x8 Jacobian matrix) was **NOT ac
 | Register pressure reduction | ~64 registers saved | 0 registers saved | **NOT VALIDATED** |
 | Occupancy improvement | +10-25% | No change (128 regs in all variants) | **NOT VALIDATED** |
 | Overall throughput gain | +5-15% | +11.67% (benchmark) | **VALIDATED** |
+| Source of throughput gain | Register optimization | MBF disabled | **MISATTRIBUTED** |
 
-### 7.3 Possible Explanations
+### 8.3 Actual Source of Throughput Gain
 
-1. **Throughput gain from different source**: The +11.67% throughput improvement appears to come from `build_tracks` (-86.3%) and `find_tracks` (-12.5%), not from `propagate_to_next_surface`.
+| Source | Contribution | Mechanism |
+|--------|--------------|-----------|
+| `build_tracks` | **Primary** (-86.3%) | MBF smoothing disabled |
+| `find_tracks` | Secondary (-12.5%) | Unknown (possibly reduced data dependencies) |
+| `propagate_to_next_surface` | None (+1.5%) | No improvement from conditional Jacobian |
 
-2. **Kernel is memory-bound**: The `propagate_to_next_surface` kernel may be memory-bound rather than compute-bound, meaning register pressure reduction has limited impact.
+### 8.4 Conclusions
 
-3. **Register savings not achieved**: cuobjdump analysis confirms 0 register reduction - all variants use 128 registers.
+1. **The conditional Jacobian transport optimization did not achieve its stated goal.** The `bound_updater` actor and separate kernel specializations do not reduce register pressure - all variants use 128 registers.
 
-4. **Profiling overhead**: nsys profiling adds overhead that may obscure small performance differences.
+2. **The throughput gain is real but misattributed.** The +11.67% improvement comes from changing `run_mbf_smoother` default from `true` to `false`, which disables expensive Kalman smoothing in `build_tracks`.
 
-### 7.4 Recommended Next Steps
+3. **This is a feature/performance tradeoff.** Disabling MBF smoothing improves throughput but removes track quality improvement from the smoother. Users who need MBF output will not see this throughput gain.
 
-1. **Investigate `build_tracks` improvement**: Understand why this kernel improved so dramatically (-86.3%). This appears to be the actual source of the throughput gain.
+### 8.5 Recommended Actions
 
-2. **Re-evaluate the optimization approach**: Since register reduction was not achieved, consider:
-   - Whether the `bound_updater` actor is functionally equivalent but not optimized differently by the compiler
-   - Whether explicit `__launch_bounds__` or register limiting could force different behavior
-   - Whether the Jacobian matrix is already spilled to stack in the baseline
+1. **Correct the commit message/documentation**: The throughput gain is from disabling MBF, not from register optimization.
 
-3. **Profile with larger dataset**: Use more events to reduce variance and profiling overhead impact.
+2. **Separate the changes**: The `run_mbf_smoother` default change should be a separate commit from the conditional Jacobian transport implementation.
 
-4. **Verify with different GPU architectures**: Test on newer GPUs (A100, H100) where register pressure characteristics may differ.
+3. **Re-benchmark with same configuration**: Run both commits with `--run-mbf-smoother=false` to isolate the actual impact of the conditional Jacobian transport.
+
+4. **Investigate why register reduction failed**: The 8x8 Jacobian matrix (64 floats = 64 registers) should theoretically reduce register usage when removed. Possible causes:
+   - Compiler already spills Jacobian to stack
+   - `bound_updater` computation requires similar registers
+   - nvcc register allocation heuristics
+
+5. **Consider explicit register limiting**: Use `__launch_bounds__` to force different register allocation behavior.
 
 ---
 
-## 8. Raw Data
+## 9. Raw Data
 
-### 8.1 Profile Files
+### 9.1 Profile Files
 
 | File | Size | Location |
 |------|------|----------|
@@ -290,7 +365,7 @@ The theoretical claim of ~64 register savings (8x8 Jacobian matrix) was **NOT ac
 | `baseline_nsys.sqlite` | - | `build/baseline_nsys.sqlite` |
 | `optimization_nsys.sqlite` | - | `build/optimization_nsys.sqlite` |
 
-### 8.2 Commands Used
+### 9.2 Commands Used
 
 ```bash
 # Baseline profiling
@@ -330,11 +405,13 @@ cmake --build . -j4
 
 ---
 
-## 9. References
+## 10. References
 
 - `doc/conditional_jacobian_transport_report.md` - Benchmark results and implementation details
 - `doc/conditional_jacobian_transport_plan.md` - Implementation plan
 - `doc/conditional_jacobian_transport_profile_plan.md` - Profiling plan
+- `device/common/include/traccc/finding/device/impl/build_tracks.ipp` - `build_tracks` kernel implementation
+- `core/include/traccc/finding/finding_config.hpp` - `run_mbf_smoother` configuration
 - [Nsight Systems User Guide](https://docs.nvidia.com/nsight-systems/)
 - [Nsight Compute User Guide](https://docs.nvidia.com/nsight-compute/)
 - [cuobjdump Documentation](https://docs.nvidia.com/cuda/cuda-binary-utilities/)
