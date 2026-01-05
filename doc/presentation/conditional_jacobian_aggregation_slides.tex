@@ -1,0 +1,810 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,calc}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Code listing style
+\lstset{
+    basicstyle=\tiny\ttfamily,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    showstringspaces=false,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+\title{Conditional Jacobian Aggregation}
+\subtitle{Optimizing GPU Track Finding through Algorithmic Refinement}
+\author{Hao-Chun, Liang}
+\institute{GPU Optimization for ACTS/traccc Framework}
+\date{January 2026}
+
+\begin{document}
+
+%--- Title Slide ---%
+\begin{frame}
+\titlepage
+\vspace{-1em}
+\centering{\small Advisor: Prof. Bo-Cheng, Lai}
+\end{frame}
+
+%--- Outline ---%
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
+%==============================================================================%
+\section{Problem Context}
+%==============================================================================%
+
+\begin{frame}{Register Pressure in GPU Track Finding}
+\begin{columns}
+\column{0.5\textwidth}
+\textbf{The Problem}
+\begin{itemize}
+    \item \texttt{propagate\_to\_next\_surface} kernel
+    \item Only \textbf{10-25\% GPU occupancy}
+    \item Root cause: High register usage (128-203 registers/thread)
+    \item V100 needs $\leq$32 registers for 100\% occupancy
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Impact}
+\begin{itemize}
+    \item SM underutilization
+    \item Poor latency hiding
+    \item Reduced throughput
+\end{itemize}
+
+\column{0.5\textwidth}
+\centering
+\textbf{Register Budget Analysis}
+\begin{table}
+    \scriptsize
+    \begin{tabular}{lc}
+        \toprule
+        \textbf{Component} & \textbf{Registers} \\
+        \midrule
+        Bound parameters (6 floats) & 6 \\
+        Covariance (6$\times$6 symmetric) & 21 \\
+        \textbf{Jacobian (6$\times$6)} & \textbf{$\sim$36} \\
+        RK4 derivatives & 12 \\
+        B-field vectors & 9 \\
+        Navigation state & 8-12 \\
+        Actor states & 20-30 \\
+        \midrule
+        \textbf{Total} & \textbf{120-150} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{alertblock}{Key Insight}
+    Jacobian is only needed for MBF smoother!
+\end{alertblock}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Opportunity: Conditional Jacobian}
+\begin{columns}
+\column{0.55\textwidth}
+\textbf{When is Jacobian Needed?}
+\begin{itemize}
+    \item Multi-Branch Fit (MBF) smoother requires accumulated Jacobian
+    \item Used for backward smoothing pass
+    \item When MBF disabled: Jacobian computed but \textbf{never used}
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Current Behavior (parameter\_transporter)}
+\begin{enumerate}
+    \item Compute full 6$\times$6 Jacobian at each surface
+    \item Multiply: $J_{acc} = J_{new} \times J_{acc}$ (6$\times$6 $\times$ 6$\times$6)
+    \item Store accumulated Jacobian to global memory
+    \item \textcolor{red}{Wasted work when MBF=false!}
+\end{enumerate}
+
+\column{0.45\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.75]
+    % Track with surfaces
+    \draw[thick,->] (0,0) -- (5,0) node[right] {Track};
+
+    % Surfaces
+    \foreach \x/\label in {1/S1, 2/S2, 3/S3, 4/S4} {
+        \draw[thick,blue] (\x,-0.5) -- (\x,0.5);
+        \node[below] at (\x,-0.6) {\tiny \label};
+    }
+
+    % Jacobian accumulation
+    \node[draw, fill=orange!20, rounded corners, font=\tiny] at (1.5,1.2) {$J_1$};
+    \node[draw, fill=orange!20, rounded corners, font=\tiny] at (2.5,1.2) {$J_2 \times J_1$};
+    \node[draw, fill=orange!20, rounded corners, font=\tiny] at (3.5,1.2) {$J_3 \times J_2 \times J_1$};
+
+    % Arrow indicating accumulation
+    \draw[->,thick,orange] (1.5,0.8) -- (1.5,0.3);
+    \draw[->,thick,orange] (2.5,0.8) -- (2.5,0.3);
+    \draw[->,thick,orange] (3.5,0.8) -- (3.5,0.3);
+
+    % Label
+    \node[font=\scriptsize] at (2.5,1.8) {Jacobian Accumulation};
+\end{tikzpicture}
+
+\vspace{0.5em}
+\begin{block}{Savings per Surface}
+\begin{itemize}
+    \item $\sim$216 FLOPs (matrix mult)
+    \item $\sim$288 bytes memory I/O
+\end{itemize}
+\end{block}
+\end{columns}
+\end{frame}
+
+%==============================================================================%
+\section{Implementation}
+%==============================================================================%
+
+\begin{frame}{Solution: Two Actor Chains}
+\begin{columns}
+\column{0.55\textwidth}
+\textbf{Original: \texttt{ckf\_actor\_chain\_t}}
+\begin{enumerate}
+    \item \texttt{pathlimit\_aborter}
+    \item \textcolor{red}{\texttt{parameter\_transporter}} $\leftarrow$ Has Jacobian ptr
+    \item \texttt{interaction\_register}
+    \item \texttt{ckf\_interactor}
+    \item \texttt{parameter\_resetter}
+    \item \texttt{momentum\_aborter}
+    \item \texttt{ckf\_aborter}
+\end{enumerate}
+
+\vspace{0.3em}
+\textbf{New: \texttt{ckf\_actor\_chain\_no\_mbf\_t}}
+\begin{enumerate}
+    \item \texttt{pathlimit\_aborter}
+    \item \textcolor{green!60!black}{\texttt{bound\_updater}} $\leftarrow$ \textbf{Empty state!}
+    \item \texttt{interaction\_register}
+    \item \texttt{ckf\_interactor}
+    \item \texttt{parameter\_resetter}
+    \item \texttt{momentum\_aborter}
+    \item \texttt{ckf\_aborter}
+\end{enumerate}
+
+\column{0.45\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.7]
+    % Runtime dispatch
+    \node[draw, rounded corners, fill=blue!20, minimum width=3cm] (config) at (0,3) {\footnotesize \texttt{run\_mbf\_smoother}};
+
+    % Decision diamond
+    \node[draw, diamond, fill=yellow!20, aspect=2] (decision) at (0,1.5) {\footnotesize ?};
+
+    % Two paths
+    \node[draw, rounded corners, fill=red!20, minimum width=2.5cm, font=\tiny] (mbf_on) at (-2,0) {parameter\_transporter};
+    \node[draw, rounded corners, fill=green!20, minimum width=2.5cm, font=\tiny] (mbf_off) at (2,0) {bound\_updater};
+
+    % Arrows
+    \draw[->,thick] (config) -- (decision);
+    \draw[->,thick] (decision) -- node[left,font=\tiny] {true} (mbf_on);
+    \draw[->,thick] (decision) -- node[right,font=\tiny] {false} (mbf_off);
+
+    % Labels
+    \node[font=\tiny,text=red] at (-2,-0.6) {128 registers};
+    \node[font=\tiny,text=green!60!black] at (2,-0.6) {96 registers};
+\end{tikzpicture}
+
+\vspace{0.3em}
+\begin{block}{Compile-Time Dispatch}
+    \texttt{if constexpr} selects actor chain based on propagator type
+\end{block}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Key Code: Actor State Comparison}
+\begin{columns}
+\column{0.5\textwidth}
+\textbf{parameter\_transporter (detray)}
+\begin{lstlisting}[language=C++]
+// State contains Jacobian pointer
+struct state {
+    bound_matrix_t* _full_jacobian_ptr
+        = nullptr;
+};
+
+// In operator():
+if (actor_state._full_jacobian_ptr
+    != nullptr) {
+    // 6x6 x 6x6 matrix multiplication
+    const auto aggregate =
+        full_jacobian *
+        (*(actor_state._full_jacobian_ptr));
+    // Write back to global memory
+    (*(actor_state._full_jacobian_ptr)) =
+        aggregate;
+}
+\end{lstlisting}
+
+\column{0.5\textwidth}
+\textbf{bound\_updater (traccc)}
+\begin{lstlisting}[language=C++]
+// Empty state - no Jacobian pointer!
+struct state {};
+
+// In operator():
+// Compute full_jacobian (same as before)
+const auto full_jacobian =
+    get_full_jacobian(propagation);
+
+// Transport covariance (same as before)
+transport_covariance_to_bound_impl(
+    old_cov, full_jacobian, new_cov);
+
+// NOTE: No Jacobian aggregation!
+// This is the key difference.
+\end{lstlisting}
+\end{columns}
+
+\vspace{0.3em}
+\begin{alertblock}{Key Difference}
+    \texttt{bound\_updater} computes Jacobian for covariance transport but \textbf{skips the 6$\times$6 matrix multiplication and global memory write}.
+\end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Kernel Dispatch Logic}
+\begin{columns}
+\column{0.55\textwidth}
+\textbf{propagate\_to\_next\_surface.ipp}
+\begin{lstlisting}[language=C++]
+// Compile-time check for actor chain type
+if constexpr (
+    details::has_jacobian_transport_v<
+        propagator_t>) {
+    // 7-actor chain with param_transporter
+    // Initialize Jacobian for MBF smoother
+    payload.tmp_jacobian_ptr[param_id] =
+        matrix::identity<bound_matrix_t>();
+    s1._full_jacobian_ptr =
+        &payload.tmp_jacobian_ptr[param_id];
+
+    propagator.propagate(propagation,
+        detray::tie(s0,s1,s2,s3,s4,s5,s6));
+} else {
+    // 7-actor chain with bound_updater
+    // No Jacobian initialization needed
+
+    propagator.propagate(propagation,
+        detray::tie(s0,s1,s2,s3,s4,s5,s6));
+}
+\end{lstlisting}
+
+\column{0.45\textwidth}
+\textbf{Type Trait Detection}
+\begin{lstlisting}[language=C++]
+/// Check if propagator uses Jacobian
+template <typename propagator_t>
+struct has_jacobian_transport
+    : contains_type<
+        parameter_transporter<algebra_t>,
+        typename propagator_t::
+            actor_chain_type::actor_tuple
+    > {};
+
+template <typename propagator_t>
+inline constexpr bool
+    has_jacobian_transport_v =
+    has_jacobian_transport<
+        propagator_t>::value;
+\end{lstlisting}
+
+\vspace{0.3em}
+\textbf{Kernel Specializations}
+\begin{itemize}
+    \item 3 detectors $\times$ 3 B-fields $\times$ 2 MBF
+    \item = \textbf{18 kernel variants}
+\end{itemize}
+\end{columns}
+\end{frame}
+
+%==============================================================================%
+\section{Results}
+%==============================================================================%
+
+\begin{frame}{Benchmark Results}
+\begin{columns}
+\column{0.55\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.8]
+    \begin{axis}[
+        ybar,
+        width=7cm,
+        height=5.5cm,
+        ylabel={Throughput (events/s)},
+        symbolic x coords={Baseline, Optimization},
+        xtick=data,
+        ymin=0,
+        ymax=50,
+        bar width=1.5cm,
+        nodes near coords,
+        nodes near coords style={font=\small},
+    ]
+    \addplot[fill=blue!60] coordinates {
+        (Baseline, 36.57)
+        (Optimization, 43.27)
+    };
+    \end{axis}
+\end{tikzpicture}
+
+\vspace{0.3em}
+{\small \textit{Apples-to-apples: Both with MBF=false}}
+
+\column{0.45\textwidth}
+\textbf{Performance Summary}
+\begin{table}
+    \small
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Metric} & \textbf{Value} & \textbf{Change} \\
+        \midrule
+        Throughput & 43.27 ev/s & \textbf{+18.3\%} \\
+        Latency & 23.11 ms & -15.5\% \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\vspace{0.5em}
+\begin{block}{Test Results}
+    \textbf{710/710 CUDA tests passing}
+
+    Physics correctness validated
+\end{block}
+
+\vspace{0.3em}
+\textbf{Configuration}
+\begin{itemize}
+    \item Dataset: \texttt{ttbar\_mu200}
+    \item Baseline: \texttt{a48cc783}
+    \item Optimization: \texttt{25894cca}
+    \item V100-SXM2-32GB, 8 CPU threads
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Methodology: Isolating the True Improvement}
+\begin{columns}
+\column{0.5\textwidth}
+\textbf{Initial Result: +11.67\%}
+\begin{itemize}
+    \item First benchmark showed 38.75 $\rightarrow$ 43.27 ev/s
+    \item But \texttt{build\_tracks} improved by \textbf{-86.3\%}!
+    \item Something else was happening...
+\end{itemize}
+
+\vspace{0.3em}
+\textbf{Discovery: Configuration Change}
+\begin{itemize}
+    \item Baseline: \texttt{run\_mbf\_smoother = true}
+    \item Optimization: \texttt{run\_mbf\_smoother = false}
+    \item This was a \textbf{default value change}, not just the actor swap
+\end{itemize}
+
+\column{0.5\textwidth}
+\textbf{Confounded Effects}
+\begin{table}
+    \scriptsize
+    \begin{tabular}{lc}
+        \toprule
+        \textbf{Change} & \textbf{Impact} \\
+        \midrule
+        MBF default \texttt{true}$\rightarrow$\texttt{false} & -86\% build\_tracks \\
+        Jacobian aggregation skip & +18.3\% throughput \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\vspace{0.3em}
+\textbf{Apples-to-Apples Re-benchmark}
+\begin{itemize}
+    \item Both commits with MBF=false
+    \item Baseline: 36.57 ev/s (not 38.75)
+    \item True improvement: \textbf{+18.3\%}
+\end{itemize}
+
+\begin{alertblock}{Lesson}
+    Always control for configuration changes!
+\end{alertblock}
+\end{columns}
+\end{frame}
+
+\begin{frame}{NCU Profiling: Register Reduction Confirmed}
+{\small \textit{RTX 2080 Ti (sm\_75), ncu 2024.1.1, single event, 1 CPU thread}}
+\vspace{0.2em}
+\begin{columns}
+\column{0.5\textwidth}
+\textbf{Register \& Occupancy Analysis}
+\begin{table}
+    \scriptsize
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Metric} & \textbf{Base} & \textbf{Opt} & \textbf{$\Delta$} \\
+        \midrule
+        Registers/thread & 128 & 96 & \textbf{-25\%} \\
+        Block limit (regs) & 4 & 5 & +1 \\
+        Theor. occupancy & 50\% & 62.5\% & +12.5\% \\
+        Achieved occupancy & 39.3\% & 48.6\% & \textbf{+9.3\%} \\
+        Active warps/SM & 12.6 & 15.6 & +3.0 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\vspace{0.3em}
+\begin{alertblock}{Key Finding}
+    \textbf{32 registers saved} (128 $\rightarrow$ 96)
+
+    Enables 1 additional block per SM
+\end{alertblock}
+
+\column{0.5\textwidth}
+\textbf{Compute \& Memory Analysis}
+\begin{table}
+    \scriptsize
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Metric} & \textbf{Base} & \textbf{Opt} & \textbf{$\Delta$} \\
+        \midrule
+        Duration (ms) & 3.99 & 3.61 & \textbf{-9.5\%} \\
+        Instructions & 82.3M & 78.5M & \textbf{-4.6\%} \\
+        Mem throughput & 218 GB/s & 245 GB/s & +12.1\% \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\vspace{0.3em}
+\textbf{Dual Optimization Mechanism}
+\begin{enumerate}
+    \item \textbf{Register reduction} $\rightarrow$ Higher occupancy
+    \item \textbf{Fewer instructions} $\rightarrow$ Less work
+\end{enumerate}
+
+\vspace{0.3em}
+{\small Both contribute to 9.5\% kernel speedup}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Architecture-Dependent Behavior}
+\begin{columns}
+\column{0.5\textwidth}
+\textbf{Profiling Tools Comparison}
+\begin{table}
+    \scriptsize
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Tool} & \textbf{GPU} & \textbf{Base} & \textbf{Opt} \\
+        \midrule
+        cuobjdump & sm\_70 (V100) & 128 & 128 \\
+        ncu & sm\_75 (2080 Ti) & 128 & \textbf{96} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\vspace{0.3em}
+\textbf{Why the Difference?}
+\begin{itemize}
+    \item Different GPU architectures compile differently
+    \item Compiler makes different register allocation decisions
+    \item sm\_75 has additional instructions
+\end{itemize}
+
+\column{0.5\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.7]
+    \begin{axis}[
+        ybar,
+        width=6cm,
+        height=5cm,
+        ylabel={Registers},
+        symbolic x coords={sm\_70, sm\_75},
+        xtick=data,
+        ymin=0,
+        ymax=140,
+        bar width=0.8cm,
+        legend pos=north east,
+        legend style={font=\tiny},
+    ]
+    \addplot[fill=blue!60] coordinates {
+        (sm\_70, 128)
+        (sm\_75, 128)
+    };
+    \addplot[fill=green!60] coordinates {
+        (sm\_70, 128)
+        (sm\_75, 96)
+    };
+    \legend{Baseline, Optimization}
+    \end{axis}
+\end{tikzpicture}
+
+\vspace{0.3em}
+\begin{block}{Implication}
+    \textbf{Always profile on target hardware!}
+
+    Register benefits are architecture-dependent
+\end{block}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Optimization Mechanism Summary}
+\begin{center}
+\begin{tikzpicture}[scale=0.85]
+    % Title
+    \node[font=\large\bfseries] at (0,4) {Two Complementary Mechanisms};
+
+    % Mechanism 1
+    \node[draw, rounded corners, fill=blue!20, minimum width=4cm, minimum height=2cm] (mech1) at (-3,1.5) {};
+    \node[font=\small\bfseries] at (-3,2.3) {Register Reduction};
+    \node[font=\tiny, align=center] at (-3,1.5) {128 $\rightarrow$ 96 registers\\(on sm\_75)};
+    \node[font=\tiny, text=blue] at (-3,0.7) {+9.3\% occupancy};
+
+    % Mechanism 2
+    \node[draw, rounded corners, fill=green!20, minimum width=4cm, minimum height=2cm] (mech2) at (3,1.5) {};
+    \node[font=\small\bfseries] at (3,2.3) {Skipped Aggregation};
+    \node[font=\tiny, align=center] at (3,1.5) {No 6$\times$6 matrix mult\\No global memory I/O};
+    \node[font=\tiny, text=green!60!black] at (3,0.7) {-4.6\% instructions};
+
+    % Combined effect
+    \node[draw, rounded corners, fill=orange!30, minimum width=5cm, minimum height=1cm] (result) at (0,-0.5) {};
+    \node[font=\small\bfseries] at (0,-0.5) {+18.3\% Throughput};
+
+    % Arrows
+    \draw[->,thick] (-3,0.3) -- (-1,-0.2);
+    \draw[->,thick] (3,0.3) -- (1,-0.2);
+
+    % Per-track savings
+    \node[draw, dashed, rounded corners, fill=gray!10, font=\tiny, align=center] at (0,-2) {
+        Per track (15 surfaces):\\
+        $\sim$3,240 FLOPs saved\\
+        $\sim$4,320 bytes memory saved
+    };
+\end{tikzpicture}
+\end{center}
+\end{frame}
+
+%==============================================================================%
+\section{Lessons Learned}
+%==============================================================================%
+
+\begin{frame}{Key Takeaways}
+\begin{columns}
+\column{0.5\textwidth}
+\textbf{What We Learned}
+\begin{enumerate}
+    \item \textbf{Profile on target hardware}
+    \begin{itemize}
+        \item cuobjdump (sm\_70): No register reduction
+        \item ncu (sm\_75): 25\% register reduction
+    \end{itemize}
+
+    \vspace{0.3em}
+    \item \textbf{Original claims were partially validated}
+    \begin{itemize}
+        \item Expected: $\sim$36 register savings (6$\times$6 matrix)
+        \item Actual: 32 registers (close! but only on sm\_75)
+    \end{itemize}
+
+    \vspace{0.3em}
+    \item \textbf{Multiple mechanisms contribute}
+    \begin{itemize}
+        \item Register reduction
+        \item Instruction reduction
+        \item Memory traffic reduction
+    \end{itemize}
+\end{enumerate}
+
+\column{0.5\textwidth}
+\textbf{Post-Mortem: Claim vs Reality}
+\begin{table}
+    \tiny
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Claim} & \textbf{Expected} & \textbf{Actual} \\
+        \midrule
+        Register reduction & -36 regs & -32 (sm\_75 only) \\
+        Occupancy gain & +10-25\% & +9.34\% (sm\_75) \\
+        Throughput & +5-15\% & \textbf{+18.3\%} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\vspace{0.5em}
+\begin{alertblock}{Important Caveat}
+    Optimization only works when \textbf{MBF smoother is disabled}.
+
+    Trade-off: No backward smoothing pass.
+\end{alertblock}
+\end{columns}
+\end{frame}
+
+%==============================================================================%
+\section{Conclusion}
+%==============================================================================%
+
+\begin{frame}{Summary}
+\begin{columns}
+\column{0.5\textwidth}
+\textbf{Achievements}
+\begin{itemize}
+    \item \textbf{+18.3\%} throughput improvement
+    \item \textbf{-25\%} register usage (on sm\_75)
+    \item \textbf{+9.3\%} achieved occupancy
+    \item \textbf{710/710} tests passing
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Implementation}
+\begin{itemize}
+    \item New \texttt{bound\_updater} actor
+    \item Two actor chain variants
+    \item 18 kernel specializations
+    \item Compile-time dispatch
+\end{itemize}
+
+\column{0.5\textwidth}
+\textbf{Mechanism}
+\begin{itemize}
+    \item Skip 6$\times$6 matrix multiplication
+    \item Reduce global memory traffic
+    \item Architecture-dependent register savings
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Key Files}
+\begin{itemize}
+    \item \texttt{bound\_updater.hpp}
+    \item \texttt{combinatorial\_kalman\_filter\_types.hpp}
+    \item \texttt{propagate\_to\_next\_surface.ipp}
+\end{itemize}
+\end{columns}
+
+\vspace{0.3em}
+\begin{block}{Conclusion}
+    Conditional Jacobian Aggregation provides \textbf{+18.3\% throughput} through dual mechanism: register reduction (architecture-dependent) and skipped matrix operations (universal).
+\end{block}
+\end{frame}
+
+\begin{frame}{Questions?}
+\begin{center}
+\Large Thank you for your attention!
+
+\vspace{2em}
+\normalsize
+\texttt{github.com/acts-project/traccc}
+
+\vspace{1em}
+\small
+Documentation: \texttt{doc/conditional\_jacobian\_transport\_*.md}
+\end{center}
+\end{frame}
+
+%==============================================================================%
+% BACKUP SLIDES
+%==============================================================================%
+\appendix
+\newcounter{finalframe}
+\setcounter{finalframe}{\value{framenumber}}
+
+\begin{frame}{Backup: Anticipated Questions (1/2)}
+\textbf{Q1: Why does Jacobian computation still happen?}
+\begin{itemize}
+    \item \texttt{get\_full\_jacobian()} is needed for covariance transport
+    \item We skip the \textit{aggregation}, not the computation
+    \item Future work: skip computation entirely when not needed
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Q2: Why not runtime dispatch instead of compile-time?}
+\begin{itemize}
+    \item \texttt{if constexpr} allows dead code elimination
+    \item Runtime \texttt{if} would still allocate registers for Jacobian pointer
+    \item Compile-time dispatch enables different kernel specializations
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Q3: What is MBF smoother and when is it needed?}
+\begin{itemize}
+    \item Multi-Branch Fit smoother: backward pass to improve track parameters
+    \item Needed for high-precision physics measurements
+    \item Can be disabled for real-time trigger applications
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Backup: Anticipated Questions (2/2)}
+\textbf{Q4: Why different results on sm\_70 vs sm\_75?}
+\begin{itemize}
+    \item CUDA compiler makes architecture-specific optimizations
+    \item Different instruction sets (sm\_75 has tensor cores)
+    \item Register allocation heuristics vary by architecture
+    \item Always profile on production hardware
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Q5: What about other register-heavy kernels?}
+\begin{itemize}
+    \item \texttt{fit\_forward}: 168 registers
+    \item \texttt{fit\_backward}: 168 registers
+    \item Similar conditional optimization could apply
+    \item Future work opportunity
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{Q6: How does this compare to other optimizations?}
+\begin{itemize}
+    \item Multi-event batching: +93\% throughput
+    \item Conditional Jacobian: +18.3\% throughput
+    \item Complementary optimizations, can be combined
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Backup: Detailed NCU Metrics}
+\textbf{Full Profiling Data (RTX 2080 Ti, sm\_75, ncu 2024.1.1)}
+
+\begin{columns}
+\column{0.5\textwidth}
+\begin{table}
+    \tiny
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Metric} & \textbf{Base} & \textbf{Opt} & \textbf{$\Delta$} \\
+        \midrule
+        \multicolumn{4}{l}{\textit{Occupancy}} \\
+        Registers/thread & 128 & 96 & -25\% \\
+        Block limit & 4 & 5 & +25\% \\
+        Theor. occupancy & 50.0\% & 62.5\% & +12.5\% \\
+        Achieved occupancy & 39.28\% & 48.62\% & +9.34\% \\
+        \midrule
+        \multicolumn{4}{l}{\textit{Compute}} \\
+        Duration (ms) & 3.99 & 3.61 & -9.5\% \\
+        Instructions (M) & 82.3 & 78.5 & -4.6\% \\
+        IPC & 0.26 & 0.26 & 0\% \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\column{0.5\textwidth}
+\begin{table}
+    \tiny
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Metric} & \textbf{Base} & \textbf{Opt} & \textbf{$\Delta$} \\
+        \midrule
+        \multicolumn{4}{l}{\textit{Memory}} \\
+        Mem throughput & 218 GB/s & 245 GB/s & +12\% \\
+        DRAM throughput & 33.2\% & 37.7\% & +4.5\% \\
+        L1 hit rate & 54.1\% & 46.3\% & -7.8\% \\
+        L2 hit rate & 79.6\% & 76.6\% & -3.0\% \\
+        \midrule
+        \multicolumn{4}{l}{\textit{Scheduler}} \\
+        No eligible (\%) & 93.24\% & 93.27\% & +0.03\% \\
+        Active warps/sched & 3.23 & 4.03 & +0.80 \\
+        Warp cycles/instr & 47.74 & 59.92 & \textcolor{red}{+25\%} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+\end{columns}
+
+\vspace{0.3em}
+\begin{block}{Bottleneck Analysis}
+    Kernel remains \textbf{latency-bound}: 93\% of cycles have no eligible warps.
+    Note: Warp cycles/instruction \textit{increased} despite speedup---fewer total instructions but each waits longer (more memory parallelism).
+\end{block}
+\end{frame}
+
+\setcounter{framenumber}{\value{finalframe}}
+\end{document}
