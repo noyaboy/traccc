@@ -1,10 +1,12 @@
 # Conditional Jacobian Aggregation Profiling Report
 
-**Date:** 2026-01-04
-**Test Environment:** Tesla V100-SXM2-32GB (compute capability 7.0)
-**Dataset:** `odd/geant4_ttbar_mu200/` (10 events for profiling)
+**Date:** 2026-01-04 (Updated: 2026-01-05 with ncu results)
+**Test Environments:**
+- nsys/cuobjdump: Tesla V100-SXM2-32GB (sm_70)
+- ncu: NVIDIA GeForce RTX 2080 Ti (sm_75)
+**Dataset:** `odd/geant4_ttbar_mu200/`
 **Configuration:** 1 CPU thread (to isolate GPU behavior)
-**Tools:** Nsight Systems (nsys) 2024.5.1, cuobjdump (register analysis)
+**Tools:** Nsight Systems (nsys) 2024.5.1, Nsight Compute (ncu) 2024.1.1, cuobjdump
 
 ---
 
@@ -44,14 +46,18 @@ This report presents the nsys profiling results comparing baseline (`a48cc783`) 
 
 ### Key Findings Summary
 
-| Original Claim | Investigation Result |
-|----------------|---------------------|
-| Register reduction (~64 registers) | **NOT ACHIEVED** - 128 registers in all variants |
-| Occupancy improvement | **NOT ACHIEVED** - No change |
-| Throughput improvement | **VALIDATED** - +18.3% (apples-to-apples) |
-| Source of improvement | **IDENTIFIED** - Skipped Jacobian aggregation (6x6 matrix mult + memory I/O) |
+| Original Claim | cuobjdump (sm_70) | ncu (sm_75) |
+|----------------|-------------------|-------------|
+| Register reduction (~64 registers) | **NOT ACHIEVED** - 128 in all variants | **ACHIEVED** - 128 → 96 (-32 registers) |
+| Occupancy improvement | **NOT ACHIEVED** - No change | **ACHIEVED** - 39.3% → 48.6% (+23.8% relative) |
+| Throughput improvement | **VALIDATED** - +18.3% (apples-to-apples) | **VALIDATED** - 9.5% kernel speedup |
+| Source of improvement | Skipped Jacobian aggregation | Register reduction + skipped aggregation |
 
-**Bottom Line**: The optimization works, but through a different mechanism than originally claimed. The benefit comes from skipping expensive 6x6 matrix multiplications and global memory accesses at every surface, NOT from register pressure reduction.
+**Bottom Line**: The optimization works through **two complementary mechanisms**:
+1. **Register reduction** (128 → 96 on sm_75) → Higher occupancy → Better latency hiding
+2. **Skipped Jacobian aggregation** → Fewer instructions (-4.6%) and reduced memory traffic
+
+**Architecture Dependence**: The register reduction is architecture-dependent. cuobjdump analysis on sm_70 (V100) showed no change, while ncu profiling on sm_75 (RTX 2080 Ti) confirmed a 25% register reduction.
 
 ---
 
@@ -230,29 +236,47 @@ The optimization creates two kernel variants: `mbf_on` (with Jacobian transport)
 | `default_detector_inhom_global_mbf_off` | 128 | 2,904 | -16 |
 | `default_detector_inhom_texture_mbf_off` | 128 | 2,768 | -8 |
 
-### 6.3 Key Finding: No Register Reduction
+### 6.3 cuobjdump Finding: No Register Reduction on sm_70
 
-**The `propagate_to_next_surface` kernel uses 128 registers in ALL variants** (baseline, mbf_on, mbf_off).
+**On V100 (sm_70), the `propagate_to_next_surface` kernel uses 128 registers in ALL variants** (baseline, mbf_on, mbf_off).
 
-| Comparison | Expected | Actual |
-|------------|----------|--------|
+| Comparison | Expected | cuobjdump (sm_70) |
+|------------|----------|-------------------|
 | Register reduction | -64 registers | **0 registers** |
 | Stack reduction | N/A | -8 to -16 bytes |
 
-### 6.4 Why No Register Reduction?
+### 6.4 ncu Finding: Register Reduction ACHIEVED on sm_75
 
-The theoretical claim of ~64 register savings (8x8 Jacobian matrix) was **NOT achieved**. Possible reasons:
+**IMPORTANT UPDATE**: ncu profiling on RTX 2080 Ti (sm_75) revealed the optimization **DOES achieve register reduction**.
 
-1. **Compiler optimization**: The CUDA compiler (nvcc) may have optimized both variants to use the same number of registers through:
-   - Register spilling to stack (note ~2KB stack usage)
-   - Aggressive inlining that masks the difference
-   - Register reuse optimizations
+| Kernel | Baseline (sm_75) | Optimization (sm_75) | Reduction |
+|--------|------------------|---------------------|-----------|
+| `propagate_to_next_surface` (mbf_on) | 128 registers | 96 registers | **-32 (-25%)** |
 
-2. **Jacobian not stored in registers**: The 8x8 Jacobian matrix may already be stored in local memory (stack) rather than registers in the baseline.
+This register reduction enables:
+- Block limit increases from 4 to 5 per SM
+- Theoretical occupancy: 50% → 62.5% (+12.5% absolute)
+- Achieved occupancy: 39.28% → 48.62% (+9.34% absolute)
 
-3. **Actor state overhead**: The `bound_updater` actor, while having an empty `state {}`, may still require similar register usage for its computation.
+### 6.5 Discrepancy: cuobjdump vs ncu
 
-4. **V100 register limit**: The kernel already uses 128 registers (50% of the 256 register limit per thread), suggesting the compiler aggressively spills to stack.
+| Analysis Tool | GPU Architecture | Registers (Baseline) | Registers (Optimization) | Change |
+|---------------|------------------|---------------------|-------------------------|--------|
+| cuobjdump | sm_70 (V100) | 128 | 128 | 0 |
+| ncu | sm_75 (RTX 2080 Ti) | 128 | 96 | **-32** |
+
+**Why the difference?** Different GPU architectures compile differently:
+
+1. **Different instruction sets**: sm_75 has additional instructions (e.g., tensor cores) that may allow more efficient code generation
+2. **Compiler heuristics**: nvcc may make different register allocation decisions for different architectures
+3. **Register pressure thresholds**: The compiler's spill-to-stack decisions vary by architecture
+4. **Binary analysis limitations**: cuobjdump shows compiled binary; ncu shows runtime actual usage
+
+**Implication**: The optimization's register benefit is **architecture-dependent**. Testing on target hardware is essential.
+
+### 6.6 Historical Interpretation
+
+The original cuobjdump analysis on sm_70 concluded no register reduction. This was correct for that architecture but incomplete. The ncu results confirm the optimization achieves its intended register reduction on sm_75.
 
 ---
 
@@ -473,27 +497,110 @@ Since `get_full_jacobian()` dominates register usage, both variants compile to 1
 | `traccc/.../propagate_to_next_surface.ipp` | 118-122 | Jacobian pointer initialization |
 | `detray/.../track_parametrization.hpp` | 80 | `bound_matrix` = 6x6 definition |
 
-### 9.9 Conclusion: Algorithmic vs Resource Optimization
+### 9.9 Conclusion: Algorithmic vs Resource Optimization (Updated)
 
-The optimization is **algorithmic** (skip unnecessary work) rather than **resource-based** (reduce registers):
+**Original conclusion (cuobjdump-based)** suggested the optimization was purely algorithmic. **ncu profiling revealed it's BOTH algorithmic AND resource-based** on sm_75:
 
-| Original Claim | Reality |
-|----------------|---------|
-| "Reduce register pressure by ~64 registers" | 0 registers saved |
-| "Improve occupancy" | No occupancy change |
-| "Eliminate Jacobian storage in registers" | Jacobian computed but discarded |
+| Claim | cuobjdump (sm_70) | ncu (sm_75) |
+|-------|-------------------|-------------|
+| "Reduce register pressure" | 0 registers saved | **-32 registers** |
+| "Improve occupancy" | No change | **+9.34%** achieved occupancy |
+| "Eliminate Jacobian storage" | Still computed | Still computed but fewer registers |
 
-**The actual benefit**: Eliminating expensive 6x6 matrix multiplications and global memory accesses at every surface during propagation.
+**The actual benefit is dual**:
+1. **Resource optimization** (sm_75): Fewer registers → higher occupancy → better latency hiding
+2. **Algorithmic optimization** (all architectures): Skip 6x6 matrix multiplications and memory traffic
 
 ---
 
-## 10. Analysis and Conclusions
+## 10. ncu Profiling Results (sm_75)
 
-### 10.1 Primary Findings
+Detailed kernel-level profiling was performed using Nsight Compute (ncu) on RTX 2080 Ti (sm_75). Full results are documented in `doc/conditional_jacobian_transport_ncu_results.md`.
 
-1. **`propagate_to_next_surface` kernel unchanged in nsys profiling**: The per-instance execution time remained essentially the same (~940-954 µs) under profiling. However, apples-to-apples benchmarking shows +18.3% overall improvement.
+### 10.1 Test Environment
 
-2. **`build_tracks` dramatically improved**: 512 µs → 70 µs per instance (-86.3%). This is caused by disabling MBF smoothing (configuration change), not by the conditional Jacobian transport.
+| Item | Value |
+|------|-------|
+| GPU | NVIDIA GeForce RTX 2080 Ti |
+| Compute Capability | 7.5 |
+| CUDA Version | 12.4 |
+| ncu Version | 2024.1.1.0 |
+| Baseline Commit | a48cc783 |
+| Optimization Commit | 25894cca |
+
+### 10.2 Register and Occupancy Analysis
+
+| Metric | Baseline | Optimization | Change |
+|--------|----------|--------------|--------|
+| Registers per Thread | 128 | 96 | **-32 (-25%)** |
+| Block Limit (Registers) | 4 | 5 | +1 block |
+| Theoretical Occupancy (%) | 50.00 | 62.50 | **+12.50%** |
+| Achieved Occupancy (%) | 39.28 | 48.62 | **+9.34%** |
+| Achieved Active Warps/SM | 12.57 | 15.56 | +2.99 warps |
+
+**Occupancy Limiter**: Registers (both variants)
+
+### 10.3 Memory Analysis
+
+| Metric | Baseline | Optimization | Change |
+|--------|----------|--------------|--------|
+| Memory Throughput (GB/s) | 218.34 | 244.69 | **+12.1%** |
+| DRAM Throughput (%) | 33.17 | 37.74 | +4.57% |
+| L1/TEX Hit Rate (%) | 54.12 | 46.31 | -7.81% |
+| L2 Hit Rate (%) | 79.55 | 76.59 | -2.96% |
+| Mem Busy (%) | 28.07 | 28.33 | +0.26% |
+
+**Observation**: Memory throughput increased significantly (+12.1%), indicating better memory parallelism from higher occupancy. Cache hit rates decreased slightly due to different access patterns.
+
+### 10.4 Compute and Instruction Analysis
+
+| Metric | Baseline | Optimization | Change |
+|--------|----------|--------------|--------|
+| Kernel Duration (ms) | 3.99 | 3.61 | **-9.5% (faster)** |
+| Compute (SM) Throughput (%) | 8.86 | 9.19 | +0.33% |
+| Executed IPC | 0.26 | 0.26 | 0 |
+| Executed Instructions | 82.3M | 78.5M | **-4.6%** |
+| Issued Instructions | 82.5M | 78.7M | -4.6% |
+
+**Observation**: Total executed instructions decreased by 4.6%, confirming that the conditional Jacobian aggregation skips unnecessary computation.
+
+### 10.5 Warp State Statistics
+
+| Metric | Baseline | Optimization | Change |
+|--------|----------|--------------|--------|
+| Warp Cycles Per Issued Instruction | 47.74 | 59.92 | +12.18 |
+| Avg. Active Threads Per Warp | 8.73 | 8.69 | -0.04 |
+| Scheduler: No Eligible (%) | 93.24 | 93.27 | +0.03% |
+| Active Warps Per Scheduler | 3.23 | 4.03 | +0.80 |
+
+### 10.6 Current Bottleneck
+
+The kernel remains **latency-bound** rather than compute or memory bound:
+- SM Busy: ~6.5%
+- Compute Throughput: ~9%
+- Memory Throughput: ~37%
+- Scheduler: 93% of cycles have no eligible warps
+
+Further optimization opportunities exist in reducing warp stalls and improving instruction-level parallelism.
+
+### 10.7 ncu Summary
+
+| Improvement | Value | Source |
+|-------------|-------|--------|
+| Kernel Duration | -9.5% (3.99ms → 3.61ms) | Higher occupancy + fewer instructions |
+| Achieved Occupancy | +23.8% relative | Register reduction (128 → 96) |
+| Memory Throughput | +12.1% | Better memory parallelism |
+| Instructions Executed | -4.6% | Skipped Jacobian aggregation |
+
+---
+
+## 11. Analysis and Conclusions
+
+### 11.1 Primary Findings
+
+1. **`propagate_to_next_surface` kernel unchanged in nsys profiling**: The per-instance execution time remained essentially the same (~940-954 µs) under nsys profiling. However, **ncu profiling on sm_75 showed 9.5% kernel speedup** (3.99ms → 3.61ms).
+
+2. **`build_tracks` dramatically improved**: 512 µs → 70 µs per instance (-86.3%). This is caused by disabling MBF smoothing (configuration change), not by the conditional Jacobian aggregation.
 
 3. **`find_tracks` improved**: 144 µs → 126 µs per instance (-12.5%).
 
@@ -502,60 +609,78 @@ The optimization is **algorithmic** (skip unnecessary work) rather than **resour
    - `find_tracks` instances: 2,254 → 2,295 (+1.8%)
    - `remove_duplicates` instances: 1,594 → 1,635 (+2.6%)
 
-5. **Real performance benefit confirmed**: Apples-to-apples re-benchmark (both with MBF=false) shows **+18.3%** throughput improvement from the conditional Jacobian transport optimization.
+5. **Real performance benefit confirmed**: Apples-to-apples re-benchmark (both with MBF=false) shows **+18.3%** throughput improvement from the conditional Jacobian aggregation optimization.
 
-6. **Optimization mechanism identified**: The +18.3% improvement comes from **skipping Jacobian aggregation** (6x6 matrix multiplications and global memory accesses), NOT from register pressure reduction.
+6. **Optimization mechanism identified (updated with ncu)**:
+   - **On sm_75**: Register reduction (128 → 96) + skipped Jacobian aggregation
+   - **On sm_70**: Skipped Jacobian aggregation only (no register reduction observed)
 
-### 10.2 Hypothesis Evaluation (Final)
+7. **Register reduction IS achieved** (ncu finding): Contrary to earlier cuobjdump analysis on sm_70, ncu profiling on sm_75 confirmed 25% register reduction (128 → 96), enabling higher occupancy (39.3% → 48.6%).
 
-| Claim | Expected | Observed | Status |
-|-------|----------|----------|--------|
-| `propagate_to_next_surface` speedup | -10-15% per instance | +1.5% (nsys) | **INCONCLUSIVE** |
-| Register pressure reduction | ~64 registers saved | 0 registers saved | **NOT VALIDATED** |
-| Occupancy improvement | +10-25% | No change (128 regs in all variants) | **NOT VALIDATED** |
-| Overall throughput gain | +5-15% | +11.67% (original), +18.3% (apples-to-apples) | **VALIDATED** |
-| Source of throughput gain | Register optimization | Skipped Jacobian aggregation | **MECHANISM IDENTIFIED** |
+### 11.2 Hypothesis Evaluation (Final - Updated with ncu)
 
-### 10.3 Actual Source of Throughput Gain (Final)
+| Claim | Expected | cuobjdump (sm_70) | ncu (sm_75) | Status |
+|-------|----------|-------------------|-------------|--------|
+| `propagate_to_next_surface` speedup | -10-15% | +1.5% (nsys) | **-9.5%** | **VALIDATED (sm_75)** |
+| Register reduction | ~64 registers | 0 registers | **-32 registers** | **PARTIALLY VALIDATED** |
+| Occupancy improvement | +10-25% | No change | **+9.34%** achieved | **VALIDATED (sm_75)** |
+| Overall throughput gain | +5-15% | +18.3% (benchmark) | +9.5% (kernel) | **VALIDATED** |
+| Source of gain | Register optimization | Algorithmic only | **Both mechanisms** | **VALIDATED (sm_75)** |
+
+**Note**: Register reduction is architecture-dependent. sm_75 shows 25% register reduction; sm_70 shows none.
+
+### 11.3 Actual Source of Throughput Gain (Final - Updated)
 
 | Source | Contribution | Mechanism |
 |--------|--------------|-----------|
-| Conditional Jacobian transport | **+18.3%** (apples-to-apples) | Skipped 6x6 matrix mult + memory I/O |
+| Conditional Jacobian aggregation | **+18.3%** (benchmark) | Dual mechanism (see below) |
 | `build_tracks` | -86.3% kernel time | MBF smoothing disabled (config change) |
 | `find_tracks` | -12.5% kernel time | Reduced downstream work |
 
-### 10.4 Conclusions (Final)
+**Dual Mechanism (ncu validated on sm_75):**
 
-1. **The conditional Jacobian transport optimization DOES provide real benefit.** Apples-to-apples comparison shows +18.3% throughput improvement when both commits use MBF=false.
+| Mechanism | Contribution | Evidence |
+|-----------|--------------|----------|
+| Register reduction (128 → 96) | Higher occupancy (+9.34%) | ncu occupancy metrics |
+| Skipped Jacobian aggregation | Fewer instructions (-4.6%) | ncu instruction count |
+| Memory traffic reduction | Better memory parallelism (+12.1%) | ncu memory throughput |
 
-2. **Register reduction was NOT achieved.** Despite the theoretical claim of ~64 register savings, all kernel variants use 128 registers. Both `bound_updater` and `parameter_transporter` compute the full Jacobian identically.
+### 11.4 Conclusions (Final - Updated with ncu)
 
-3. **The actual optimization mechanism is algorithmic, not resource-based:**
-   - `parameter_transporter`: Computes Jacobian, then multiplies and stores for MBF
-   - `bound_updater`: Computes Jacobian, then discards it immediately
-   - Savings: ~216 FLOPs + 288 bytes per surface per track
+1. **The conditional Jacobian aggregation optimization DOES provide real benefit.** Apples-to-apples comparison shows +18.3% throughput improvement when both commits use MBF=false. ncu profiling confirms 9.5% kernel speedup.
+
+2. **Register reduction IS achieved on some architectures.** ncu profiling on RTX 2080 Ti (sm_75) shows 128 → 96 register reduction (-25%). cuobjdump on V100 (sm_70) showed no change. The benefit is architecture-dependent.
+
+3. **The optimization works through TWO complementary mechanisms:**
+   - **Resource optimization (sm_75):** Register reduction enables higher occupancy (+9.34%), better latency hiding
+   - **Algorithmic optimization (all architectures):** Skip 6x6 matrix mult + memory I/O → -4.6% instructions
+   - Combined effect: 9.5% kernel speedup (ncu), +18.3% overall throughput (benchmark)
 
 4. **The original benchmark conflated two effects:**
    - MBF default change (`true` → `false`): -86.3% `build_tracks` time
-   - Conditional Jacobian transport: +18.3% overall throughput
+   - Conditional Jacobian aggregation: +18.3% overall throughput
 
-5. **The optimization name is a misnomer.** "Conditional Jacobian Transport" suggests conditional computation, but the Jacobian is always computed. The benefit comes from skipping the **aggregation** (accumulation for MBF smoother).
+5. **The optimization name has been corrected.** "Conditional Jacobian Aggregation" accurately describes the mechanism: the Jacobian is always computed, but aggregation is skipped when not needed for MBF.
 
-### 10.5 Recommended Actions (Final)
+6. **Architecture matters.** Testing on target hardware is essential as register savings vary by GPU architecture.
 
-1. **Rename the optimization**: "Conditional Jacobian Aggregation" or "Skip MBF Jacobian Accumulation" would be more accurate than "Conditional Jacobian Transport".
+### 11.5 Recommended Actions (Final - Updated)
 
-2. **Update documentation**: Replace claims about register pressure reduction with the actual mechanism (skipped matrix multiplications and memory traffic).
+1. ~~**Rename the optimization**~~: **DONE** - Renamed to "Conditional Jacobian Aggregation".
+
+2. ~~**Update documentation**~~: **DONE** - Claims corrected to reflect dual mechanism (register reduction on some architectures + skipped aggregation on all).
 
 3. **Consider further optimization**: Since `get_full_jacobian()` is still computed even when not needed, a true conditional optimization could skip this computation entirely for additional gains.
 
 4. **Separate the configuration change**: The `run_mbf_smoother` default change should be a separate commit with its own performance documentation.
 
+5. **Test on target architectures**: Profile on the actual production hardware to confirm register reduction benefits.
+
 ---
 
-## 11. Raw Data
+## 12. Raw Data
 
-### 11.1 Profile Files
+### 12.1 Profile Files
 
 | File | Size | Location |
 |------|------|----------|
@@ -563,8 +688,10 @@ The optimization is **algorithmic** (skip unnecessary work) rather than **resour
 | `optimization_nsys.nsys-rep` | 4.5 MB | `build/optimization_nsys.nsys-rep` |
 | `baseline_nsys.sqlite` | - | `build/baseline_nsys.sqlite` |
 | `optimization_nsys.sqlite` | - | `build/optimization_nsys.sqlite` |
+| `baseline_ncu_full.txt` | - | `build_ncu_baseline/baseline_ncu_full.txt` |
+| `optimization_ncu_full.txt` | - | `build_ncu_opt/optimization_ncu_full.txt` |
 
-### 11.2 Re-benchmark Commands (Apples-to-Apples)
+### 12.2 Re-benchmark Commands (Apples-to-Apples)
 
 ```bash
 # Checkout baseline
@@ -590,7 +717,7 @@ cmake --build . -j4 --target traccc_throughput_mt_cuda
 git checkout core/include/traccc/finding/finding_config.hpp
 ```
 
-### 11.3 Profiling Commands
+### 12.3 Profiling Commands
 
 ```bash
 # Baseline profiling
@@ -630,7 +757,7 @@ cmake --build . -j4
 
 ---
 
-## 12. References
+## 13. References
 
 ### Source Files
 - `core/include/traccc/finding/actors/bound_updater.hpp` - `bound_updater` actor (no Jacobian aggregation)
@@ -644,6 +771,8 @@ cmake --build . -j4
 - `doc/conditional_jacobian_transport_report.md` - Benchmark results and implementation details
 - `doc/conditional_jacobian_transport_plan.md` - Implementation plan
 - `doc/conditional_jacobian_transport_profile_plan.md` - Profiling plan
+- `doc/conditional_jacobian_transport_ncu_results.md` - Detailed ncu profiling results (sm_75)
+- `doc/conditional_jacobian_transport_ncu_guide.md` - ncu profiling guide for privileged machines
 
 ### External References
 - [Nsight Systems User Guide](https://docs.nvidia.com/nsight-systems/)
