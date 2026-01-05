@@ -5,12 +5,14 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{tikz}
-\usetikzlibrary{shapes,arrows,positioning,calc}
+\usetikzlibrary{shapes,arrows,positioning,calc,shapes.symbols,decorations.pathreplacing}
 \usepackage{pgfplots}
 \pgfplotsset{compat=newest}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage[normalem]{ulem} % For \sout strikethrough
 
 % Code listing style
 \lstset{
@@ -55,11 +57,11 @@
 \begin{itemize}
     \item \texttt{propagate\_to\_next\_surface} kernel
     \item Only \textbf{10-25\% GPU occupancy}
-    \item Root cause: High register usage (128-203 registers/thread)
-    \item V100 needs $\leq$32 registers for 100\% occupancy
+    \item Root cause: High register usage
+    \item V100 needs $\leq$32 regs for 100\% occupancy
 \end{itemize}
 
-\vspace{0.5em}
+\vspace{0.3em}
 \textbf{Impact}
 \begin{itemize}
     \item SM underutilization
@@ -69,28 +71,57 @@
 
 \column{0.5\textwidth}
 \centering
-\textbf{Register Budget Analysis}
-\begin{table}
-    \scriptsize
-    \begin{tabular}{lc}
-        \toprule
-        \textbf{Component} & \textbf{Registers} \\
-        \midrule
-        Bound parameters (6 floats) & 6 \\
-        Covariance (6$\times$6 symmetric) & 21 \\
-        \textbf{Jacobian (6$\times$6)} & \textbf{$\sim$36} \\
-        RK4 derivatives & 12 \\
-        B-field vectors & 9 \\
-        Navigation state & 8-12 \\
-        Actor states & 20-30 \\
-        \midrule
-        \textbf{Total} & \textbf{120-150} \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+\textbf{Register Budget Breakdown}
+\vspace{0.2em}
 
+\begin{tikzpicture}[scale=0.75]
+    % Stacked bar chart
+    \def\barwidth{2.2cm}
+    \def\unit{0.038}  % Scale factor: 150 regs = ~5.7cm height
+
+    % Draw stacked segments (bottom to top)
+    \fill[blue!40] (0,0) rectangle (\barwidth, 6*\unit);
+    \node[font=\tiny, white] at (1.1, 3*\unit) {Params: 6};
+
+    \fill[blue!60] (0,6*\unit) rectangle (\barwidth, 27*\unit);
+    \node[font=\tiny, white] at (1.1, 16.5*\unit) {Covar: 21};
+
+    \fill[orange!80] (0,27*\unit) rectangle (\barwidth, 63*\unit);
+    \node[font=\tiny, white] at (1.1, 45*\unit) {\textbf{Jacobian: 36}};
+
+    \fill[blue!50] (0,63*\unit) rectangle (\barwidth, 75*\unit);
+    \node[font=\tiny, white] at (1.1, 69*\unit) {RK4: 12};
+
+    \fill[blue!30] (0,75*\unit) rectangle (\barwidth, 84*\unit);
+    \node[font=\tiny] at (1.1, 79.5*\unit) {B: 9};
+
+    \fill[blue!45] (0,84*\unit) rectangle (\barwidth, 94*\unit);
+    \node[font=\tiny, white] at (1.1, 89*\unit) {Nav: 10};
+
+    \fill[blue!55] (0,94*\unit) rectangle (\barwidth, 120*\unit);
+    \node[font=\tiny, white] at (1.1, 107*\unit) {Actor: 26};
+
+    % Y-axis labels
+    \draw[thick] (0,0) -- (0, 130*\unit);
+    \foreach \y/\label in {0/0, 32/32, 64/64, 96/96, 128/128} {
+        \draw (-0.1, \y*\unit) -- (0, \y*\unit);
+        \node[left, font=\tiny] at (-0.1, \y*\unit) {\label};
+    }
+
+    % 100% occupancy line
+    \draw[red, thick, dashed] (-0.2, 32*\unit) -- (\barwidth+0.3, 32*\unit);
+    \node[right, font=\tiny, red] at (\barwidth+0.1, 32*\unit) {100\%};
+
+    % Total label
+    \node[above, font=\small\bfseries] at (1.1, 122*\unit) {$\sim$120};
+
+    % Title
+    \node[font=\tiny] at (1.1, -0.4) {Registers/Thread};
+\end{tikzpicture}
+
+\vspace{0.2em}
 \begin{alertblock}{Key Insight}
-    Jacobian is only needed for MBF smoother!
+    \textcolor{orange!80!black}{\textbf{Jacobian}} only needed for MBF smoother!
 \end{alertblock}
 \end{columns}
 \end{frame}
@@ -210,109 +241,142 @@
 \end{columns}
 \end{frame}
 
-\begin{frame}[fragile]{Key Code: Actor State Comparison}
+\begin{frame}{Key Code: Actor State Comparison}
 \begin{columns}
 \column{0.5\textwidth}
-\textbf{parameter\_transporter (detray)}
-\begin{lstlisting}[language=C++]
-// State contains Jacobian pointer
-struct state {
-    bound_matrix_t* _full_jacobian_ptr
-        = nullptr;
-};
-
-// In operator():
-if (actor_state._full_jacobian_ptr
-    != nullptr) {
-    // 6x6 x 6x6 matrix multiplication
-    const auto aggregate =
-        full_jacobian *
-        (*(actor_state._full_jacobian_ptr));
-    // Write back to global memory
-    (*(actor_state._full_jacobian_ptr)) =
-        aggregate;
-}
-\end{lstlisting}
-
-\column{0.5\textwidth}
-\textbf{bound\_updater (traccc)}
-\begin{lstlisting}[language=C++]
-// Empty state - no Jacobian pointer!
-struct state {};
-
-// In operator():
-// Compute full_jacobian (same as before)
-const auto full_jacobian =
-    get_full_jacobian(propagation);
-
-// Transport covariance (same as before)
-transport_covariance_to_bound_impl(
-    old_cov, full_jacobian, new_cov);
-
-// NOTE: No Jacobian aggregation!
-// This is the key difference.
-\end{lstlisting}
-\end{columns}
+\centering
+\textbf{parameter\_transporter}\\{\scriptsize (detray - original)}
 
 \vspace{0.3em}
+\begin{tikzpicture}[scale=0.85,
+    box/.style={draw, rounded corners, minimum width=2.8cm, minimum height=0.7cm, font=\scriptsize},
+    statebox/.style={draw, rounded corners, fill=red!20, minimum width=2.4cm, minimum height=1.2cm, font=\tiny},
+    arrow/.style={->, thick}
+]
+    % Actor box
+    \node[box, fill=red!10] (actor) at (0,2.5) {Actor};
+
+    % State box with Jacobian pointer
+    \node[statebox] (state) at (0,1) {};
+    \node[font=\tiny\bfseries] at (0,1.3) {State};
+    \node[font=\tiny, text=red!70!black] at (0,0.8) {Jacobian* ptr};
+
+    % Workflow
+    \node[box, fill=blue!20] (compute) at (0,-0.5) {Compute $J$};
+    \node[box, fill=blue!20] (transport) at (0,-1.5) {Transport Cov};
+    \node[box, fill=orange!40] (aggregate) at (0,-2.5) {$J_{acc} = J \times J_{acc}$};
+    \node[box, fill=orange!40] (write) at (0,-3.5) {Write to Global};
+
+    % Arrows
+    \draw[arrow] (actor) -- (state);
+    \draw[arrow] (state) -- (compute);
+    \draw[arrow] (compute) -- (transport);
+    \draw[arrow] (transport) -- (aggregate);
+    \draw[arrow] (aggregate) -- (write);
+
+    % Highlight expensive ops
+    \draw[red, thick, dashed] (-1.6,-2.1) rectangle (1.6,-3.9);
+    \node[font=\tiny, red, right] at (1.6,-3) {Cost!};
+\end{tikzpicture}
+
+\column{0.5\textwidth}
+\centering
+\textbf{bound\_updater}\\{\scriptsize (traccc - optimized)}
+
+\vspace{0.3em}
+\begin{tikzpicture}[scale=0.85,
+    box/.style={draw, rounded corners, minimum width=2.8cm, minimum height=0.7cm, font=\scriptsize},
+    statebox/.style={draw, rounded corners, fill=green!20, minimum width=2.4cm, minimum height=1.2cm, font=\tiny},
+    arrow/.style={->, thick}
+]
+    % Actor box
+    \node[box, fill=green!10] (actor) at (0,2.5) {Actor};
+
+    % Empty state box
+    \node[statebox] (state) at (0,1) {};
+    \node[font=\tiny\bfseries] at (0,1.3) {State};
+    \node[font=\tiny, text=green!50!black] at (0,0.8) {\textit{(empty)}};
+
+    % Workflow
+    \node[box, fill=blue!20] (compute) at (0,-0.5) {Compute $J$};
+    \node[box, fill=blue!20] (transport) at (0,-1.5) {Transport Cov};
+    \node[box, fill=gray!20, draw=gray, text=gray] (skip1) at (0,-2.5) {Aggregate};
+    \draw[red, thick] (skip1.west) -- (skip1.east);
+    \node[box, fill=gray!20, draw=gray, text=gray] (skip2) at (0,-3.5) {Write};
+    \draw[red, thick] (skip2.west) -- (skip2.east);
+
+    % Arrows
+    \draw[arrow] (actor) -- (state);
+    \draw[arrow] (state) -- (compute);
+    \draw[arrow] (compute) -- (transport);
+    \draw[arrow, gray, dashed] (transport) -- (skip1);
+    \draw[arrow, gray, dashed] (skip1) -- (skip2);
+
+    % Highlight skipped
+    \draw[green!60!black, thick] (-1.6,-2.1) rectangle (1.6,-3.9);
+    \node[font=\tiny, green!50!black, right] at (1.6,-3) {Skipped!};
+\end{tikzpicture}
+\end{columns}
+
+\vspace{0.2em}
 \begin{alertblock}{Key Difference}
-    \texttt{bound\_updater} computes Jacobian for covariance transport but \textbf{skips the 6$\times$6 matrix multiplication and global memory write}.
+    Empty state $\rightarrow$ \textbf{skip 6$\times$6 matrix mult \& global memory write}
 \end{alertblock}
 \end{frame}
 
-\begin{frame}[fragile]{Kernel Dispatch Logic}
-\begin{columns}
-\column{0.55\textwidth}
-\textbf{propagate\_to\_next\_surface.ipp}
-\begin{lstlisting}[language=C++]
-// Compile-time check for actor chain type
-if constexpr (
-    details::has_jacobian_transport_v<
-        propagator_t>) {
-    // 7-actor chain with param_transporter
-    // Initialize Jacobian for MBF smoother
-    payload.tmp_jacobian_ptr[param_id] =
-        matrix::identity<bound_matrix_t>();
-    s1._full_jacobian_ptr =
-        &payload.tmp_jacobian_ptr[param_id];
+\begin{frame}{Kernel Dispatch Logic}
+\begin{center}
+\begin{tikzpicture}[scale=0.8,
+    decision/.style={diamond, draw, fill=yellow!30, minimum width=1.8cm, minimum height=0.8cm, aspect=2, font=\scriptsize, inner sep=1pt},
+    process/.style={draw, rounded corners, fill=blue!20, minimum width=2.2cm, minimum height=0.5cm, font=\scriptsize},
+    skipbox/.style={draw, rounded corners, fill=gray!20, minimum width=2.2cm, minimum height=0.5cm, font=\scriptsize, text=gray},
+    myarrow/.style={->, thick},
+    tinylabel/.style={font=\tiny}
+]
+    % Start
+    \node[process, fill=purple!20] (start) at (0,2.5) {Propagation Request};
 
-    propagator.propagate(propagation,
-        detray::tie(s0,s1,s2,s3,s4,s5,s6));
-} else {
-    // 7-actor chain with bound_updater
-    // No Jacobian initialization needed
+    % Decision diamond
+    \node[decision] (check) at (0,1.2) {Jacobian?};
 
-    propagator.propagate(propagation,
-        detray::tie(s0,s1,s2,s3,s4,s5,s6));
-}
-\end{lstlisting}
+    % Yes branch (left)
+    \node[process, fill=red!20] (init1) at (-3.2,0) {Init Identity};
+    \node[process, fill=red!20] (init2) at (-3.2,-0.8) {Set Jacobian Ptr};
+    \node[process] (prop1) at (-3.2,-1.6) {Propagate};
 
-\column{0.45\textwidth}
-\textbf{Type Trait Detection}
-\begin{lstlisting}[language=C++]
-/// Check if propagator uses Jacobian
-template <typename propagator_t>
-struct has_jacobian_transport
-    : contains_type<
-        parameter_transporter<algebra_t>,
-        typename propagator_t::
-            actor_chain_type::actor_tuple
-    > {};
+    % No branch (right) - crossed out text
+    \node[skipbox] (skip1) at (3.2,0) {Init Matrix};
+    \draw[red, thick] (skip1.west) -- (skip1.east);
+    \node[skipbox] (skip2) at (3.2,-0.8) {Set Ptr};
+    \draw[red, thick] (skip2.west) -- (skip2.east);
+    \node[process, fill=green!20] (prop2) at (3.2,-1.6) {Propagate};
 
-template <typename propagator_t>
-inline constexpr bool
-    has_jacobian_transport_v =
-    has_jacobian_transport<
-        propagator_t>::value;
-\end{lstlisting}
+    % Arrows
+    \draw[myarrow] (start) -- (check);
+    \draw[myarrow] (check.west) -- ++(-0.5,0) |- (init1.east);
+    \draw[myarrow] (check.east) -- ++(0.5,0) |- (skip1.west);
+    \draw[myarrow] (init1) -- (init2);
+    \draw[myarrow] (init2) -- (prop1);
+    \draw[myarrow, gray, dashed] (skip1) -- (skip2);
+    \draw[myarrow, gray, dashed] (skip2) -- (prop2);
 
-\vspace{0.3em}
-\textbf{Kernel Specializations}
-\begin{itemize}
-    \item 3 detectors $\times$ 3 B-fields $\times$ 2 MBF
-    \item = \textbf{18 kernel variants}
-\end{itemize}
-\end{columns}
+    % Branch labels
+    \node[tinylabel] at (-1.3,1.2) {Yes};
+    \node[tinylabel] at (1.3,1.2) {No};
+
+    % Compile-time badge
+    \node[draw, rounded corners, fill=orange!30, font=\tiny\bfseries] at (0,0) {Compile Time};
+
+    % Labels for branches
+    \node[font=\tiny, text=red!70!black] at (-3.2,-2.2) {128 regs};
+    \node[font=\tiny, text=green!50!black] at (3.2,-2.2) {96 regs};
+
+    % Specializations box
+    \node[draw, rounded corners, fill=blue!10, font=\tiny, align=center] at (0,-3) {
+        \textbf{18 Kernel Variants:} 3 det $\times$ 3 B $\times$ 2 MBF
+    };
+\end{tikzpicture}
+\end{center}
 \end{frame}
 
 %==============================================================================%
@@ -320,225 +384,217 @@ inline constexpr bool
 %==============================================================================%
 
 \begin{frame}{Benchmark Results}
-\begin{columns}
-\column{0.55\textwidth}
-\centering
-\begin{tikzpicture}[scale=0.8]
-    \begin{axis}[
-        ybar,
-        width=7cm,
-        height=5.5cm,
-        ylabel={Throughput (events/s)},
-        symbolic x coords={Baseline, Optimization},
-        xtick=data,
-        ymin=0,
-        ymax=50,
-        bar width=1.5cm,
-        nodes near coords,
-        nodes near coords style={font=\small},
-    ]
-    \addplot[fill=blue!60] coordinates {
-        (Baseline, 36.57)
-        (Optimization, 43.27)
-    };
-    \end{axis}
+\begin{center}
+% Performance Dashboard
+\begin{tikzpicture}[
+    scorecard/.style={draw, rounded corners, minimum width=3.2cm, minimum height=2cm, font=\small},
+    arrow/.style={->, very thick, >=stealth}
+]
+    % Main throughput comparison
+    \node[scorecard, fill=gray!10] (baseline) at (-3,1.5) {};
+    \node[font=\scriptsize, gray] at (-3,2.3) {BASELINE};
+    \node[font=\Large\bfseries] at (-3,1.5) {36.57};
+    \node[font=\scriptsize] at (-3,0.8) {events/s};
+
+    \node[scorecard, fill=green!20] (opt) at (3,1.5) {};
+    \node[font=\scriptsize, green!50!black] at (3,2.3) {OPTIMIZED};
+    \node[font=\Large\bfseries, green!50!black] at (3,1.5) {43.27};
+    \node[font=\scriptsize] at (3,0.8) {events/s};
+
+    % Arrow with improvement badge
+    \draw[arrow, green!60!black] (-1,1.5) -- (1,1.5);
+    \node[draw, rounded corners, fill=green!60, font=\normalsize\bfseries, text=white] at (0,1.5) {+18.3\%};
+
+    % Secondary metrics row
+    \node[scorecard, fill=blue!10, minimum width=2.5cm, minimum height=1.3cm] (latency) at (-3.5,-1) {};
+    \node[font=\tiny, blue!70] at (-3.5,-0.4) {LATENCY};
+    \node[font=\normalsize\bfseries] at (-3.5,-1) {23.11 ms};
+    \node[font=\tiny, blue!70] at (-3.5,-1.5) {$\downarrow$ 15.5\%};
+
+    \node[scorecard, fill=green!10, minimum width=2.5cm, minimum height=1.3cm] (tests) at (0,-1) {};
+    \node[font=\tiny, green!50!black] at (0,-0.4) {TESTS};
+    \node[font=\normalsize\bfseries, green!50!black] at (0,-1) {710/710};
+    \node[font=\tiny, green!50!black] at (0,-1.5) {\checkmark passing};
+
+    \node[scorecard, fill=purple!10, minimum width=2.5cm, minimum height=1.3cm] (config) at (3.5,-1) {};
+    \node[font=\tiny, purple!70] at (3.5,-0.4) {CONFIG};
+    \node[font=\scriptsize] at (3.5,-1) {V100-SXM2};
+    \node[font=\tiny] at (3.5,-1.5) {8 threads};
+
 \end{tikzpicture}
+\end{center}
 
 \vspace{0.3em}
-{\small \textit{Apples-to-apples: Both with MBF=false}}
-
-\column{0.45\textwidth}
-\textbf{Performance Summary}
-\begin{table}
-    \small
-    \begin{tabular}{lcc}
-        \toprule
-        \textbf{Metric} & \textbf{Value} & \textbf{Change} \\
-        \midrule
-        Throughput & 43.27 ev/s & \textbf{+18.3\%} \\
-        Latency & 23.11 ms & -15.5\% \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-\vspace{0.5em}
-\begin{block}{Test Results}
-    \textbf{710/710 CUDA tests passing}
-
-    Physics correctness validated
-\end{block}
-
-\vspace{0.2em}
-{\small\textbf{Configuration}}
-\begin{itemize}\itemsep0pt\parskip0pt
-    \item {\scriptsize Dataset: \texttt{ttbar\_mu200}}
-    \item {\scriptsize Baseline: \texttt{a48cc783}}
-    \item {\scriptsize Optimization: \texttt{25894cca}}
-    \item {\scriptsize V100-SXM2-32GB, 8 CPU threads}
-\end{itemize}
+\begin{columns}
+\column{0.5\textwidth}
+\centering
+{\footnotesize\textit{Apples-to-apples: Both with MBF=false}}
+\column{0.5\textwidth}
+\centering
+{\footnotesize Dataset: \texttt{ttbar\_mu200}}
 \end{columns}
 \end{frame}
 
 \begin{frame}{Methodology: Isolating the True Improvement}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Initial Result: +11.67\%}
-\begin{itemize}
-    \item First benchmark showed 38.75 $\rightarrow$ 43.27 ev/s
-    \item But \texttt{build\_tracks} improved by \textbf{-86.3\%}!
-    \item Something else was happening...
-\end{itemize}
+\begin{center}
+% Waterfall/Step chart showing benchmark isolation
+\begin{tikzpicture}[scale=0.85,
+    stepbox/.style={draw, minimum width=2cm, minimum height=0.8cm, font=\scriptsize},
+    myarrow/.style={->, thick}
+]
+    % Step 1: Initial benchmark
+    \node[stepbox, fill=yellow!30] (init) at (0,2) {Initial: +11.67\%};
+    \node[font=\tiny, below=0.1cm of init] {38.75 $\rightarrow$ 43.27};
 
-\vspace{0.3em}
-\textbf{Discovery: Configuration Change}
-\begin{itemize}
-    \item Baseline: \texttt{run\_mbf\_smoother = true}
-    \item Optimization: \texttt{run\_mbf\_smoother = false}
-    \item This was a \textbf{default value change}, not just the actor swap
-\end{itemize}
+    % Problem indicator
+    \node[draw, cloud, cloud puffs=10, cloud puff arc=120, fill=red!20, font=\tiny, text width=1.8cm, align=center] (problem) at (4,2) {Confounding\\Variable!};
+    \draw[myarrow, red, dashed] (init) -- (problem);
 
-\column{0.5\textwidth}
-\textbf{Confounded Effects}
-\begin{table}
-    \scriptsize
-    \begin{tabular}{lc}
-        \toprule
-        \textbf{Change} & \textbf{Impact} \\
-        \midrule
-        MBF default \texttt{true}$\rightarrow$\texttt{false} & -86\% build\_tracks \\
-        Jacobian aggregation skip & +18.3\% throughput \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+    % Step 2: Identify confound
+    \node[stepbox, fill=red!20] (confound) at (0,0) {MBF Default};
+    \node[font=\tiny, text=red!70!black, below=0.1cm of confound, align=center] {true $\rightarrow$ false\\-86\% build\_tracks};
 
-\vspace{0.3em}
-\textbf{Apples-to-Apples Re-benchmark}
-\begin{itemize}
-    \item Both commits with MBF=false
-    \item Baseline: 36.57 ev/s (not 38.75)
-    \item True improvement: \textbf{+18.3\%}
-\end{itemize}
+    % Step 3: Re-benchmark
+    \node[stepbox, fill=blue!20] (rebase) at (4,0) {Re-baseline};
+    \node[font=\tiny, below=0.1cm of rebase] {Both MBF=false};
 
-\begin{alertblock}{Lesson}
-    Always control for configuration changes!
+    % Step 4: True result
+    \node[stepbox, fill=green!40, minimum width=2.5cm] (true) at (7.5,0) {\textbf{+18.3\%}};
+    \node[font=\tiny, below=0.1cm of true] {36.57 $\rightarrow$ 43.27};
+
+    % Flow arrows
+    \draw[myarrow] (init) -- (confound) node[midway, left, font=\tiny] {Investigate};
+    \draw[myarrow] (confound) -- (rebase) node[midway, above, font=\tiny] {Control};
+    \draw[myarrow] (rebase) -- (true) node[midway, above, font=\tiny] {Isolate};
+
+    % Visual comparison at bottom
+    \node[font=\scriptsize] at (0,-2) {Confounded};
+    \node[font=\scriptsize] at (7.5,-2) {Isolated};
+
+    \fill[yellow!50] (-0.8,-2.7) rectangle (0.8,-1.5);
+    \node[font=\tiny] at (0,-2.4) {+11.67\%};
+
+    \fill[green!50] (6.7,-2.7) rectangle (8.3,-1.5);
+    \node[font=\tiny] at (7.5,-2.4) {\textbf{+18.3\%}};
+
+    % Strikethrough on confounded
+    \draw[red, thick] (-1,-2.7) -- (1,-1.5);
+    \draw[red, thick] (-1,-1.5) -- (1,-2.7);
+
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.2em}
+\begin{alertblock}{Lesson Learned}
+    Always control for configuration changes! The true optimization impact was \textbf{larger} than initially measured.
 \end{alertblock}
-\end{columns}
 \end{frame}
 
-\begin{frame}{NCU Profiling: Register Reduction Confirmed}
-{\small \textit{RTX 2080 Ti (sm\_75), ncu 2024.1.1, single event, 1 CPU thread}}
-\vspace{0.2em}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Register \& Occupancy Analysis}
-\begin{table}
-    \scriptsize
-    \begin{tabular}{lccc}
-        \toprule
-        \textbf{Metric} & \textbf{Base} & \textbf{Opt} & \textbf{$\Delta$} \\
-        \midrule
-        Registers/thread & 128 & 96 & \textbf{-25\%} \\
-        Block limit (regs) & 4 & 5 & +1 \\
-        Theor. occupancy & 50\% & 62.5\% & +12.5\% \\
-        Achieved occupancy & 39.3\% & 48.6\% & \textbf{+9.3\%} \\
-        Active warps/SM & 12.6 & 15.6 & +3.0 \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+\begin{frame}{NCU Profiling: Key Metrics Dashboard}
+{\small \textit{RTX 2080 Ti (sm\_75), ncu 2024.1.1}}
+\begin{center}
+\begin{tikzpicture}[
+    card/.style={draw, rounded corners, minimum width=3cm, minimum height=2.2cm},
+    biglabel/.style={font=\Large\bfseries},
+    smalllabel/.style={font=\tiny},
+    change/.style={font=\small\bfseries}
+]
+    % Top row - 4 key metrics
+    % Registers
+    \node[card, fill=orange!20] (reg) at (-5,1.5) {};
+    \node[smalllabel] at (-5,2.4) {REGISTERS};
+    \node[biglabel] at (-5,1.6) {128 $\rightarrow$ 96};
+    \node[change, text=orange!70!black] at (-5,0.8) {$\downarrow$ 25\%};
 
-\vspace{0.3em}
-\begin{alertblock}{Key Finding}
-    \textbf{32 registers saved} (128 $\rightarrow$ 96)
+    % Occupancy
+    \node[card, fill=blue!20] (occ) at (-1.5,1.5) {};
+    \node[smalllabel] at (-1.5,2.4) {OCCUPANCY};
+    \node[biglabel] at (-1.5,1.6) {48.6\%};
+    \node[change, text=blue!70!black] at (-1.5,0.8) {$\uparrow$ 9.3\%};
 
-    Enables 1 additional block per SM
-\end{alertblock}
+    % Instructions
+    \node[card, fill=green!20] (inst) at (2,1.5) {};
+    \node[smalllabel] at (2,2.4) {INSTRUCTIONS};
+    \node[biglabel] at (2,1.6) {78.5M};
+    \node[change, text=green!50!black] at (2,0.8) {$\downarrow$ 4.6\%};
 
-\column{0.5\textwidth}
-\textbf{Compute \& Memory Analysis}
-\begin{table}
-    \scriptsize
-    \begin{tabular}{lccc}
-        \toprule
-        \textbf{Metric} & \textbf{Base} & \textbf{Opt} & \textbf{$\Delta$} \\
-        \midrule
-        Duration (ms) & 3.99 & 3.61 & \textbf{-9.5\%} \\
-        Instructions & 82.3M & 78.5M & \textbf{-4.6\%} \\
-        Mem throughput & 218 GB/s & 245 GB/s & +12.1\% \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+    % Duration
+    \node[card, fill=purple!20] (dur) at (5.5,1.5) {};
+    \node[smalllabel] at (5.5,2.4) {DURATION};
+    \node[biglabel] at (5.5,1.6) {3.61 ms};
+    \node[change, text=purple!70!black] at (5.5,0.8) {$\downarrow$ 9.5\%};
 
-\vspace{0.3em}
-\textbf{Dual Optimization Mechanism}
-\begin{enumerate}
-    \item \textbf{Register reduction} $\rightarrow$ Higher occupancy
-    \item \textbf{Fewer instructions} $\rightarrow$ Less work
-\end{enumerate}
+    % Mechanism explanation below
+    \node[draw, rounded corners, fill=gray!10, minimum width=11cm, minimum height=1.8cm] at (0.25,-1.2) {};
+    \node[font=\small\bfseries] at (0.25,-0.5) {Dual Optimization Mechanism};
 
-\vspace{0.3em}
-{\small Both contribute to 9.5\% kernel speedup}
-\end{columns}
+    % Left mechanism
+    \node[draw, rounded corners, fill=orange!30, minimum width=4cm, minimum height=0.6cm, font=\scriptsize] at (-2.5,-1.2) {Register Reduction};
+    \node[font=\tiny] at (-2.5,-1.7) {$\rightarrow$ Higher occupancy};
+
+    % Right mechanism
+    \node[draw, rounded corners, fill=green!30, minimum width=4cm, minimum height=0.6cm, font=\scriptsize] at (3,-1.2) {Instruction Reduction};
+    \node[font=\tiny] at (3,-1.7) {$\rightarrow$ Less compute work};
+
+    % Combined result
+    \node[font=\scriptsize, text=purple!70!black] at (0.25,-2.2) {Combined: \textbf{9.5\% kernel speedup}};
+
+\end{tikzpicture}
+\end{center}
 \end{frame}
 
 \begin{frame}{Architecture-Dependent Behavior}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Profiling Tools Comparison}
-\begin{table}
-    \scriptsize
-    \begin{tabular}{lccc}
-        \toprule
-        \textbf{Tool} & \textbf{GPU} & \textbf{Base} & \textbf{Opt} \\
-        \midrule
-        cuobjdump & sm\_70 (V100) & 128 & 128 \\
-        ncu & sm\_75 (2080 Ti) & 128 & \textbf{96} \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+\begin{center}
+\begin{tikzpicture}[
+    panel/.style={draw, rounded corners, minimum width=5.5cm, minimum height=4cm},
+    bar/.style={draw, minimum width=1cm},
+    label/.style={font=\scriptsize}
+]
+    % V100 Panel (left) - faded
+    \node[panel, fill=gray!5] (v100) at (-4,0) {};
+    \node[font=\small\bfseries, gray] at (-4,1.7) {V100 (sm\_70)};
+    \node[font=\tiny, gray] at (-4,1.3) {cuobjdump analysis};
 
-\vspace{0.3em}
-\textbf{Why the Difference?}
-\begin{itemize}
-    \item Different GPU architectures compile differently
-    \item Compiler makes different register allocation decisions
-    \item sm\_75 has additional instructions
-\end{itemize}
+    % V100 bars - same height
+    \fill[blue!40] (-5.2,-1.2) rectangle (-4.6,0.8);
+    \fill[blue!40] (-4.4,-1.2) rectangle (-3.8,0.8);
+    \node[label, gray] at (-4.9,-1.5) {Base};
+    \node[label, gray] at (-4.1,-1.5) {Opt};
+    \node[font=\tiny, gray] at (-4.9,0.5) {128};
+    \node[font=\tiny, gray] at (-4.1,0.5) {128};
 
-\column{0.5\textwidth}
-\centering
-\begin{tikzpicture}[scale=0.7]
-    \begin{axis}[
-        ybar,
-        width=6cm,
-        height=5cm,
-        ylabel={Registers},
-        symbolic x coords={sm\_70, sm\_75},
-        xtick=data,
-        ymin=0,
-        ymax=140,
-        bar width=0.8cm,
-        legend pos=north east,
-        legend style={font=\tiny},
-    ]
-    \addplot[fill=blue!60] coordinates {
-        (sm\_70, 128)
-        (sm\_75, 128)
-    };
-    \addplot[fill=green!60] coordinates {
-        (sm\_70, 128)
-        (sm\_75, 96)
-    };
-    \legend{Baseline, Optimization}
-    \end{axis}
+    % No change indicator
+    \node[draw, rounded corners, fill=gray!30, font=\scriptsize] at (-4,0) {No Change};
+
+    % RTX 2080 Ti Panel (right) - highlighted
+    \node[panel, fill=green!5, thick] (rtx) at (4,0) {};
+    \node[font=\small\bfseries, green!50!black] at (4,1.7) {RTX 2080 Ti (sm\_75)};
+    \node[font=\tiny, green!50!black] at (4,1.3) {ncu profiling};
+
+    % RTX bars - different heights
+    \fill[blue!60] (2.8,-1.2) rectangle (3.4,0.8);
+    \fill[green!60] (3.6,-1.2) rectangle (4.2,0.2);
+    \node[label] at (3.1,-1.5) {Base};
+    \node[label] at (3.9,-1.5) {Opt};
+    \node[font=\tiny] at (3.1,0.5) {128};
+    \node[font=\tiny, green!50!black] at (3.9,-0.1) {96};
+
+    % Bracket showing reduction
+    \draw[thick, green!50!black, decorate, decoration={brace, amplitude=5pt}]
+        (4.4,0.8) -- (4.4,0.2) node[midway, right, font=\scriptsize, xshift=3pt] {-25\%};
+
+    % Arrow between panels
+    \draw[->, very thick, gray] (-0.8,0) -- (0.8,0);
+    \node[font=\tiny, above] at (0,0.2) {Different};
+    \node[font=\tiny, below] at (0,-0.2) {Compiler};
+
 \end{tikzpicture}
+\end{center}
 
-\vspace{0.3em}
-\begin{block}{Implication}
-    \textbf{Always profile on target hardware!}
-
-    Register benefits are architecture-dependent
-\end{block}
-\end{columns}
+\vspace{0.2em}
+\begin{alertblock}{Key Insight}
+    \textbf{Always profile on target hardware!} The same code compiles to different register counts on different architectures.
+\end{alertblock}
 \end{frame}
 
 \begin{frame}{Optimization Mechanism Summary}
@@ -581,55 +637,68 @@ inline constexpr bool
 \section{Lessons Learned}
 %==============================================================================%
 
-\begin{frame}{Key Takeaways}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{What We Learned}
-\begin{enumerate}
-    \item \textbf{Profile on target hardware}
-    \begin{itemize}
-        \item cuobjdump (sm\_70): No register reduction
-        \item ncu (sm\_75): 25\% register reduction
-    \end{itemize}
+\begin{frame}{Key Takeaways: Paper Analysis vs Real Hardware}
+\begin{center}
+\begin{tikzpicture}[
+    panel/.style={draw, rounded corners, minimum width=5cm, minimum height=4.5cm},
+    metric/.style={font=\scriptsize},
+    value/.style={font=\small\bfseries}
+]
+    % Paper Analysis Panel (left)
+    \node[panel, fill=blue!5] (paper) at (-4,0.5) {};
+    \node[font=\normalsize\bfseries, blue!70] at (-4,2.5) {Paper Analysis};
+    \node[font=\tiny] at (-4,2.1) {(Theoretical estimates)};
 
-    \vspace{0.3em}
-    \item \textbf{Original claims were partially validated}
-    \begin{itemize}
-        \item Expected: $\sim$36 register savings (6$\times$6 matrix)
-        \item Actual: 32 registers (close! but only on sm\_75)
-    \end{itemize}
+    % Paper metrics
+    \node[metric, blue!70] at (-5.5,1.2) {Registers:};
+    \node[value] at (-2.8,1.2) {-36};
+    \node[metric, blue!70] at (-5.5,0.4) {Occupancy:};
+    \node[value] at (-2.8,0.4) {+10-25\%};
+    \node[metric, blue!70] at (-5.5,-0.4) {Throughput:};
+    \node[value] at (-2.8,-0.4) {+5-15\%};
 
-    \vspace{0.3em}
-    \item \textbf{Multiple mechanisms contribute}
-    \begin{itemize}
-        \item Register reduction
-        \item Instruction reduction
-        \item Memory traffic reduction
-    \end{itemize}
-\end{enumerate}
+    % Document icon (simple rectangle)
+    \draw[blue!50, thick] (-4.3,-1.6) rectangle (-3.7,-1);
+    \draw[blue!50] (-4.2,-1.15) -- (-3.8,-1.15);
+    \draw[blue!50] (-4.2,-1.3) -- (-3.8,-1.3);
+    \draw[blue!50] (-4.2,-1.45) -- (-3.8,-1.45);
 
-\column{0.5\textwidth}
-\textbf{Post-Mortem: Claim vs Reality}
-\begin{table}
-    \tiny
-    \begin{tabular}{lcc}
-        \toprule
-        \textbf{Claim} & \textbf{Expected} & \textbf{Actual} \\
-        \midrule
-        Register reduction & -36 regs & -32 (sm\_75 only) \\
-        Occupancy gain & +10-25\% & +9.34\% (sm\_75) \\
-        Throughput & +5-15\% & \textbf{+18.3\%} \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+    % Real Hardware Panel (right)
+    \node[panel, fill=green!10, thick] (hw) at (4,0.5) {};
+    \node[font=\normalsize\bfseries, green!50!black] at (4,2.5) {Real Hardware};
+    \node[font=\tiny, green!50!black] at (4,2.1) {(NCU profiling, sm\_75)};
 
-\vspace{0.5em}
+    % Hardware metrics
+    \node[metric, green!50!black] at (2.5,1.2) {Registers:};
+    \node[value, green!50!black] at (5.2,1.2) {-32};
+    \node[metric, green!50!black] at (2.5,0.4) {Occupancy:};
+    \node[value, green!50!black] at (5.2,0.4) {+9.3\%};
+    \node[metric, green!50!black] at (2.5,-0.4) {Throughput:};
+    \node[value, green!50!black] at (5.5,-0.4) {\textbf{+18.3\%}};
+
+    % GPU icon (simple chip)
+    \draw[green!50!black, thick] (3.7,-1.5) rectangle (4.3,-1.1);
+    \foreach \x in {3.8,4,4.2} {
+        \draw[green!50!black] (\x,-1.5) -- (\x,-1.6);
+        \draw[green!50!black] (\x,-1.1) -- (\x,-1);
+    }
+
+    % Arrow between panels
+    \draw[->, very thick, orange] (-1,0.5) -- (1,0.5);
+    \node[font=\tiny, orange, above] at (0,0.7) {Profile!};
+
+    % Checkmarks/X marks
+    \node[text=yellow!70!black] at (-1.8,1.2) {$\approx$};
+    \node[text=yellow!70!black] at (-1.8,0.4) {$\approx$};
+    \node[text=green!50!black] at (-1.8,-0.4) {\checkmark};
+
+\end{tikzpicture}
+\end{center}
+
+\vspace{0.2em}
 \begin{alertblock}{Important Caveat}
-    Optimization only works when \textbf{MBF smoother is disabled}.
-
-    Trade-off: No backward smoothing pass.
+    Optimization only works when \textbf{MBF smoother is disabled}. Trade-off: No backward smoothing.
 \end{alertblock}
-\end{columns}
 \end{frame}
 
 %==============================================================================%
