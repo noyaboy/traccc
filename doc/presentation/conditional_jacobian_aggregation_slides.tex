@@ -27,7 +27,7 @@
 \title{Conditional Jacobian Aggregation}
 \subtitle{Optimizing GPU Track Finding through Algorithmic Refinement}
 \author{Hao-Chun, Liang}
-\institute{GPU Optimization for ACTS/traccc Framework}
+\institute{GPU Optimization for ACTS/traccc}
 \date{January 2026}
 
 \begin{document}
@@ -116,28 +116,28 @@
 
 \column{0.45\textwidth}
 \centering
-\begin{tikzpicture}[scale=0.75]
+\begin{tikzpicture}[scale=0.8]
     % Track with surfaces
-    \draw[thick,->] (0,0) -- (5,0) node[right] {Track};
+    \draw[thick,->] (0,0) -- (6,0) node[right] {Track};
 
     % Surfaces
-    \foreach \x/\label in {1/S1, 2/S2, 3/S3, 4/S4} {
+    \foreach \x/\label in {1/S1, 2.5/S2, 4/S3, 5.5/S4} {
         \draw[thick,blue] (\x,-0.5) -- (\x,0.5);
         \node[below] at (\x,-0.6) {\tiny \label};
     }
 
-    % Jacobian accumulation
-    \node[draw, fill=orange!20, rounded corners, font=\tiny] at (1.5,1.2) {$J_1$};
-    \node[draw, fill=orange!20, rounded corners, font=\tiny] at (2.5,1.2) {$J_2 \times J_1$};
-    \node[draw, fill=orange!20, rounded corners, font=\tiny] at (3.5,1.2) {$J_3 \times J_2 \times J_1$};
+    % Jacobian accumulation - spread out more
+    \node[draw, fill=orange!20, rounded corners, font=\tiny, inner sep=2pt] at (1,1.2) {$J_1$};
+    \node[draw, fill=orange!20, rounded corners, font=\tiny, inner sep=2pt] at (2.5,1.2) {$J_2 \cdot J_1$};
+    \node[draw, fill=orange!20, rounded corners, font=\tiny, inner sep=1pt] at (4.3,1.2) {$J_3 \cdot J_2 \cdot J_1$};
 
     % Arrow indicating accumulation
-    \draw[->,thick,orange] (1.5,0.8) -- (1.5,0.3);
-    \draw[->,thick,orange] (2.5,0.8) -- (2.5,0.3);
-    \draw[->,thick,orange] (3.5,0.8) -- (3.5,0.3);
+    \draw[->,thick,orange] (1,0.85) -- (1,0.3);
+    \draw[->,thick,orange] (2.5,0.85) -- (2.5,0.3);
+    \draw[->,thick,orange] (4,0.85) -- (4,0.3);
 
     % Label
-    \node[font=\scriptsize] at (2.5,1.8) {Jacobian Accumulation};
+    \node[font=\scriptsize] at (3,1.9) {Jacobian Accumulation};
 \end{tikzpicture}
 
 \vspace{0.5em}
@@ -157,27 +157,27 @@
 \begin{frame}{Solution: Two Actor Chains}
 \begin{columns}
 \column{0.55\textwidth}
-\textbf{Original: \texttt{ckf\_actor\_chain\_t}}
-\begin{enumerate}
-    \item \texttt{pathlimit\_aborter}
-    \item \textcolor{red}{\texttt{parameter\_transporter}} $\leftarrow$ Has Jacobian ptr
-    \item \texttt{interaction\_register}
-    \item \texttt{ckf\_interactor}
-    \item \texttt{parameter\_resetter}
-    \item \texttt{momentum\_aborter}
-    \item \texttt{ckf\_aborter}
+{\small\textbf{Original: \texttt{ckf\_actor\_chain\_t}}}
+\begin{enumerate}\itemsep0pt\parskip0pt
+    \item {\scriptsize\texttt{pathlimit\_aborter}}
+    \item {\scriptsize\textcolor{red}{\texttt{parameter\_transporter}} $\leftarrow$ Has Jacobian ptr}
+    \item {\scriptsize\texttt{interaction\_register}}
+    \item {\scriptsize\texttt{ckf\_interactor}}
+    \item {\scriptsize\texttt{parameter\_resetter}}
+    \item {\scriptsize\texttt{momentum\_aborter}}
+    \item {\scriptsize\texttt{ckf\_aborter}}
 \end{enumerate}
 
-\vspace{0.3em}
-\textbf{New: \texttt{ckf\_actor\_chain\_no\_mbf\_t}}
-\begin{enumerate}
-    \item \texttt{pathlimit\_aborter}
-    \item \textcolor{green!60!black}{\texttt{bound\_updater}} $\leftarrow$ \textbf{Empty state!}
-    \item \texttt{interaction\_register}
-    \item \texttt{ckf\_interactor}
-    \item \texttt{parameter\_resetter}
-    \item \texttt{momentum\_aborter}
-    \item \texttt{ckf\_aborter}
+\vspace{0.2em}
+{\small\textbf{New: \texttt{ckf\_actor\_chain\_no\_mbf\_t}}}
+\begin{enumerate}\itemsep0pt\parskip0pt
+    \item {\scriptsize\texttt{pathlimit\_aborter}}
+    \item {\scriptsize\textcolor{green!60!black}{\texttt{bound\_updater}} $\leftarrow$ \textbf{Empty state!}}
+    \item {\scriptsize\texttt{interaction\_register}}
+    \item {\scriptsize\texttt{ckf\_interactor}}
+    \item {\scriptsize\texttt{parameter\_resetter}}
+    \item {\scriptsize\texttt{momentum\_aborter}}
+    \item {\scriptsize\texttt{ckf\_aborter}}
 \end{enumerate}
 
 \column{0.45\textwidth}
@@ -368,13 +368,13 @@ inline constexpr bool
     Physics correctness validated
 \end{block}
 
-\vspace{0.3em}
-\textbf{Configuration}
-\begin{itemize}
-    \item Dataset: \texttt{ttbar\_mu200}
-    \item Baseline: \texttt{a48cc783}
-    \item Optimization: \texttt{25894cca}
-    \item V100-SXM2-32GB, 8 CPU threads
+\vspace{0.2em}
+{\small\textbf{Configuration}}
+\begin{itemize}\itemsep0pt\parskip0pt
+    \item {\scriptsize Dataset: \texttt{ttbar\_mu200}}
+    \item {\scriptsize Baseline: \texttt{a48cc783}}
+    \item {\scriptsize Optimization: \texttt{25894cca}}
+    \item {\scriptsize V100-SXM2-32GB, 8 CPU threads}
 \end{itemize}
 \end{columns}
 \end{frame}
@@ -666,10 +666,10 @@ inline constexpr bool
 
 \vspace{0.5em}
 \textbf{Key Files}
-\begin{itemize}
-    \item \texttt{bound\_updater.hpp}
-    \item \texttt{combinatorial\_kalman\_filter\_types.hpp}
-    \item \texttt{propagate\_to\_next\_surface.ipp}
+\begin{itemize}\itemsep0pt
+    \item {\scriptsize\texttt{bound\_updater.hpp}}
+    \item {\scriptsize\texttt{combinatorial\_kalman\_filter\_types.hpp}}
+    \item {\scriptsize\texttt{propagate\_to\_next\_surface.ipp}}
 \end{itemize}
 \end{columns}
 
