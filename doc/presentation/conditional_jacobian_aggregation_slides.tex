@@ -436,31 +436,32 @@
 \end{frame}
 
 \begin{frame}{Kernel Dispatch Logic}
+\vspace{-0.5em}
 \begin{center}
-\begin{tikzpicture}[scale=0.8,
-    decision/.style={diamond, draw=warning, fill=warningLight, minimum width=1.8cm, minimum height=0.8cm, aspect=2, font=\scriptsize, inner sep=1pt},
-    process/.style={draw=slate200, rounded corners, fill=primaryLight, minimum width=2.2cm, minimum height=0.5cm, font=\scriptsize},
-    skipbox/.style={draw=slate200, rounded corners, fill=slate50, minimum width=2.2cm, minimum height=0.5cm, font=\scriptsize, text=slate500},
+\begin{tikzpicture}[scale=0.95,
+    decision/.style={diamond, draw=warning, fill=warningLight, minimum width=2cm, minimum height=1cm, aspect=2, font=\small, inner sep=1pt},
+    process/.style={draw=slate200, rounded corners, fill=primaryLight, minimum width=2.5cm, minimum height=0.6cm, font=\small},
+    skipbox/.style={draw=slate200, rounded corners, fill=slate50, minimum width=2.5cm, minimum height=0.6cm, font=\small, text=slate500},
     myarrow/.style={->, thick, slate500},
-    tinylabel/.style={font=\tiny, slate700}
+    tinylabel/.style={font=\small, text=slate700}
 ]
     % Start
     \node[process, fill=primary!20, draw=primary!40] (start) at (0,2.5) {Propagation Request};
 
     % Decision diamond
-    \node[decision] (check) at (0,1.2) {Jacobian?};
+    \node[decision] (check) at (0,1) {Jacobian?};
 
     % Yes branch (left)
-    \node[process, fill=dangerLight, draw=danger!40] (init1) at (-3.2,0) {Init Identity};
-    \node[process, fill=dangerLight, draw=danger!40] (init2) at (-3.2,-0.8) {Set Jacobian Ptr};
-    \node[process] (prop1) at (-3.2,-1.6) {Propagate};
+    \node[process, fill=dangerLight, draw=danger!40] (init1) at (-3.5,-0.5) {Init Identity};
+    \node[process, fill=dangerLight, draw=danger!40] (init2) at (-3.5,-1.4) {Set Jacobian Ptr};
+    \node[process] (prop1) at (-3.5,-2.3) {Propagate};
 
     % No branch (right) - crossed out text
-    \node[skipbox] (skip1) at (3.2,0) {Init Matrix};
+    \node[skipbox] (skip1) at (3.5,-0.5) {Init Matrix};
     \draw[danger, thick] (skip1.west) -- (skip1.east);
-    \node[skipbox] (skip2) at (3.2,-0.8) {Set Ptr};
+    \node[skipbox] (skip2) at (3.5,-1.4) {Set Ptr};
     \draw[danger, thick] (skip2.west) -- (skip2.east);
-    \node[process, fill=successLight, draw=success!40] (prop2) at (3.2,-1.6) {Propagate};
+    \node[process, fill=successLight, draw=success!40] (prop2) at (3.5,-2.3) {Propagate};
 
     % Arrows
     \draw[myarrow] (start) -- (check);
@@ -472,22 +473,21 @@
     \draw[->, thick, slate200, dashed] (skip2) -- (prop2);
 
     % Branch labels
-    \node[tinylabel] at (-1.3,1.2) {Yes};
-    \node[tinylabel] at (1.3,1.2) {No};
+    \node[tinylabel] at (-1.5,1) {Yes};
+    \node[tinylabel] at (1.5,1) {No};
 
     % Compile-time badge
-    \node[draw=warning, rounded corners, fill=warningLight, font=\tiny\bfseries, text=slate700] at (0,0) {Compile Time};
+    \node[draw=warning, rounded corners, fill=warningLight, font=\small\bfseries, text=slate700] at (0,-0.2) {Compile Time};
 
     % Labels for branches
-    \node[font=\tiny\bfseries, text=danger] at (-3.2,-2.2) {128 regs};
-    \node[font=\tiny\bfseries, text=success] at (3.2,-2.2) {96 regs};
-
-    % Specializations box
-    \node[draw=slate200, rounded corners, fill=primaryLight, font=\tiny, align=center, text=slate700] at (0,-3) {
-        \textbf{18 Kernel Variants:} 3 det $\times$ 3 B $\times$ 2 MBF
-    };
+    \node[font=\small\bfseries, text=danger] at (-3.5,-3) {128 regs};
+    \node[font=\small\bfseries, text=success] at (3.5,-3) {96 regs};
 \end{tikzpicture}
 \end{center}
+
+\begin{block}{18 Kernel Specializations}
+    3 detector types $\times$ 3 B-field configs $\times$ 2 MBF variants
+\end{block}
 \end{frame}
 
 %==============================================================================%
@@ -495,162 +495,149 @@
 %==============================================================================%
 
 \begin{frame}{Benchmark Results}
+\vspace{-0.3em}
 \begin{center}
 % Performance Dashboard
-\begin{tikzpicture}[
-    scorecard/.style={draw=slate200, rounded corners=6pt, minimum width=3.2cm, minimum height=2cm, font=\small, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}},
+\begin{tikzpicture}[scale=1.1,
+    scorecard/.style={draw=slate200, rounded corners=6pt, minimum width=3.5cm, minimum height=2.2cm, font=\small, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}},
     arrow/.style={->, very thick, >=stealth}
 ]
     % Main throughput comparison
-    \node[scorecard, fill=slate50] (baseline) at (-3,1.5) {};
-    \node[font=\scriptsize, text=slate500] at (-3,2.3) {BASELINE};
-    \node[font=\Large\bfseries, text=slate700] at (-3,1.5) {36.57};
-    \node[font=\scriptsize, text=slate500] at (-3,0.8) {events/s};
+    \node[scorecard, fill=slate50] (baseline) at (-3.2,1.5) {};
+    \node[font=\small, text=slate500] at (-3.2,2.4) {BASELINE};
+    \node[font=\LARGE\bfseries, text=slate700] at (-3.2,1.5) {36.57};
+    \node[font=\small, text=slate500] at (-3.2,0.7) {events/s};
 
-    \node[scorecard, fill=successLight, draw=success] (opt) at (3,1.5) {};
-    \node[font=\scriptsize, success] at (3,2.3) {OPTIMIZED};
-    \node[font=\Large\bfseries, success] at (3,1.5) {43.27};
-    \node[font=\scriptsize, text=slate500] at (3,0.8) {events/s};
+    \node[scorecard, fill=successLight, draw=success] (opt) at (3.2,1.5) {};
+    \node[font=\small, success] at (3.2,2.4) {OPTIMIZED};
+    \node[font=\LARGE\bfseries, success] at (3.2,1.5) {43.27};
+    \node[font=\small, text=slate500] at (3.2,0.7) {events/s};
 
     % Arrow with improvement badge
     \draw[arrow, success] (-1,1.5) -- (1,1.5);
-    \node[draw=success, rounded corners, fill=success, font=\normalsize\bfseries, text=white] at (0,1.5) {+18.3\%};
+    \node[draw=success, rounded corners, fill=success, font=\large\bfseries, text=white] at (0,1.5) {+18.3\%};
 
     % Secondary metrics row
-    \node[scorecard, fill=primaryLight, minimum width=2.5cm, minimum height=1.3cm] (latency) at (-3.5,-1) {};
-    \node[font=\tiny, primary] at (-3.5,-0.4) {LATENCY};
-    \node[font=\normalsize\bfseries, text=slate700] at (-3.5,-1) {23.11 ms};
-    \node[font=\tiny, primary] at (-3.5,-1.5) {$\downarrow$ 15.5\%};
+    \node[scorecard, fill=primaryLight, minimum width=2.8cm, minimum height=1.5cm] (latency) at (-3.8,-1.2) {};
+    \node[font=\scriptsize, primary] at (-3.8,-0.5) {LATENCY};
+    \node[font=\large\bfseries, text=slate700] at (-3.8,-1.2) {23.11 ms};
+    \node[font=\scriptsize, primary] at (-3.8,-1.8) {$\downarrow$ 15.5\%};
 
-    \node[scorecard, fill=successLight, minimum width=2.5cm, minimum height=1.3cm] (tests) at (0,-1) {};
-    \node[font=\tiny, success] at (0,-0.4) {TESTS};
-    \node[font=\normalsize\bfseries, success] at (0,-1) {710/710};
-    \node[font=\tiny, success] at (0,-1.5) {\checkmark passing};
+    \node[scorecard, fill=successLight, minimum width=2.8cm, minimum height=1.5cm] (tests) at (0,-1.2) {};
+    \node[font=\scriptsize, success] at (0,-0.5) {TESTS};
+    \node[font=\large\bfseries, success] at (0,-1.2) {710/710};
+    \node[font=\scriptsize, success] at (0,-1.8) {\checkmark passing};
 
-    \node[scorecard, fill=warningLight, minimum width=2.5cm, minimum height=1.3cm] (config) at (3.5,-1) {};
-    \node[font=\tiny, warning] at (3.5,-0.4) {CONFIG};
-    \node[font=\scriptsize, text=slate700] at (3.5,-1) {V100-SXM2};
-    \node[font=\tiny, text=slate500] at (3.5,-1.5) {8 threads};
+    \node[scorecard, fill=warningLight, minimum width=2.8cm, minimum height=1.5cm] (config) at (3.8,-1.2) {};
+    \node[font=\scriptsize, warning] at (3.8,-0.5) {CONFIG};
+    \node[font=\normalsize, text=slate700] at (3.8,-1.2) {V100-SXM2};
+    \node[font=\scriptsize, text=slate500] at (3.8,-1.8) {8 threads};
 
 \end{tikzpicture}
 \end{center}
 
-\vspace{0.3em}
 \begin{columns}
 \column{0.5\textwidth}
 \centering
-{\footnotesize\textit{Apples-to-apples: Both with MBF=false}}
+{\small\textit{Apples-to-apples: Both with MBF=false}}
 \column{0.5\textwidth}
 \centering
-{\footnotesize Dataset: \texttt{ttbar\_mu200}}
+{\small Dataset: \texttt{ttbar\_mu200}}
 \end{columns}
 \end{frame}
 
 \begin{frame}{Methodology: Isolating the True Improvement}
-\begin{center}
-% Waterfall/Step chart showing benchmark isolation
-\begin{tikzpicture}[scale=0.72,
-    stepbox/.style={draw=slate200, rounded corners, minimum width=2cm, minimum height=0.8cm, font=\scriptsize},
-    myarrow/.style={->, thick, slate500}
-]
-    % Step 1: Initial benchmark
-    \node[stepbox, fill=warningLight] (init) at (0,2) {Initial: +11.67\%};
-    \node[font=\tiny, slate500, below=0.1cm of init] {38.75 $\rightarrow$ 43.27};
+\begin{columns}[T]
+\column{0.55\textwidth}
+\textbf{The Problem}
+\begin{itemize}\itemsep2pt
+    \item Initial benchmark: \textbf{+11.67\%} (38.75 $\rightarrow$ 43.27)
+    \item But \texttt{build\_tracks} improved by 86\%!
+    \item Confounding variable: MBF default changed
+\end{itemize}
 
-    % Problem indicator
-    \node[draw=danger, cloud, cloud puffs=10, cloud puff arc=120, fill=dangerLight, font=\tiny, text width=1.8cm, align=center, text=slate700] (problem) at (4,2) {Confounding\\Variable!};
-    \draw[->, thick, danger, dashed] (init) -- (problem);
+\vspace{0.5em}
+\textbf{The Solution}
+\begin{itemize}\itemsep2pt
+    \item Re-benchmark with controlled config
+    \item Both baseline and optimization: MBF=false
+    \item Isolated result: \textbf{+18.3\%} (36.57 $\rightarrow$ 43.27)
+\end{itemize}
 
-    % Step 2: Identify confound
-    \node[stepbox, fill=dangerLight, draw=danger!40] (confound) at (0,0) {MBF Default};
-    \node[font=\tiny, text=danger, below=0.1cm of confound, align=center] {true $\rightarrow$ false\\-86\% build\_tracks};
+\column{0.45\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.9]
+    % Confounded result (crossed out)
+    \node[draw=slate200, rounded corners, fill=warningLight, minimum width=2.8cm, minimum height=1.2cm] at (0,2) {};
+    \node[font=\scriptsize, text=slate500] at (0,2.4) {Confounded};
+    \node[font=\large\bfseries, text=slate700] at (0,1.9) {+11.67\%};
+    \draw[danger, very thick] (-1.2,1.5) -- (1.2,2.6);
 
-    % Step 3: Re-benchmark
-    \node[stepbox, fill=primaryLight, draw=primary!40] (rebase) at (4,0) {Re-baseline};
-    \node[font=\tiny, slate500, below=0.1cm of rebase] {Both MBF=false};
+    % Arrow
+    \draw[->, very thick, slate500] (0,1.1) -- (0,0.3);
 
-    % Step 4: True result
-    \node[stepbox, fill=successLight, draw=success, minimum width=2.5cm] (true) at (7.5,0) {\textbf{+18.3\%}};
-    \node[font=\tiny, slate500, below=0.1cm of true] {36.57 $\rightarrow$ 43.27};
-
-    % Flow arrows
-    \draw[myarrow] (init) -- (confound) node[midway, left, font=\tiny, text=slate700] {Investigate};
-    \draw[myarrow] (confound) -- (rebase) node[midway, above, font=\tiny, text=slate700] {Control};
-    \draw[myarrow] (rebase) -- (true) node[midway, above, font=\tiny, text=slate700] {Isolate};
-
-    % Visual comparison at bottom
-    \node[font=\scriptsize, text=slate700] at (0,-2) {Confounded};
-    \node[font=\scriptsize, text=slate700] at (7.5,-2) {Isolated};
-
-    \fill[warningLight] (-0.8,-2.7) rectangle (0.8,-1.5);
-    \draw[slate200] (-0.8,-2.7) rectangle (0.8,-1.5);
-    \node[font=\tiny, text=slate700] at (0,-2.4) {+11.67\%};
-
-    \fill[successLight] (6.7,-2.7) rectangle (8.3,-1.5);
-    \draw[success] (6.7,-2.7) rectangle (8.3,-1.5);
-    \node[font=\tiny\bfseries, success] at (7.5,-2.4) {+18.3\%};
-
-    % Strikethrough on confounded
-    \draw[danger, thick] (-1,-2.7) -- (1,-1.5);
-    \draw[danger, thick] (-1,-1.5) -- (1,-2.7);
-
+    % Isolated result
+    \node[draw=success, rounded corners, fill=successLight, minimum width=2.8cm, minimum height=1.2cm] at (0,-0.5) {};
+    \node[font=\scriptsize, text=success] at (0,-0.1) {Isolated};
+    \node[font=\large\bfseries, text=success] at (0,-0.6) {+18.3\%};
 \end{tikzpicture}
-\end{center}
+\end{columns}
 
-\vspace{0.2em}
+\vspace{0.3em}
 \begin{alertblock}{Lesson Learned}
     Always control for configuration changes! The true optimization impact was \textbf{larger} than initially measured.
 \end{alertblock}
 \end{frame}
 
 \begin{frame}{NCU Profiling: Key Metrics Dashboard}
+\vspace{-0.3em}
 {\small \textit{RTX 2080 Ti (sm\_75), ncu 2024.1.1}}
 \begin{center}
-\begin{tikzpicture}[
-    card/.style={draw=slate200, rounded corners=6pt, minimum width=3cm, minimum height=2.2cm},
+\begin{tikzpicture}[scale=1.05,
+    card/.style={draw=slate200, rounded corners=6pt, minimum width=3cm, minimum height=2.4cm},
     biglabel/.style={font=\Large\bfseries},
-    smalllabel/.style={font=\tiny, slate500},
-    change/.style={font=\small\bfseries}
+    smalllabel/.style={font=\scriptsize, text=slate500},
+    change/.style={font=\normalsize\bfseries}
 ]
     % Top row - 4 key metrics
     % Registers
     \node[card, fill=warningLight] (reg) at (-5,1.5) {};
-    \node[smalllabel] at (-5,2.4) {REGISTERS};
+    \node[smalllabel] at (-5,2.5) {REGISTERS};
     \node[biglabel, text=slate700] at (-5,1.6) {128 $\rightarrow$ 96};
-    \node[change, text=warning] at (-5,0.8) {$\downarrow$ 25\%};
+    \node[change, text=warning] at (-5,0.7) {$\downarrow$ 25\%};
 
     % Occupancy
     \node[card, fill=primaryLight] (occ) at (-1.5,1.5) {};
-    \node[smalllabel] at (-1.5,2.4) {OCCUPANCY};
+    \node[smalllabel] at (-1.5,2.5) {OCCUPANCY};
     \node[biglabel, text=slate700] at (-1.5,1.6) {48.6\%};
-    \node[change, text=primary] at (-1.5,0.8) {$\uparrow$ 9.3\%};
+    \node[change, text=primary] at (-1.5,0.7) {$\uparrow$ 9.3\%};
 
     % Instructions
     \node[card, fill=successLight] (inst) at (2,1.5) {};
-    \node[smalllabel] at (2,2.4) {INSTRUCTIONS};
+    \node[smalllabel] at (2,2.5) {INSTRUCTIONS};
     \node[biglabel, text=slate700] at (2,1.6) {78.5M};
-    \node[change, text=success] at (2,0.8) {$\downarrow$ 4.6\%};
+    \node[change, text=success] at (2,0.7) {$\downarrow$ 4.6\%};
 
     % Duration
     \node[card, fill=primary!10] (dur) at (5.5,1.5) {};
-    \node[smalllabel] at (5.5,2.4) {DURATION};
+    \node[smalllabel] at (5.5,2.5) {DURATION};
     \node[biglabel, text=slate700] at (5.5,1.6) {3.61 ms};
-    \node[change, text=primaryDark] at (5.5,0.8) {$\downarrow$ 9.5\%};
+    \node[change, text=primaryDark] at (5.5,0.7) {$\downarrow$ 9.5\%};
 
     % Mechanism explanation below
-    \node[draw=slate200, rounded corners=6pt, fill=slate50, minimum width=11cm, minimum height=1.8cm] at (0.25,-1.2) {};
-    \node[font=\small\bfseries, text=slate700] at (0.25,-0.5) {Dual Optimization Mechanism};
+    \node[draw=slate200, rounded corners=6pt, fill=slate50, minimum width=11cm, minimum height=2cm] at (0.25,-1.3) {};
+    \node[font=\normalsize\bfseries, text=slate700] at (0.25,-0.5) {Dual Optimization Mechanism};
 
     % Left mechanism
-    \node[draw=warning!50, rounded corners, fill=warningLight, minimum width=4cm, minimum height=0.6cm, font=\scriptsize, text=slate700] at (-2.5,-1.2) {Register Reduction};
-    \node[font=\tiny, text=slate500] at (-2.5,-1.7) {$\rightarrow$ Higher occupancy};
+    \node[draw=warning!50, rounded corners, fill=warningLight, minimum width=4.2cm, minimum height=0.7cm, font=\small, text=slate700] at (-2.5,-1.3) {Register Reduction};
+    \node[font=\scriptsize, text=slate500] at (-2.5,-1.9) {$\rightarrow$ Higher occupancy};
 
     % Right mechanism
-    \node[draw=success!50, rounded corners, fill=successLight, minimum width=4cm, minimum height=0.6cm, font=\scriptsize, text=slate700] at (3,-1.2) {Instruction Reduction};
-    \node[font=\tiny, text=slate500] at (3,-1.7) {$\rightarrow$ Less compute work};
+    \node[draw=success!50, rounded corners, fill=successLight, minimum width=4.2cm, minimum height=0.7cm, font=\small, text=slate700] at (3,-1.3) {Instruction Reduction};
+    \node[font=\scriptsize, text=slate500] at (3,-1.9) {$\rightarrow$ Less compute work};
 
     % Combined result
-    \node[font=\scriptsize\bfseries, text=danger] at (0.25,-2.2) {Combined: 9.5\% kernel speedup};
+    \node[font=\normalsize\bfseries, text=danger] at (0.25,-2.5) {Combined: 9.5\% kernel speedup};
 
 \end{tikzpicture}
 \end{center}
