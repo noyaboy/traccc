@@ -15,47 +15,31 @@
 \usepackage[normalem]{ulem} % For \sout strikethrough
 
 %===============================================================================
-% MODERN COLOR PALETTE
+% UNIFIED BLUE COLOR PALETTE (Matching progress_slides.tex style)
 %===============================================================================
-% Primary colors
-\definecolor{primary}{HTML}{2563EB}        % Royal blue
-\definecolor{primaryDark}{HTML}{1E40AF}    % Darker blue
-\definecolor{primaryLight}{HTML}{DBEAFE}   % Light blue background
-
-% Accent colors
-\definecolor{success}{HTML}{059669}        % Emerald green
-\definecolor{successLight}{HTML}{D1FAE5}   % Light green background
-\definecolor{warning}{HTML}{D97706}        % Amber
-\definecolor{warningLight}{HTML}{FEF3C7}   % Light amber background
-\definecolor{danger}{HTML}{DC2626}         % Red
-\definecolor{dangerLight}{HTML}{FEE2E2}    % Light red background
-
-% Neutral colors
-\definecolor{slate700}{HTML}{334155}       % Dark text
-\definecolor{slate500}{HTML}{64748B}       % Secondary text
-\definecolor{slate200}{HTML}{E2E8F0}       % Borders
-\definecolor{slate50}{HTML}{F8FAFC}        % Light backgrounds
+% Simple color scheme: Blue for primary, Gray for neutral, Green for success only
+% No custom HTML colors - use standard LaTeX xcolor mixing for consistency
 
 %===============================================================================
-% BEAMER THEME CUSTOMIZATION
+% BEAMER THEME CUSTOMIZATION (Clean, minimal)
 %===============================================================================
-\setbeamercolor{structure}{fg=primary}
-\setbeamercolor{frametitle}{fg=white,bg=primary}
-\setbeamercolor{title}{fg=primaryDark}
-\setbeamercolor{subtitle}{fg=slate500}
-\setbeamercolor{author}{fg=slate700}
-\setbeamercolor{institute}{fg=slate500}
-\setbeamercolor{date}{fg=slate500}
-\setbeamercolor{block title}{fg=white,bg=primary}
-\setbeamercolor{block body}{fg=slate700,bg=primaryLight}
-\setbeamercolor{block title alerted}{fg=white,bg=warning}
-\setbeamercolor{block body alerted}{fg=slate700,bg=warningLight}
-\setbeamercolor{block title example}{fg=white,bg=success}
-\setbeamercolor{block body example}{fg=slate700,bg=successLight}
-\setbeamercolor{item}{fg=primary}
-\setbeamercolor{itemize item}{fg=primary}
-\setbeamercolor{itemize subitem}{fg=slate500}
-\setbeamercolor{footline}{fg=slate500,bg=slate50}
+\setbeamercolor{structure}{fg=blue!70!black}
+\setbeamercolor{frametitle}{fg=white,bg=blue!70!black}
+\setbeamercolor{title}{fg=blue!70!black}
+\setbeamercolor{subtitle}{fg=gray!60}
+\setbeamercolor{author}{fg=gray!80!black}
+\setbeamercolor{institute}{fg=gray!60}
+\setbeamercolor{date}{fg=gray!60}
+\setbeamercolor{block title}{fg=white,bg=blue!60}
+\setbeamercolor{block body}{fg=gray!80!black,bg=blue!10}
+\setbeamercolor{block title alerted}{fg=white,bg=blue!50}
+\setbeamercolor{block body alerted}{fg=gray!80!black,bg=blue!8}
+\setbeamercolor{block title example}{fg=white,bg=green!50!black}
+\setbeamercolor{block body example}{fg=gray!80!black,bg=green!10}
+\setbeamercolor{item}{fg=blue!60}
+\setbeamercolor{itemize item}{fg=blue!60}
+\setbeamercolor{itemize subitem}{fg=gray!60}
+\setbeamercolor{footline}{fg=gray!60,bg=gray!5}
 
 % Clean fonts
 \setbeamerfont{title}{size=\Large,series=\bfseries}
@@ -68,24 +52,25 @@
 % Code listing style
 \lstset{
     basicstyle=\tiny\ttfamily,
-    keywordstyle=\color{primary},
-    commentstyle=\color{success},
-    stringstyle=\color{danger},
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
     showstringspaces=false,
     breaklines=true,
     frame=single,
-    backgroundcolor=\color{slate50}
+    backgroundcolor=\color{gray!10}
 }
 
 %===============================================================================
-% CUSTOM TIKZ STYLES
+% CUSTOM TIKZ STYLES (Unified blue scheme with shadows)
 %===============================================================================
 \tikzset{
     card/.style={
-        draw=slate200,
+        draw=gray!40,
         rounded corners=6pt,
         fill=white,
-        drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}
+        line width=0.8pt,
+        drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}
     },
     metricCard/.style={
         card,
@@ -94,23 +79,25 @@
         align=center
     },
     flowBox/.style={
-        draw=slate200,
+        draw=gray!40,
         rounded corners=4pt,
         fill=white,
         minimum height=0.6cm,
-        font=\scriptsize
+        font=\scriptsize,
+        line width=0.8pt
     },
     decisionDiamond/.style={
         diamond,
-        draw=warning,
-        fill=warningLight,
+        draw=blue!50,
+        fill=blue!15,
         aspect=2,
         font=\scriptsize,
-        inner sep=2pt
+        inner sep=2pt,
+        line width=0.8pt
     },
-    successBox/.style={flowBox, fill=successLight, draw=success},
-    dangerBox/.style={flowBox, fill=dangerLight, draw=danger},
-    primaryBox/.style={flowBox, fill=primaryLight, draw=primary},
+    blueBox/.style={flowBox, fill=blue!15, draw=blue!40},
+    greenBox/.style={flowBox, fill=green!15, draw=green!40},
+    grayBox/.style={flowBox, fill=gray!10, draw=gray!40},
 }
 
 \title{Conditional Jacobian Aggregation}
@@ -135,8 +122,8 @@
 \vspace{2em}
 \begin{tikzpicture}
     % Decorative line
-    \fill[primary] (-4,0) rectangle (4,0.08);
-    \fill[success] (-1.5,-0.15) rectangle (1.5,-0.08);
+    \fill[blue!60] (-4,0) rectangle (4,0.08);
+    \fill[blue!40] (-1.5,-0.15) rectangle (1.5,-0.08);
 \end{tikzpicture}
 
 \vspace{1.5em}
@@ -188,53 +175,53 @@
 \vspace{0.2em}
 
 \begin{tikzpicture}[scale=0.75]
-    % Stacked bar chart with modern colors
+    % Stacked bar chart with unified blue colors
     \def\barwidth{2.4cm}
     \def\unit{0.038}
 
-    % Draw stacked segments (bottom to top) with gradient fills
-    \fill[primary!30] (0,0) rectangle (\barwidth, 6*\unit);
-    \node[font=\tiny, text=slate700] at (1.2, 3*\unit) {Params: 6};
+    % Draw stacked segments (bottom to top) - blue gradient
+    \fill[blue!20] (0,0) rectangle (\barwidth, 6*\unit);
+    \node[font=\tiny, text=gray!80!black] at (1.2, 3*\unit) {Params: 6};
 
-    \fill[primary!50] (0,6*\unit) rectangle (\barwidth, 27*\unit);
+    \fill[blue!35] (0,6*\unit) rectangle (\barwidth, 27*\unit);
     \node[font=\tiny, white] at (1.2, 16.5*\unit) {Covar: 21};
 
-    \fill[warning] (0,27*\unit) rectangle (\barwidth, 63*\unit);
+    \fill[blue!70] (0,27*\unit) rectangle (\barwidth, 63*\unit);
     \node[font=\tiny\bfseries, white] at (1.2, 45*\unit) {Jacobian: 36};
 
-    \fill[primary!45] (0,63*\unit) rectangle (\barwidth, 75*\unit);
+    \fill[blue!45] (0,63*\unit) rectangle (\barwidth, 75*\unit);
     \node[font=\tiny, white] at (1.2, 69*\unit) {RK4: 12};
 
-    \fill[primary!35] (0,75*\unit) rectangle (\barwidth, 84*\unit);
-    \node[font=\tiny, text=slate700] at (1.2, 79.5*\unit) {B: 9};
+    \fill[blue!30] (0,75*\unit) rectangle (\barwidth, 84*\unit);
+    \node[font=\tiny, text=gray!80!black] at (1.2, 79.5*\unit) {B: 9};
 
-    \fill[primary!55] (0,84*\unit) rectangle (\barwidth, 94*\unit);
+    \fill[blue!50] (0,84*\unit) rectangle (\barwidth, 94*\unit);
     \node[font=\tiny, white] at (1.2, 89*\unit) {Nav: 10};
 
-    \fill[primary!65] (0,94*\unit) rectangle (\barwidth, 120*\unit);
+    \fill[blue!60] (0,94*\unit) rectangle (\barwidth, 120*\unit);
     \node[font=\tiny, white] at (1.2, 107*\unit) {Actor: 26};
 
     % Y-axis
-    \draw[slate500, thick] (0,0) -- (0, 130*\unit);
+    \draw[gray!60, thick] (0,0) -- (0, 130*\unit);
     \foreach \y/\lab in {0/0, 32/32, 64/64, 96/96, 128/128} {
-        \draw[slate500] (-0.1, \y*\unit) -- (0, \y*\unit);
-        \node[left, font=\tiny, text=slate500] at (-0.1, \y*\unit) {\lab};
+        \draw[gray!60] (-0.1, \y*\unit) -- (0, \y*\unit);
+        \node[left, font=\tiny, text=gray!60] at (-0.1, \y*\unit) {\lab};
     }
 
     % 100% occupancy line
-    \draw[danger, thick, dashed] (-0.2, 32*\unit) -- (\barwidth+0.4, 32*\unit);
-    \node[right, font=\tiny\bfseries, danger] at (\barwidth+0.15, 32*\unit) {100\%};
+    \draw[red!70!black, thick, dashed] (-0.2, 32*\unit) -- (\barwidth+0.4, 32*\unit);
+    \node[right, font=\tiny\bfseries, text=red!70!black] at (\barwidth+0.15, 32*\unit) {100\%};
 
     % Total label
-    \node[above, font=\small\bfseries, text=slate700] at (1.2, 122*\unit) {$\sim$120};
+    \node[above, font=\small\bfseries, text=gray!80!black] at (1.2, 122*\unit) {$\sim$120};
 
     % X-axis label
-    \node[font=\tiny, text=slate500] at (1.2, -0.5) {Registers/Thread};
+    \node[font=\tiny, text=gray!60] at (1.2, -0.5) {Registers/Thread};
 \end{tikzpicture}
 
 \vspace{0.2em}
 \begin{alertblock}{Key Insight}
-    \textcolor{warning}{\textbf{Jacobian}} only needed for MBF smoother!
+    \textcolor{blue!70!black}{\textbf{Jacobian}} only needed for MBF smoother!
 \end{alertblock}
 \end{columns}
 \end{frame}
@@ -266,19 +253,19 @@
 
     % Surfaces
     \foreach \x/\label in {1/S1, 2.5/S2, 4/S3, 5.5/S4} {
-        \draw[thick,blue] (\x,-0.5) -- (\x,0.5);
+        \draw[thick,blue!60] (\x,-0.5) -- (\x,0.5);
         \node[below] at (\x,-0.6) {\tiny \label};
     }
 
     % Jacobian accumulation - spread out more
-    \node[draw, fill=orange!20, rounded corners, font=\tiny, inner sep=2pt] at (1,1.2) {$J_1$};
-    \node[draw, fill=orange!20, rounded corners, font=\tiny, inner sep=2pt] at (2.5,1.2) {$J_2 \cdot J_1$};
-    \node[draw, fill=orange!20, rounded corners, font=\tiny, inner sep=1pt] at (4.3,1.2) {$J_3 \cdot J_2 \cdot J_1$};
+    \node[draw=blue!40, fill=blue!15, rounded corners, font=\tiny, inner sep=2pt] at (1,1.2) {$J_1$};
+    \node[draw=blue!40, fill=blue!15, rounded corners, font=\tiny, inner sep=2pt] at (2.5,1.2) {$J_2 \cdot J_1$};
+    \node[draw=blue!40, fill=blue!15, rounded corners, font=\tiny, inner sep=1pt] at (4.3,1.2) {$J_3 \cdot J_2 \cdot J_1$};
 
     % Arrow indicating accumulation
-    \draw[->,thick,orange] (1,0.85) -- (1,0.3);
-    \draw[->,thick,orange] (2.5,0.85) -- (2.5,0.3);
-    \draw[->,thick,orange] (4,0.85) -- (4,0.3);
+    \draw[->,thick,blue!60] (1,0.85) -- (1,0.3);
+    \draw[->,thick,blue!60] (2.5,0.85) -- (2.5,0.3);
+    \draw[->,thick,blue!60] (4,0.85) -- (4,0.3);
 
     % Label
     \node[font=\scriptsize] at (3,1.9) {Jacobian Accumulation};
@@ -304,7 +291,7 @@
 {\scriptsize\textbf{Original: \texttt{ckf\_actor\_chain\_t}}}
 \begin{enumerate}\itemsep-2pt\parskip0pt\topsep0pt
     \item {\tiny\texttt{pathlimit\_aborter}}
-    \item {\tiny\textcolor{danger}{\texttt{parameter\_transporter}} $\leftarrow$ Jacobian ptr}
+    \item {\tiny\textcolor{gray!70}{\texttt{parameter\_transporter}} $\leftarrow$ Jacobian ptr}
     \item {\tiny\texttt{interaction\_register}}
     \item {\tiny\texttt{ckf\_interactor}}
     \item {\tiny\texttt{parameter\_resetter}}
@@ -315,7 +302,7 @@
 {\scriptsize\textbf{New: \texttt{ckf\_actor\_chain\_no\_mbf\_t}}}
 \begin{enumerate}\itemsep-2pt\parskip0pt\topsep0pt
     \item {\tiny\texttt{pathlimit\_aborter}}
-    \item {\tiny\textcolor{success}{\texttt{bound\_updater}} $\leftarrow$ \textbf{Empty state!}}
+    \item {\tiny\textcolor{green!50!black}{\texttt{bound\_updater}} $\leftarrow$ \textbf{Empty state!}}
     \item {\tiny\texttt{interaction\_register}}
     \item {\tiny\texttt{ckf\_interactor}}
     \item {\tiny\texttt{parameter\_resetter}}
@@ -327,23 +314,23 @@
 \centering
 \begin{tikzpicture}[scale=0.6]
     % Runtime dispatch
-    \node[draw=slate200, rounded corners, fill=primaryLight, minimum width=3cm] (config) at (0,3) {\footnotesize \texttt{run\_mbf\_smoother}};
+    \node[draw=blue!40, rounded corners, fill=blue!15, minimum width=3cm, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (config) at (0,3) {\footnotesize \texttt{run\_mbf\_smoother}};
 
     % Decision diamond
-    \node[draw=warning, diamond, fill=warningLight, aspect=2] (decision) at (0,1.5) {\footnotesize ?};
+    \node[draw=blue!50, diamond, fill=blue!20, aspect=2] (decision) at (0,1.5) {\footnotesize ?};
 
     % Two paths
-    \node[draw=danger, rounded corners, fill=dangerLight, minimum width=2.5cm, font=\tiny] (mbf_on) at (-2,0) {parameter\_transporter};
-    \node[draw=success, rounded corners, fill=successLight, minimum width=2.5cm, font=\tiny] (mbf_off) at (2,0) {bound\_updater};
+    \node[draw=gray!50, rounded corners, fill=gray!15, minimum width=2.5cm, font=\tiny, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (mbf_on) at (-2,0) {parameter\_transporter};
+    \node[draw=green!50, rounded corners, fill=green!15, minimum width=2.5cm, font=\tiny, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (mbf_off) at (2,0) {bound\_updater};
 
     % Arrows
-    \draw[->,thick,slate500] (config) -- (decision);
-    \draw[->,thick,slate500] (decision) -- node[left,font=\tiny] {true} (mbf_on);
-    \draw[->,thick,slate500] (decision) -- node[right,font=\tiny] {false} (mbf_off);
+    \draw[->,thick,gray!60] (config) -- (decision);
+    \draw[->,thick,gray!60] (decision) -- node[left,font=\tiny] {true} (mbf_on);
+    \draw[->,thick,gray!60] (decision) -- node[right,font=\tiny] {false} (mbf_off);
 
     % Labels
-    \node[font=\tiny\bfseries,text=danger] at (-2,-0.6) {128 registers};
-    \node[font=\tiny\bfseries,text=success] at (2,-0.6) {96 registers};
+    \node[font=\tiny\bfseries,text=gray!70] at (-2,-0.6) {128 registers};
+    \node[font=\tiny\bfseries,text=green!50!black] at (2,-0.6) {96 registers};
 \end{tikzpicture}
 
 \begin{block}{Compile-Time Dispatch}
@@ -360,23 +347,23 @@
 
 \vspace{0.2em}
 \begin{tikzpicture}[scale=0.7,
-    box/.style={draw=slate200, rounded corners, minimum width=2.8cm, minimum height=0.7cm, font=\scriptsize},
-    statebox/.style={draw=danger, rounded corners, fill=dangerLight, minimum width=2.4cm, minimum height=1.2cm, font=\tiny},
-    flowarrow/.style={->, thick, slate500}
+    box/.style={draw=gray!40, rounded corners, minimum width=2.8cm, minimum height=0.7cm, font=\scriptsize, line width=0.8pt},
+    statebox/.style={draw=gray!50, rounded corners, fill=gray!15, minimum width=2.4cm, minimum height=1.2cm, font=\tiny, line width=0.8pt},
+    flowarrow/.style={->, thick, gray!60}
 ]
     % Actor box
-    \node[box, fill=dangerLight] (actor) at (0,2.5) {Actor};
+    \node[box, fill=gray!15, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (actor) at (0,2.5) {Actor};
 
     % State box with Jacobian pointer
     \node[statebox] (state) at (0,1) {};
-    \node[font=\tiny\bfseries, text=slate700] at (0,1.3) {State};
-    \node[font=\tiny, text=danger] at (0,0.8) {Jacobian* ptr};
+    \node[font=\tiny\bfseries, text=gray!80!black] at (0,1.3) {State};
+    \node[font=\tiny, text=gray!70] at (0,0.8) {Jacobian* ptr};
 
     % Workflow
-    \node[box, fill=primaryLight] (compute) at (0,-0.5) {Compute $J$};
-    \node[box, fill=primaryLight] (transport) at (0,-1.5) {Transport Cov};
-    \node[box, fill=warningLight, draw=warning] (aggregate) at (0,-2.5) {$J_{acc} = J \times J_{acc}$};
-    \node[box, fill=warningLight, draw=warning] (write) at (0,-3.5) {Write to Global};
+    \node[box, fill=blue!15] (compute) at (0,-0.5) {Compute $J$};
+    \node[box, fill=blue!15] (transport) at (0,-1.5) {Transport Cov};
+    \node[box, fill=blue!25, draw=blue!40] (aggregate) at (0,-2.5) {$J_{acc} = J \times J_{acc}$};
+    \node[box, fill=blue!25, draw=blue!40] (write) at (0,-3.5) {Write to Global};
 
     % Arrows
     \draw[flowarrow] (actor) -- (state);
@@ -386,8 +373,8 @@
     \draw[flowarrow] (aggregate) -- (write);
 
     % Highlight expensive ops
-    \draw[danger, thick, dashed] (-1.6,-2.1) rectangle (1.6,-3.9);
-    \node[font=\tiny\bfseries, danger, right] at (1.6,-3) {Cost!};
+    \draw[blue!60, thick, dashed] (-1.6,-2.1) rectangle (1.6,-3.9);
+    \node[font=\tiny\bfseries, text=blue!70!black, right] at (1.6,-3) {Cost};
 \end{tikzpicture}
 
 \column{0.5\textwidth}
@@ -396,36 +383,36 @@
 
 \vspace{0.2em}
 \begin{tikzpicture}[scale=0.7,
-    box/.style={draw=slate200, rounded corners, minimum width=2.8cm, minimum height=0.7cm, font=\scriptsize},
-    statebox/.style={draw=success, rounded corners, fill=successLight, minimum width=2.4cm, minimum height=1.2cm, font=\tiny},
-    flowarrow/.style={->, thick, slate500}
+    box/.style={draw=gray!40, rounded corners, minimum width=2.8cm, minimum height=0.7cm, font=\scriptsize, line width=0.8pt},
+    statebox/.style={draw=green!50, rounded corners, fill=green!15, minimum width=2.4cm, minimum height=1.2cm, font=\tiny, line width=0.8pt},
+    flowarrow/.style={->, thick, gray!60}
 ]
     % Actor box
-    \node[box, fill=successLight] (actor) at (0,2.5) {Actor};
+    \node[box, fill=green!15, draw=green!40, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (actor) at (0,2.5) {Actor};
 
     % Empty state box
     \node[statebox] (state) at (0,1) {};
-    \node[font=\tiny\bfseries, text=slate700] at (0,1.3) {State};
-    \node[font=\tiny, text=success] at (0,0.8) {\textit{(empty)}};
+    \node[font=\tiny\bfseries, text=gray!80!black] at (0,1.3) {State};
+    \node[font=\tiny, text=green!50!black] at (0,0.8) {\textit{(empty)}};
 
     % Workflow
-    \node[box, fill=primaryLight] (compute) at (0,-0.5) {Compute $J$};
-    \node[box, fill=primaryLight] (transport) at (0,-1.5) {Transport Cov};
-    \node[box, fill=slate50, draw=slate200, text=slate500] (skip1) at (0,-2.5) {Aggregate};
-    \draw[danger, thick] (skip1.west) -- (skip1.east);
-    \node[box, fill=slate50, draw=slate200, text=slate500] (skip2) at (0,-3.5) {Write};
-    \draw[danger, thick] (skip2.west) -- (skip2.east);
+    \node[box, fill=blue!15] (compute) at (0,-0.5) {Compute $J$};
+    \node[box, fill=blue!15] (transport) at (0,-1.5) {Transport Cov};
+    \node[box, fill=gray!10, draw=gray!40, text=gray!50] (skip1) at (0,-2.5) {Aggregate};
+    \draw[red!70!black, thick] (skip1.west) -- (skip1.east);
+    \node[box, fill=gray!10, draw=gray!40, text=gray!50] (skip2) at (0,-3.5) {Write};
+    \draw[red!70!black, thick] (skip2.west) -- (skip2.east);
 
     % Arrows
     \draw[flowarrow] (actor) -- (state);
     \draw[flowarrow] (state) -- (compute);
     \draw[flowarrow] (compute) -- (transport);
-    \draw[->, thick, slate200, dashed] (transport) -- (skip1);
-    \draw[->, thick, slate200, dashed] (skip1) -- (skip2);
+    \draw[->, thick, gray!30, dashed] (transport) -- (skip1);
+    \draw[->, thick, gray!30, dashed] (skip1) -- (skip2);
 
     % Highlight skipped
-    \draw[success, thick] (-1.6,-2.1) rectangle (1.6,-3.9);
-    \node[font=\tiny\bfseries, success, right] at (1.6,-3) {Skipped!};
+    \draw[green!50!black, thick] (-1.6,-2.1) rectangle (1.6,-3.9);
+    \node[font=\tiny\bfseries, text=green!50!black, right] at (1.6,-3) {Skipped!};
 \end{tikzpicture}
 \end{columns}
 
@@ -439,29 +426,29 @@
 \vspace{-0.5em}
 \begin{center}
 \begin{tikzpicture}[scale=0.95,
-    decision/.style={diamond, draw=warning, fill=warningLight, minimum width=2cm, minimum height=1cm, aspect=2, font=\small, inner sep=1pt},
-    process/.style={draw=slate200, rounded corners, fill=primaryLight, minimum width=2.5cm, minimum height=0.6cm, font=\small},
-    skipbox/.style={draw=slate200, rounded corners, fill=slate50, minimum width=2.5cm, minimum height=0.6cm, font=\small, text=slate500},
-    myarrow/.style={->, thick, slate500},
-    tinylabel/.style={font=\small, text=slate700}
+    decision/.style={diamond, draw=blue!50, fill=blue!15, minimum width=2cm, minimum height=1cm, aspect=2, font=\small, inner sep=1pt, line width=0.8pt},
+    process/.style={draw=gray!40, rounded corners, fill=blue!15, minimum width=2.5cm, minimum height=0.6cm, font=\small, line width=0.8pt},
+    skipbox/.style={draw=gray!40, rounded corners, fill=gray!10, minimum width=2.5cm, minimum height=0.6cm, font=\small, text=gray!50, line width=0.8pt},
+    myarrow/.style={->, thick, gray!60},
+    tinylabel/.style={font=\small, text=gray!80!black}
 ]
     % Start
-    \node[process, fill=primary!20, draw=primary!40] (start) at (0,2.5) {Propagation Request};
+    \node[process, fill=blue!20, draw=blue!40, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (start) at (0,2.5) {Propagation Request};
 
     % Decision diamond
     \node[decision] (check) at (0,1) {Jacobian?};
 
     % Yes branch (left)
-    \node[process, fill=dangerLight, draw=danger!40] (init1) at (-3.5,-0.5) {Init Identity};
-    \node[process, fill=dangerLight, draw=danger!40] (init2) at (-3.5,-1.4) {Set Jacobian Ptr};
+    \node[process, fill=gray!15, draw=gray!50] (init1) at (-3.5,-0.5) {Init Identity};
+    \node[process, fill=gray!15, draw=gray!50] (init2) at (-3.5,-1.4) {Set Jacobian Ptr};
     \node[process] (prop1) at (-3.5,-2.3) {Propagate};
 
     % No branch (right) - crossed out text
     \node[skipbox] (skip1) at (3.5,-0.5) {Init Matrix};
-    \draw[danger, thick] (skip1.west) -- (skip1.east);
+    \draw[red!70!black, thick] (skip1.west) -- (skip1.east);
     \node[skipbox] (skip2) at (3.5,-1.4) {Set Ptr};
-    \draw[danger, thick] (skip2.west) -- (skip2.east);
-    \node[process, fill=successLight, draw=success!40] (prop2) at (3.5,-2.3) {Propagate};
+    \draw[red!70!black, thick] (skip2.west) -- (skip2.east);
+    \node[process, fill=green!15, draw=green!40] (prop2) at (3.5,-2.3) {Propagate};
 
     % Arrows
     \draw[myarrow] (start) -- (check);
@@ -469,19 +456,19 @@
     \draw[myarrow] (check.east) -- ++(0.5,0) |- (skip1.west);
     \draw[myarrow] (init1) -- (init2);
     \draw[myarrow] (init2) -- (prop1);
-    \draw[->, thick, slate200, dashed] (skip1) -- (skip2);
-    \draw[->, thick, slate200, dashed] (skip2) -- (prop2);
+    \draw[->, thick, gray!30, dashed] (skip1) -- (skip2);
+    \draw[->, thick, gray!30, dashed] (skip2) -- (prop2);
 
     % Branch labels
     \node[tinylabel] at (-1.5,1) {Yes};
     \node[tinylabel] at (1.5,1) {No};
 
     % Compile-time badge
-    \node[draw=warning, rounded corners, fill=warningLight, font=\small\bfseries, text=slate700] at (0,-0.2) {Compile Time};
+    \node[draw=blue!50, rounded corners, fill=blue!20, font=\small\bfseries, text=gray!80!black] at (0,-0.2) {Compile Time};
 
     % Labels for branches
-    \node[font=\small\bfseries, text=danger] at (-3.5,-3) {128 regs};
-    \node[font=\small\bfseries, text=success] at (3.5,-3) {96 regs};
+    \node[font=\small\bfseries, text=gray!70] at (-3.5,-3) {128 regs};
+    \node[font=\small\bfseries, text=green!50!black] at (3.5,-3) {96 regs};
 \end{tikzpicture}
 \end{center}
 
@@ -499,39 +486,39 @@
 \begin{center}
 % Performance Dashboard
 \begin{tikzpicture}[scale=1.1,
-    scorecard/.style={draw=slate200, rounded corners=6pt, minimum width=3.5cm, minimum height=2.2cm, font=\small, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}},
+    scorecard/.style={draw=gray!40, rounded corners=6pt, minimum width=3.5cm, minimum height=2.2cm, font=\small, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}},
     arrow/.style={->, very thick, >=stealth}
 ]
     % Main throughput comparison
-    \node[scorecard, fill=slate50] (baseline) at (-3.2,1.5) {};
-    \node[font=\small, text=slate500] at (-3.2,2.4) {BASELINE};
-    \node[font=\LARGE\bfseries, text=slate700] at (-3.2,1.5) {36.57};
-    \node[font=\small, text=slate500] at (-3.2,0.7) {events/s};
+    \node[scorecard, fill=gray!10] (baseline) at (-3.2,1.5) {};
+    \node[font=\small, text=gray!60] at (-3.2,2.4) {BASELINE};
+    \node[font=\LARGE\bfseries, text=gray!80!black] at (-3.2,1.5) {36.57};
+    \node[font=\small, text=gray!60] at (-3.2,0.7) {events/s};
 
-    \node[scorecard, fill=successLight, draw=success] (opt) at (3.2,1.5) {};
-    \node[font=\small, success] at (3.2,2.4) {OPTIMIZED};
-    \node[font=\LARGE\bfseries, success] at (3.2,1.5) {43.27};
-    \node[font=\small, text=slate500] at (3.2,0.7) {events/s};
+    \node[scorecard, fill=green!15, draw=green!50] (opt) at (3.2,1.5) {};
+    \node[font=\small, text=green!50!black] at (3.2,2.4) {OPTIMIZED};
+    \node[font=\LARGE\bfseries, text=green!50!black] at (3.2,1.5) {43.27};
+    \node[font=\small, text=gray!60] at (3.2,0.7) {events/s};
 
     % Arrow with improvement badge
-    \draw[arrow, success] (-1,1.5) -- (1,1.5);
-    \node[draw=success, rounded corners, fill=success, font=\large\bfseries, text=white] at (0,1.5) {+18.3\%};
+    \draw[arrow, green!50!black] (-1,1.5) -- (1,1.5);
+    \node[draw=green!50!black, rounded corners, fill=green!50!black, font=\large\bfseries, text=white] at (0,1.5) {+18.3\%};
 
     % Secondary metrics row
-    \node[scorecard, fill=primaryLight, minimum width=2.8cm, minimum height=1.5cm] (latency) at (-3.8,-1.2) {};
-    \node[font=\scriptsize, primary] at (-3.8,-0.5) {LATENCY};
-    \node[font=\large\bfseries, text=slate700] at (-3.8,-1.2) {23.11 ms};
-    \node[font=\scriptsize, primary] at (-3.8,-1.8) {$\downarrow$ 15.5\%};
+    \node[scorecard, fill=blue!15, minimum width=2.8cm, minimum height=1.5cm] (latency) at (-3.8,-1.2) {};
+    \node[font=\scriptsize, text=blue!70!black] at (-3.8,-0.5) {LATENCY};
+    \node[font=\large\bfseries, text=gray!80!black] at (-3.8,-1.2) {23.11 ms};
+    \node[font=\scriptsize, text=blue!70!black] at (-3.8,-1.8) {$\downarrow$ 15.5\%};
 
-    \node[scorecard, fill=successLight, minimum width=2.8cm, minimum height=1.5cm] (tests) at (0,-1.2) {};
-    \node[font=\scriptsize, success] at (0,-0.5) {TESTS};
-    \node[font=\large\bfseries, success] at (0,-1.2) {710/710};
-    \node[font=\scriptsize, success] at (0,-1.8) {\checkmark passing};
+    \node[scorecard, fill=green!15, minimum width=2.8cm, minimum height=1.5cm] (tests) at (0,-1.2) {};
+    \node[font=\scriptsize, text=green!50!black] at (0,-0.5) {TESTS};
+    \node[font=\large\bfseries, text=green!50!black] at (0,-1.2) {710/710};
+    \node[font=\scriptsize, text=green!50!black] at (0,-1.8) {\checkmark passing};
 
-    \node[scorecard, fill=warningLight, minimum width=2.8cm, minimum height=1.5cm] (config) at (3.8,-1.2) {};
-    \node[font=\scriptsize, warning] at (3.8,-0.5) {CONFIG};
-    \node[font=\normalsize, text=slate700] at (3.8,-1.2) {V100-SXM2};
-    \node[font=\scriptsize, text=slate500] at (3.8,-1.8) {8 threads};
+    \node[scorecard, fill=gray!15, minimum width=2.8cm, minimum height=1.5cm] (config) at (3.8,-1.2) {};
+    \node[font=\scriptsize, text=gray!70] at (3.8,-0.5) {CONFIG};
+    \node[font=\normalsize, text=gray!80!black] at (3.8,-1.2) {V100-SXM2};
+    \node[font=\scriptsize, text=gray!60] at (3.8,-1.8) {8 threads};
 
 \end{tikzpicture}
 \end{center}
@@ -568,18 +555,18 @@
 \centering
 \begin{tikzpicture}[scale=0.9]
     % Confounded result (crossed out)
-    \node[draw=slate200, rounded corners, fill=warningLight, minimum width=2.8cm, minimum height=1.2cm] at (0,2) {};
-    \node[font=\scriptsize, text=slate500] at (0,2.4) {Confounded};
-    \node[font=\large\bfseries, text=slate700] at (0,1.9) {+11.67\%};
-    \draw[danger, very thick] (-1.2,1.5) -- (1.2,2.6);
+    \node[draw=gray!40, rounded corners, fill=gray!15, minimum width=2.8cm, minimum height=1.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (0,2) {};
+    \node[font=\scriptsize, text=gray!60] at (0,2.4) {Confounded};
+    \node[font=\large\bfseries, text=gray!80!black] at (0,1.9) {+11.67\%};
+    \draw[red!70!black, very thick] (-1.2,1.5) -- (1.2,2.6);
 
     % Arrow
-    \draw[->, very thick, slate500] (0,1.1) -- (0,0.3);
+    \draw[->, very thick, gray!60] (0,1.1) -- (0,0.3);
 
     % Isolated result
-    \node[draw=success, rounded corners, fill=successLight, minimum width=2.8cm, minimum height=1.2cm] at (0,-0.5) {};
-    \node[font=\scriptsize, text=success] at (0,-0.1) {Isolated};
-    \node[font=\large\bfseries, text=success] at (0,-0.6) {+18.3\%};
+    \node[draw=green!50, rounded corners, fill=green!15, minimum width=2.8cm, minimum height=1.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (0,-0.5) {};
+    \node[font=\scriptsize, text=green!50!black] at (0,-0.1) {Isolated};
+    \node[font=\large\bfseries, text=green!50!black] at (0,-0.6) {+18.3\%};
 \end{tikzpicture}
 \end{columns}
 
@@ -594,50 +581,50 @@
 {\small \textit{RTX 2080 Ti (sm\_75), ncu 2024.1.1}}
 \begin{center}
 \begin{tikzpicture}[scale=1.05,
-    card/.style={draw=slate200, rounded corners=6pt, minimum width=3cm, minimum height=2.4cm},
+    card/.style={draw=gray!40, rounded corners=6pt, minimum width=3cm, minimum height=2.4cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}},
     biglabel/.style={font=\Large\bfseries},
-    smalllabel/.style={font=\scriptsize, text=slate500},
+    smalllabel/.style={font=\scriptsize, text=gray!60},
     change/.style={font=\normalsize\bfseries}
 ]
     % Top row - 4 key metrics
     % Registers
-    \node[card, fill=warningLight] (reg) at (-5,1.5) {};
+    \node[card, fill=blue!20] (reg) at (-5,1.5) {};
     \node[smalllabel] at (-5,2.5) {REGISTERS};
-    \node[biglabel, text=slate700] at (-5,1.6) {128 $\rightarrow$ 96};
-    \node[change, text=warning] at (-5,0.7) {$\downarrow$ 25\%};
+    \node[biglabel, text=gray!80!black] at (-5,1.6) {128 $\rightarrow$ 96};
+    \node[change, text=blue!70!black] at (-5,0.7) {$\downarrow$ 25\%};
 
     % Occupancy
-    \node[card, fill=primaryLight] (occ) at (-1.5,1.5) {};
+    \node[card, fill=blue!15] (occ) at (-1.5,1.5) {};
     \node[smalllabel] at (-1.5,2.5) {OCCUPANCY};
-    \node[biglabel, text=slate700] at (-1.5,1.6) {48.6\%};
-    \node[change, text=primary] at (-1.5,0.7) {$\uparrow$ 9.3\%};
+    \node[biglabel, text=gray!80!black] at (-1.5,1.6) {48.6\%};
+    \node[change, text=blue!70!black] at (-1.5,0.7) {$\uparrow$ 9.3\%};
 
     % Instructions
-    \node[card, fill=successLight] (inst) at (2,1.5) {};
+    \node[card, fill=green!15] (inst) at (2,1.5) {};
     \node[smalllabel] at (2,2.5) {INSTRUCTIONS};
-    \node[biglabel, text=slate700] at (2,1.6) {78.5M};
-    \node[change, text=success] at (2,0.7) {$\downarrow$ 4.6\%};
+    \node[biglabel, text=gray!80!black] at (2,1.6) {78.5M};
+    \node[change, text=green!50!black] at (2,0.7) {$\downarrow$ 4.6\%};
 
     % Duration
-    \node[card, fill=primary!10] (dur) at (5.5,1.5) {};
+    \node[card, fill=blue!10] (dur) at (5.5,1.5) {};
     \node[smalllabel] at (5.5,2.5) {DURATION};
-    \node[biglabel, text=slate700] at (5.5,1.6) {3.61 ms};
-    \node[change, text=primaryDark] at (5.5,0.7) {$\downarrow$ 9.5\%};
+    \node[biglabel, text=gray!80!black] at (5.5,1.6) {3.61 ms};
+    \node[change, text=blue!70!black] at (5.5,0.7) {$\downarrow$ 9.5\%};
 
     % Mechanism explanation below
-    \node[draw=slate200, rounded corners=6pt, fill=slate50, minimum width=11cm, minimum height=2cm] at (0.25,-1.3) {};
-    \node[font=\normalsize\bfseries, text=slate700] at (0.25,-0.5) {Dual Optimization Mechanism};
+    \node[draw=gray!40, rounded corners=6pt, fill=gray!10, minimum width=11cm, minimum height=2cm, line width=0.8pt] at (0.25,-1.3) {};
+    \node[font=\normalsize\bfseries, text=gray!80!black] at (0.25,-0.5) {Dual Optimization Mechanism};
 
     % Left mechanism
-    \node[draw=warning!50, rounded corners, fill=warningLight, minimum width=4.2cm, minimum height=0.7cm, font=\small, text=slate700] at (-2.5,-1.3) {Register Reduction};
-    \node[font=\scriptsize, text=slate500] at (-2.5,-1.9) {$\rightarrow$ Higher occupancy};
+    \node[draw=blue!40, rounded corners, fill=blue!15, minimum width=4.2cm, minimum height=0.7cm, font=\small, text=gray!80!black, line width=0.8pt] at (-2.5,-1.3) {Register Reduction};
+    \node[font=\scriptsize, text=gray!60] at (-2.5,-1.9) {$\rightarrow$ Higher occupancy};
 
     % Right mechanism
-    \node[draw=success!50, rounded corners, fill=successLight, minimum width=4.2cm, minimum height=0.7cm, font=\small, text=slate700] at (3,-1.3) {Instruction Reduction};
-    \node[font=\scriptsize, text=slate500] at (3,-1.9) {$\rightarrow$ Less compute work};
+    \node[draw=green!40, rounded corners, fill=green!15, minimum width=4.2cm, minimum height=0.7cm, font=\small, text=gray!80!black, line width=0.8pt] at (3,-1.3) {Instruction Reduction};
+    \node[font=\scriptsize, text=gray!60] at (3,-1.9) {$\rightarrow$ Less compute work};
 
     % Combined result
-    \node[font=\normalsize\bfseries, text=danger] at (0.25,-2.5) {Combined: 9.5\% kernel speedup};
+    \node[font=\normalsize\bfseries, text=green!50!black] at (0.25,-2.5) {Combined: 9.5\% kernel speedup};
 
 \end{tikzpicture}
 \end{center}
@@ -646,46 +633,46 @@
 \begin{frame}{Architecture-Dependent Behavior}
 \begin{center}
 \begin{tikzpicture}[
-    panel/.style={draw=slate200, rounded corners=6pt, minimum width=5.5cm, minimum height=4cm},
-    barlabel/.style={font=\scriptsize, slate500}
+    panel/.style={draw=gray!40, rounded corners=6pt, minimum width=5.5cm, minimum height=4cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}},
+    barlabel/.style={font=\scriptsize, text=gray!60}
 ]
     % V100 Panel (left) - faded
-    \node[panel, fill=slate50] (v100) at (-4,0) {};
-    \node[font=\small\bfseries, text=slate500] at (-4,1.7) {V100 (sm\_70)};
-    \node[font=\tiny, text=slate500] at (-4,1.3) {cuobjdump analysis};
+    \node[panel, fill=gray!10] (v100) at (-4,0) {};
+    \node[font=\small\bfseries, text=gray!70] at (-4,1.7) {V100 (sm\_70)};
+    \node[font=\tiny, text=gray!60] at (-4,1.3) {cuobjdump analysis};
 
     % V100 bars - same height
-    \fill[primary!40] (-5.2,-1.2) rectangle (-4.6,0.8);
-    \fill[primary!40] (-4.4,-1.2) rectangle (-3.8,0.8);
+    \fill[blue!40] (-5.2,-1.2) rectangle (-4.6,0.8);
+    \fill[blue!40] (-4.4,-1.2) rectangle (-3.8,0.8);
     \node[barlabel] at (-4.9,-1.5) {Base};
     \node[barlabel] at (-4.1,-1.5) {Opt};
-    \node[font=\tiny, text=slate500] at (-4.9,0.5) {128};
-    \node[font=\tiny, text=slate500] at (-4.1,0.5) {128};
+    \node[font=\tiny, text=gray!60] at (-4.9,0.5) {128};
+    \node[font=\tiny, text=gray!60] at (-4.1,0.5) {128};
 
     % No change indicator
-    \node[draw=slate200, rounded corners, fill=white, font=\scriptsize, text=slate700] at (-4,0) {No Change};
+    \node[draw=gray!40, rounded corners, fill=white, font=\scriptsize, text=gray!80!black, line width=0.8pt] at (-4,0) {No Change};
 
     % RTX 2080 Ti Panel (right) - highlighted
-    \node[panel, fill=successLight, draw=success] (rtx) at (4,0) {};
-    \node[font=\small\bfseries, success] at (4,1.7) {RTX 2080 Ti (sm\_75)};
-    \node[font=\tiny, success] at (4,1.3) {ncu profiling};
+    \node[panel, fill=green!10, draw=green!50] (rtx) at (4,0) {};
+    \node[font=\small\bfseries, text=green!50!black] at (4,1.7) {RTX 2080 Ti (sm\_75)};
+    \node[font=\tiny, text=green!50!black] at (4,1.3) {ncu profiling};
 
     % RTX bars - different heights
-    \fill[primary!60] (2.8,-1.2) rectangle (3.4,0.8);
-    \fill[success] (3.6,-1.2) rectangle (4.2,0.2);
+    \fill[blue!50] (2.8,-1.2) rectangle (3.4,0.8);
+    \fill[green!50!black] (3.6,-1.2) rectangle (4.2,0.2);
     \node[barlabel] at (3.1,-1.5) {Base};
     \node[barlabel] at (3.9,-1.5) {Opt};
-    \node[font=\tiny, text=slate700] at (3.1,0.5) {128};
-    \node[font=\tiny\bfseries, success] at (3.9,-0.1) {96};
+    \node[font=\tiny, text=gray!80!black] at (3.1,0.5) {128};
+    \node[font=\tiny\bfseries, text=green!50!black] at (3.9,-0.1) {96};
 
     % Bracket showing reduction
-    \draw[thick, success, decorate, decoration={brace, amplitude=5pt}]
-        (4.4,0.8) -- (4.4,0.2) node[midway, right, font=\scriptsize\bfseries, xshift=3pt, success] {-25\%};
+    \draw[thick, green!50!black, decorate, decoration={brace, amplitude=5pt}]
+        (4.4,0.8) -- (4.4,0.2) node[midway, right, font=\scriptsize\bfseries, xshift=3pt, text=green!50!black] {-25\%};
 
     % Arrow between panels
-    \draw[->, very thick, text=slate500] (-0.8,0) -- (0.8,0);
-    \node[font=\tiny, above, text=slate700] at (0,0.2) {Different};
-    \node[font=\tiny, below, text=slate700] at (0,-0.2) {Compiler};
+    \draw[->, very thick, gray!60] (-0.8,0) -- (0.8,0);
+    \node[font=\tiny, above, text=gray!80!black] at (0,0.2) {Different};
+    \node[font=\tiny, below, text=gray!80!black] at (0,-0.2) {Compiler};
 
 \end{tikzpicture}
 \end{center}
@@ -700,30 +687,30 @@
 \begin{center}
 \begin{tikzpicture}[scale=0.85]
     % Title
-    \node[font=\large\bfseries, text=slate700] at (0,4) {Two Complementary Mechanisms};
+    \node[font=\large\bfseries, text=gray!80!black] at (0,4) {Two Complementary Mechanisms};
 
     % Mechanism 1 - Register Reduction
-    \node[draw=primary, rounded corners=6pt, fill=primaryLight, minimum width=4.2cm, minimum height=2.2cm, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}] (mech1) at (-3.2,1.5) {};
-    \node[font=\small\bfseries, primary] at (-3.2,2.4) {Register Reduction};
-    \node[font=\scriptsize, align=center, text=slate700] at (-3.2,1.5) {128 $\rightarrow$ 96 registers\\(on sm\_75)};
-    \node[font=\scriptsize\bfseries, primary] at (-3.2,0.6) {+9.3\% occupancy};
+    \node[draw=blue!40, rounded corners=6pt, fill=blue!15, minimum width=4.2cm, minimum height=2.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}] (mech1) at (-3.2,1.5) {};
+    \node[font=\small\bfseries, text=blue!70!black] at (-3.2,2.4) {Register Reduction};
+    \node[font=\scriptsize, align=center, text=gray!80!black] at (-3.2,1.5) {128 $\rightarrow$ 96 registers\\(on sm\_75)};
+    \node[font=\scriptsize\bfseries, text=blue!70!black] at (-3.2,0.6) {+9.3\% occupancy};
 
     % Mechanism 2 - Skipped Aggregation
-    \node[draw=success, rounded corners=6pt, fill=successLight, minimum width=4.2cm, minimum height=2.2cm, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}] (mech2) at (3.2,1.5) {};
-    \node[font=\small\bfseries, success] at (3.2,2.4) {Skipped Aggregation};
-    \node[font=\scriptsize, align=center, text=slate700] at (3.2,1.5) {No 6$\times$6 matrix mult\\No global memory I/O};
-    \node[font=\scriptsize\bfseries, success] at (3.2,0.6) {-4.6\% instructions};
+    \node[draw=green!40, rounded corners=6pt, fill=green!15, minimum width=4.2cm, minimum height=2.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}] (mech2) at (3.2,1.5) {};
+    \node[font=\small\bfseries, text=green!50!black] at (3.2,2.4) {Skipped Aggregation};
+    \node[font=\scriptsize, align=center, text=gray!80!black] at (3.2,1.5) {No 6$\times$6 matrix mult\\No global memory I/O};
+    \node[font=\scriptsize\bfseries, text=green!50!black] at (3.2,0.6) {-4.6\% instructions};
 
     % Combined effect
-    \node[draw=warning, rounded corners=6pt, fill=warningLight, minimum width=5.5cm, minimum height=1.2cm, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}] (result) at (0,-0.7) {};
-    \node[font=\normalsize\bfseries, warning] at (0,-0.7) {+18.3\% Throughput};
+    \node[draw=green!50, rounded corners=6pt, fill=green!20, minimum width=5.5cm, minimum height=1.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}] (result) at (0,-0.7) {};
+    \node[font=\normalsize\bfseries, text=green!50!black] at (0,-0.7) {+18.3\% Throughput};
 
     % Arrows
-    \draw[->, thick, text=slate500] (-3.2,0.2) -- (-1.2,-0.3);
-    \draw[->, thick, text=slate500] (3.2,0.2) -- (1.2,-0.3);
+    \draw[->, thick, gray!60] (-3.2,0.2) -- (-1.2,-0.3);
+    \draw[->, thick, gray!60] (3.2,0.2) -- (1.2,-0.3);
 
     % Per-track savings
-    \node[draw=slate200, dashed, rounded corners=4pt, fill=white, font=\tiny, align=center, text=slate700] at (0,-2.2) {
+    \node[draw=gray!40, dashed, rounded corners=4pt, fill=white, font=\tiny, align=center, text=gray!80!black, line width=0.8pt] at (0,-2.2) {
         Per track (15 surfaces):\\
         $\sim$3,240 FLOPs saved\\
         $\sim$4,320 bytes memory saved
@@ -739,57 +726,57 @@
 \begin{frame}{Key Takeaways: Paper Analysis vs Real Hardware}
 \begin{center}
 \begin{tikzpicture}[
-    panel/.style={draw=slate200, rounded corners=6pt, minimum width=5cm, minimum height=4.5cm, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.15}},
+    panel/.style={draw=gray!40, rounded corners=6pt, minimum width=5cm, minimum height=4.5cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}},
     metric/.style={font=\scriptsize},
     value/.style={font=\small\bfseries}
 ]
     % Paper Analysis Panel (left)
-    \node[panel, fill=primaryLight] (paper) at (-4,0.5) {};
-    \node[font=\normalsize\bfseries, primary] at (-4,2.5) {Paper Analysis};
-    \node[font=\tiny, text=slate500] at (-4,2.1) {(Theoretical estimates)};
+    \node[panel, fill=blue!15] (paper) at (-4,0.5) {};
+    \node[font=\normalsize\bfseries, text=blue!70!black] at (-4,2.5) {Paper Analysis};
+    \node[font=\tiny, text=gray!60] at (-4,2.1) {(Theoretical estimates)};
 
     % Paper metrics
-    \node[metric, text=slate500] at (-5.5,1.2) {Registers:};
-    \node[value, text=slate700] at (-2.8,1.2) {-36};
-    \node[metric, text=slate500] at (-5.5,0.4) {Occupancy:};
-    \node[value, text=slate700] at (-2.8,0.4) {+10-25\%};
-    \node[metric, text=slate500] at (-5.5,-0.4) {Throughput:};
-    \node[value, text=slate700] at (-2.8,-0.4) {+5-15\%};
+    \node[metric, text=gray!60] at (-5.5,1.2) {Registers:};
+    \node[value, text=gray!80!black] at (-2.8,1.2) {-36};
+    \node[metric, text=gray!60] at (-5.5,0.4) {Occupancy:};
+    \node[value, text=gray!80!black] at (-2.8,0.4) {+10-25\%};
+    \node[metric, text=gray!60] at (-5.5,-0.4) {Throughput:};
+    \node[value, text=gray!80!black] at (-2.8,-0.4) {+5-15\%};
 
     % Document icon (simple rectangle)
-    \draw[primary, thick] (-4.3,-1.6) rectangle (-3.7,-1);
-    \draw[primary] (-4.2,-1.15) -- (-3.8,-1.15);
-    \draw[primary] (-4.2,-1.3) -- (-3.8,-1.3);
-    \draw[primary] (-4.2,-1.45) -- (-3.8,-1.45);
+    \draw[blue!60, thick] (-4.3,-1.6) rectangle (-3.7,-1);
+    \draw[blue!60] (-4.2,-1.15) -- (-3.8,-1.15);
+    \draw[blue!60] (-4.2,-1.3) -- (-3.8,-1.3);
+    \draw[blue!60] (-4.2,-1.45) -- (-3.8,-1.45);
 
     % Real Hardware Panel (right)
-    \node[panel, fill=successLight, draw=success] (hw) at (4,0.5) {};
-    \node[font=\normalsize\bfseries, success] at (4,2.5) {Real Hardware};
-    \node[font=\tiny, text=slate500] at (4,2.1) {(NCU profiling, sm\_75)};
+    \node[panel, fill=green!15, draw=green!50] (hw) at (4,0.5) {};
+    \node[font=\normalsize\bfseries, text=green!50!black] at (4,2.5) {Real Hardware};
+    \node[font=\tiny, text=gray!60] at (4,2.1) {(NCU profiling, sm\_75)};
 
     % Hardware metrics
-    \node[metric, text=slate500] at (2.5,1.2) {Registers:};
-    \node[value, success] at (5.2,1.2) {-32};
-    \node[metric, text=slate500] at (2.5,0.4) {Occupancy:};
-    \node[value, success] at (5.2,0.4) {+9.3\%};
-    \node[metric, text=slate500] at (2.5,-0.4) {Throughput:};
-    \node[value, success] at (5.5,-0.4) {\textbf{+18.3\%}};
+    \node[metric, text=gray!60] at (2.5,1.2) {Registers:};
+    \node[value, text=green!50!black] at (5.2,1.2) {-32};
+    \node[metric, text=gray!60] at (2.5,0.4) {Occupancy:};
+    \node[value, text=green!50!black] at (5.2,0.4) {+9.3\%};
+    \node[metric, text=gray!60] at (2.5,-0.4) {Throughput:};
+    \node[value, text=green!50!black] at (5.5,-0.4) {\textbf{+18.3\%}};
 
     % GPU icon (simple chip)
-    \draw[success, thick] (3.7,-1.5) rectangle (4.3,-1.1);
+    \draw[green!50!black, thick] (3.7,-1.5) rectangle (4.3,-1.1);
     \foreach \x in {3.8,4,4.2} {
-        \draw[success] (\x,-1.5) -- (\x,-1.6);
-        \draw[success] (\x,-1.1) -- (\x,-1);
+        \draw[green!50!black] (\x,-1.5) -- (\x,-1.6);
+        \draw[green!50!black] (\x,-1.1) -- (\x,-1);
     }
 
     % Arrow between panels
-    \draw[->, very thick, warning] (-1,0.5) -- (1,0.5);
-    \node[font=\tiny\bfseries, warning, above] at (0,0.7) {Profile!};
+    \draw[->, very thick, blue!60] (-1,0.5) -- (1,0.5);
+    \node[font=\tiny\bfseries, text=blue!70!black, above] at (0,0.7) {Profile!};
 
     % Checkmarks/X marks
-    \node[text=warning] at (-1.8,1.2) {$\approx$};
-    \node[text=warning] at (-1.8,0.4) {$\approx$};
-    \node[text=success] at (-1.8,-0.4) {\checkmark};
+    \node[text=blue!60] at (-1.8,1.2) {$\approx$};
+    \node[text=blue!60] at (-1.8,0.4) {$\approx$};
+    \node[text=green!50!black] at (-1.8,-0.4) {\checkmark};
 
 \end{tikzpicture}
 \end{center}
@@ -853,28 +840,28 @@
 
 \begin{tikzpicture}
     % Main thank you message
-    \node[font=\Large\bfseries, text=primaryDark] at (0,2) {Thank you for your attention!};
+    \node[font=\Large\bfseries, text=blue!70!black] at (0,2) {Thank you for your attention!};
 
     % Decorative line
-    \fill[primary] (-3,1.3) rectangle (3,1.38);
-    \fill[success] (-1,1.15) rectangle (1,1.22);
+    \fill[blue!60] (-3,1.3) rectangle (3,1.38);
+    \fill[blue!40] (-1,1.15) rectangle (1,1.22);
 
     % Key results summary
-    \node[draw=slate200, rounded corners=8pt, fill=successLight, minimum width=3cm, minimum height=1cm] at (-4,-0.3) {};
-    \node[font=\Large\bfseries, text=success] at (-4,-0.3) {+18.3\%};
-    \node[font=\tiny, text=slate500] at (-4,-0.8) {Throughput};
+    \node[draw=gray!40, rounded corners=8pt, fill=green!15, minimum width=3cm, minimum height=1cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (-4,-0.3) {};
+    \node[font=\Large\bfseries, text=green!50!black] at (-4,-0.3) {+18.3\%};
+    \node[font=\tiny, text=gray!60] at (-4,-0.8) {Throughput};
 
-    \node[draw=slate200, rounded corners=8pt, fill=warningLight, minimum width=3cm, minimum height=1cm] at (0,-0.3) {};
-    \node[font=\Large\bfseries, text=warning] at (0,-0.3) {-25\%};
-    \node[font=\tiny, text=slate500] at (0,-0.8) {Registers};
+    \node[draw=gray!40, rounded corners=8pt, fill=blue!15, minimum width=3cm, minimum height=1cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (0,-0.3) {};
+    \node[font=\Large\bfseries, text=blue!70!black] at (0,-0.3) {-25\%};
+    \node[font=\tiny, text=gray!60] at (0,-0.8) {Registers};
 
-    \node[draw=slate200, rounded corners=8pt, fill=primaryLight, minimum width=3cm, minimum height=1cm] at (4,-0.3) {};
-    \node[font=\Large\bfseries, text=primary] at (4,-0.3) {710/710};
-    \node[font=\tiny, text=slate500] at (4,-0.8) {Tests Passing};
+    \node[draw=gray!40, rounded corners=8pt, fill=green!15, minimum width=3cm, minimum height=1cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (4,-0.3) {};
+    \node[font=\Large\bfseries, text=green!50!black] at (4,-0.3) {710/710};
+    \node[font=\tiny, text=gray!60] at (4,-0.8) {Tests Passing};
 
     % Links
-    \node[font=\normalsize, text=slate700] at (0,-2) {\texttt{github.com/acts-project/traccc}};
-    \node[font=\small, text=slate500] at (0,-2.6) {Documentation: \texttt{doc/conditional\_jacobian\_transport\_*.md}};
+    \node[font=\normalsize, text=gray!80!black] at (0,-2) {\texttt{github.com/acts-project/traccc}};
+    \node[font=\small, text=gray!60] at (0,-2.6) {Documentation: \texttt{doc/conditional\_jacobian\_transport\_*.md}};
 \end{tikzpicture}
 
 \end{center}
