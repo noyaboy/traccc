@@ -25,7 +25,9 @@
 
 | Kernel | Baseline Registers | Optimization Registers | Difference |
 |--------|-------------------|------------------------|------------|
-| propagate_to_next_surface (mbf_on) | 128 | 96 | **-32 (-25%)** |
+| propagate_to_next_surface | 128 | 96 | **-32 (-25%)** |
+
+> **Note:** Baseline uses `parameter_transporter` (MBF-capable), Optimization uses `bound_updater` (MBF-disabled).
 
 This register reduction enables higher occupancy and explains the throughput improvement.
 

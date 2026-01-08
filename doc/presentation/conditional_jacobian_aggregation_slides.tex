@@ -1,105 +1,124 @@
-\documentclass[aspectratio=169]{beamer}
+\documentclass[aspectratio=169, table]{beamer}
 \usetheme{Madrid}
 \usecolortheme{default}
 
+%===============================================================================
+% PACKAGES & PREAMBLE
+%===============================================================================
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{tikz}
-\usetikzlibrary{shapes,arrows,positioning,calc,shapes.symbols,decorations.pathreplacing,shadows.blur}
+\usetikzlibrary{shapes,arrows,arrows.meta,positioning,calc,shapes.symbols,decorations.pathreplacing,shadows.blur,matrix,patterns}
 \usepackage{pgfplots}
 \pgfplotsset{compat=newest}
 \usepackage{listings}
-\usepackage{xcolor}
-\usepackage[normalem]{ulem} % For \sout strikethrough
+\usepackage{pifont} % For checkmarks/crosses
+\usepackage[most]{tcolorbox} % Modern boxes
 
-%===============================================================================
-% UNIFIED BLUE COLOR PALETTE (Matching progress_slides.tex style)
-%===============================================================================
-% Simple color scheme: Blue for primary, Gray for neutral, Green for success only
-% No custom HTML colors - use standard LaTeX xcolor mixing for consistency
+% --- COLOR PALETTE ---
+\definecolor{acadblue}{RGB}{20, 20, 160}   % 更深的藍色
+\definecolor{acadgreen}{RGB}{34, 120, 70}  % 更沈穩的綠色
+\definecolor{acadred}{RGB}{178, 34, 34}    % 紅色維持警告用
+\definecolor{acadgray}{RGB}{230, 230, 230} % 稍微灰一點的背景
+\definecolor{codebg}{gray}{0.95}
 
-%===============================================================================
-% BEAMER THEME CUSTOMIZATION (Clean, minimal)
-%===============================================================================
-\setbeamercolor{structure}{fg=blue!70!black}
-\setbeamercolor{frametitle}{fg=white,bg=blue!70!black}
-\setbeamercolor{title}{fg=blue!70!black}
-\setbeamercolor{subtitle}{fg=gray!60}
-\setbeamercolor{author}{fg=gray!70!black}
-\setbeamercolor{institute}{fg=gray!60}
-\setbeamercolor{date}{fg=gray!60}
-\setbeamercolor{block title}{fg=white,bg=blue!60}
-\setbeamercolor{block body}{fg=gray!70!black,bg=blue!15}
-\setbeamercolor{block title alerted}{fg=white,bg=blue!50}
-\setbeamercolor{block body alerted}{fg=gray!70!black,bg=blue!15}
-\setbeamercolor{block title example}{fg=white,bg=green!50!black}
-\setbeamercolor{block body example}{fg=gray!70!black,bg=green!10}
-\setbeamercolor{item}{fg=blue!60}
-\setbeamercolor{itemize item}{fg=blue!60}
-\setbeamercolor{itemize subitem}{fg=gray!60}
-\setbeamercolor{footline}{fg=gray!60,bg=gray!10}
+% --- BEAMER THEME CUSTOMIZATION ---
+% \setbeamercolor{structure}{fg=acadblue}
+% \setbeamercolor{frametitle}{fg=white,bg=acadblue}
+% \setbeamercolor{palette primary}{bg=acadblue,fg=white}
+% \setbeamercolor{palette secondary}{bg=acadblue,fg=white}
+% \setbeamercolor{palette tertiary}{bg=acadblue,fg=white}
+% \setbeamercolor{palette quaternary}{bg=acadblue,fg=white}
+% \setbeamercolor{title}{fg=acadblue}
+% \setbeamercolor{subtitle}{fg=gray!60}
+% \setbeamercolor{author}{fg=gray!40!black}
+% \setbeamercolor{institute}{fg=gray!60}
+% \setbeamercolor{date}{fg=gray!60}
 
-% Clean fonts
-\setbeamerfont{title}{size=\Large,series=\bfseries}
-\setbeamerfont{frametitle}{size=\large,series=\bfseries}
-\setbeamerfont{block title}{size=\normalsize,series=\bfseries}
+% \setbeamercolor{block title}{fg=white,bg=acadblue}
+\setbeamercolor{block body}{fg=black,bg=acadgray}
+\setbeamercolor{block title alerted}{fg=white,bg=acadred}
+\setbeamercolor{block body alerted}{fg=black,bg=red!10}
+\setbeamercolor{block title example}{fg=white,bg=acadgreen}
+\setbeamercolor{block body example}{fg=black,bg=green!10}
 
 % Remove navigation symbols
 \setbeamertemplate{navigation symbols}{}
 
-% Code listing style
-\lstset{
-    basicstyle=\tiny\ttfamily,
-    keywordstyle=\color{blue},
-    commentstyle=\color{green!60!black},
-    stringstyle=\color{red},
-    showstringspaces=false,
-    breaklines=true,
-    frame=single,
-    backgroundcolor=\color{gray!10}
-}
-
-%===============================================================================
-% CUSTOM TIKZ STYLES (Unified blue scheme with shadows)
-%===============================================================================
+% --- TIKZ STYLES ---
 \tikzset{
-    card/.style={
-        draw=gray!40,
-        rounded corners=6pt,
-        fill=white,
-        line width=0.8pt,
-        drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}
-    },
-    metricCard/.style={
-        card,
-        minimum width=3cm,
-        minimum height=2.2cm,
-        align=center
-    },
-    flowBox/.style={
-        draw=gray!40,
+basicbox/.style={
+        draw=gray!60,          % 邊框加深
         rounded corners=4pt,
-        fill=white,
-        minimum height=0.6cm,
-        font=\scriptsize,
-        line width=0.8pt
+        line width=0.8pt,
+        font=\small
     },
-    decisionDiamond/.style={
+    shadowbox/.style={
+        basicbox,
+        drop shadow={shadow xshift=1.5pt, shadow yshift=-1.5pt, opacity=0.25}
+    },
+    process/.style={
+        shadowbox,
+        fill=white,
+        minimum height=0.7cm
+    },
+    decision/.style={
         diamond,
-        draw=blue!50,
-        fill=blue!15,
+        draw=acadblue,
+        fill=acadblue!15,
         aspect=2,
         font=\scriptsize,
-        inner sep=2pt,
-        line width=0.8pt
+        inner sep=1pt,
+        line width=0.8pt,
+        drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}
     },
-    blueBox/.style={flowBox, fill=blue!15, draw=blue!40},
-    greenBox/.style={flowBox, fill=green!15, draw=green!30},
-    grayBox/.style={flowBox, fill=gray!10, draw=gray!40},
+    arrow/.style={->, thick, >=stealth, color=gray!50!black},
+    kpibox/.style={
+        shadowbox,
+        minimum width=2.8cm, 
+        minimum height=2.2cm, 
+        align=center
+    },
+% [新增] 將 block 樣式移到這裡，避免在 Frame 內解析錯誤
+block/.style={
+        rectangle, 
+        draw=gray!40, 
+        thick,
+        fill=#1, % 這裡接收參數
+        rounded corners=3pt, 
+        align=center, 
+        drop shadow={opacity=0.25, shadow xshift=1pt, shadow yshift=-1pt},
+        font=\footnotesize\ttfamily,
+        minimum height=2.2em
+    }
 }
 
+% --- CODE LISTING STYLE ---
+\tcbset{
+    codestyle/.style={
+        enhanced,
+        colback=codebg,
+        colframe=gray!20,
+        boxrule=0.5pt,
+        arc=2pt,
+        left=2pt, right=2pt, top=2pt, bottom=2pt,
+        fontupper=\tiny\ttfamily
+    }
+}
+\lstset{
+    basicstyle=\tiny\ttfamily,
+    keywordstyle=\color{acadblue},
+    commentstyle=\color{acadgreen},
+    stringstyle=\color{acadred},
+    breaklines=true,
+    frame=none
+}
+
+%===============================================================================
+% METADATA
+%===============================================================================
 \title{Conditional Jacobian Aggregation}
 \subtitle{Optimizing GPU Track Finding through Algorithmic Refinement}
 \author{Hao-Chun, Liang}
@@ -109,37 +128,11 @@
 \begin{document}
 
 %--- Title Slide ---%
-{
-\setbeamertemplate{footline}{}
 \begin{frame}
-\vspace{1.5em}
-\begin{center}
-{\usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle}
-
-\vspace{0.5em}
-{\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle}
-
-\vspace{2em}
-\begin{tikzpicture}
-    % Decorative line
-    \fill[blue!60] (-4,0) rectangle (4,0.08);
-    \fill[blue!40] (-1.5,-0.15) rectangle (1.5,-0.08);
-\end{tikzpicture}
-
-\vspace{1.5em}
-{\usebeamercolor[fg]{author}\insertauthor}
-
-\vspace{0.3em}
-{\small\usebeamercolor[fg]{institute}\insertinstitute}
-
-\vspace{0.3em}
-{\small Advisor: Prof.\ Bo-Cheng, Lai}
-
-\vspace{1em}
-{\footnotesize\usebeamercolor[fg]{date}\insertdate}
-\end{center}
+    \titlepage
+    \vspace{-1.5em} % 微調間距，讓指導教授資訊靠近標題區塊
+    \centering{\small Advisor: Prof.\ Bo-Cheng, Lai}
 \end{frame}
-}
 
 %--- Outline ---%
 \begin{frame}{Outline}
@@ -151,133 +144,157 @@
 %==============================================================================%
 
 \begin{frame}{Register Pressure in GPU Track Finding}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{The Problem}
-\begin{itemize}
-    \item \texttt{propagate\_to\_next\_surface} kernel
-    \item Only \textbf{10-25\% GPU occupancy}
-    \item Root cause: High register usage
-    \item V100 needs $\leq$32 regs for 100\% occupancy
-\end{itemize}
+\begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+        \textbf{The Problem}
+        \begin{itemize}
+            \item \texttt{propagate\_to\_next\_surface} kernel
+            \item Only \textbf{10-25\% GPU occupancy}
+            \item Root cause: High register usage
+            \item V100 needs $\leq$32 regs for 100\% occupancy
+        \end{itemize}
 
-\vspace{0.3em}
-\textbf{Impact}
-\begin{itemize}
-    \item SM underutilization
-    \item Poor latency hiding
-    \item Reduced throughput
-\end{itemize}
+        \vspace{0.8em}
+        \textbf{Impact}
+        \begin{itemize}
+            \item \ding{55} SM underutilization
+            \item \ding{55} Poor latency hiding
+            \item \ding{55} Reduced throughput
+        \end{itemize}
+    \end{column}
 
-\column{0.5\textwidth}
-\centering
-\textbf{Register Budget Breakdown}
-\vspace{0.2em}
+\begin{column}{0.55\textwidth}
+    \centering
+    \textbf{\large Register Budget Breakdown}
+    \vspace{0.8em}
 
-\begin{tikzpicture}[scale=0.75]
-    % Stacked bar chart with unified blue colors
-    \def\barwidth{2.4cm}
-    \def\unit{0.038}
+    \begin{tikzpicture}[scale=0.95, font=\sffamily]
+        % 定義參數
+        \def\barwidth{2.8cm}
+        \def\unit{0.046}
 
-    % Draw stacked segments (bottom to top) - blue gradient
-    \fill[blue!20] (0,0) rectangle (\barwidth, 6*\unit);
-    \node[font=\tiny, text=gray!70!black] at (1.2, 3*\unit) {Params: 6};
+        % --- 配色設定 ---
+        \definecolor{colParam}{RGB}{235, 236, 240}
+        \definecolor{colCovar}{RGB}{176, 190, 197}
+        \definecolor{colOther}{RGB}{207, 216, 220}
+        \definecolor{colJacob}{RGB}{40, 53, 147}
 
-    \fill[blue!35] (0,6*\unit) rectangle (\barwidth, 27*\unit);
-    \node[font=\tiny, white] at (1.2, 16.5*\unit) {Covar: 21};
+        % --- 背景虛線 ---
+        \foreach \y in {32, 64, 96, 128} {
+            \draw[gray!30, densely dotted] (0, \y*\unit) -- (\barwidth, \y*\unit);
+        }
 
-    \fill[blue!60] (0,27*\unit) rectangle (\barwidth, 63*\unit);
-    \node[font=\tiny\bfseries, white] at (1.2, 45*\unit) {Jacobian: 36};
+        % --- Stacked Bar Chart ---
+        % 1. Params
+        \fill[colParam] (0,0) rectangle (\barwidth, 6*\unit);
+        \node[text=gray!60!black, font=\scriptsize] at (\barwidth/2, 3*\unit) {Params: 6};
 
-    \fill[blue!40] (0,63*\unit) rectangle (\barwidth, 75*\unit);
-    \node[font=\tiny, white] at (1.2, 69*\unit) {RK4: 12};
+        % 2. Covar
+        \fill[colCovar, draw=white, line width=1pt] (0,6*\unit) rectangle (\barwidth, 27*\unit);
+        \node[text=white, font=\scriptsize] at (\barwidth/2, 16.5*\unit) {Covar: 21};
 
-    \fill[blue!30] (0,75*\unit) rectangle (\barwidth, 84*\unit);
-    \node[font=\tiny, text=gray!70!black] at (1.2, 79.5*\unit) {B: 9};
+        % 3. Jacobian
+        \fill[colJacob, draw=white, line width=1pt] (0,27*\unit) rectangle (\barwidth, 63*\unit);
+        \node[text=white, font=\bfseries\small] at (\barwidth/2, 45*\unit) {Jacobian: $\sim$36};
 
-    \fill[blue!50] (0,84*\unit) rectangle (\barwidth, 94*\unit);
-    \node[font=\tiny, white] at (1.2, 89*\unit) {Nav: 10};
+        % 4. Other
+        \fill[colOther, draw=white, line width=1pt] (0,63*\unit) rectangle (\barwidth, 128*\unit);
+        \node[text=gray!50!colJacob, font=\scriptsize] at (\barwidth/2, 95*\unit) {Other: $\sim$65};
 
-    \fill[blue!60] (0,94*\unit) rectangle (\barwidth, 120*\unit);
-    \node[font=\tiny, white] at (1.2, 107*\unit) {Actor: 26};
+        % --- Y 軸標籤 ---
+        \foreach \y in {0, 32, 64, 96, 128} {
+            \node[left, font=\scriptsize, text=gray, xshift=-2pt] at (0, \y*\unit) {\y};
+        }
 
-    % Y-axis
-    \draw[gray!60, thick] (0,0) -- (0, 130*\unit);
-    \foreach \y/\lab in {0/0, 32/32, 64/64, 96/96, 128/128} {
-        \draw[gray!60] (-0.1, \y*\unit) -- (0, \y*\unit);
-        \node[left, font=\tiny, text=gray!60] at (-0.1, \y*\unit) {\lab};
-    }
+        % --- 總數標籤 ---
+        \node[above, font=\bfseries\large, text=colJacob] at (\barwidth/2, 128*\unit) {128};
 
-    % 100% occupancy line
-    \draw[red!70!black, thick, dashed] (-0.2, 32*\unit) -- (\barwidth+0.4, 32*\unit);
-    \node[right, font=\tiny\bfseries, text=red!70!black] at (\barwidth+0.15, 32*\unit) {100\%};
+        % --- X 軸標籤 ---
+        \node[below, font=\scriptsize, text=gray] at (\barwidth/2, 0) {Registers/Thread};
 
-    % Total label
-    \node[above, font=\small\bfseries, text=gray!70!black] at (1.2, 122*\unit) {$\sim$120};
+        % --- Limit 線條與標籤 (修正版) ---
+        % 1. 紅色虛線
+        \draw[red!80, dashed, thick, opacity=0.8] (-0.2, 32*\unit) -- (\barwidth+0.2, 32*\unit);
+        
+        % 2. [修改處] Limit 標籤位置
+        % 將 x 座標從 -0.25 改為 -0.65，讓它往左移動，不再遮擋 "32"
+        \node[left, font=\bfseries\scriptsize, text=red!90, align=right] 
+            at (-0.65, 32*\unit) {Limit\\(100\%)};
 
-    % X-axis label
-    \node[font=\tiny, text=gray!60] at (1.2, -0.5) {Registers/Thread};
-\end{tikzpicture}
+        % --- Key Insight 標註 (修正版) ---
+        \node[coordinate] (jacobCenter) at (\barwidth, 45*\unit) {};
+        
+        % [修改處] 將 text width 從 2.1cm 加寬至 2.5cm，避免 factor 斷行
+        \node[right=0.4cm of jacobCenter,
+              draw=colJacob!40,
+              fill=colJacob!5,
+              rounded corners=3pt,
+              text width=2.5cm, 
+              inner sep=5pt,
+              font=\scriptsize,
+              align=left,
+              drop shadow={opacity=0.15, shadow xshift=1pt, shadow yshift=-1pt}] (insight)
+              {\textbf{\color{colJacob}Key Insight:}\\[3pt]Dominant factor.\\Only needed for MBF smoother.};
 
-\vspace{0.2em}
-\begin{alertblock}{Key Insight}
-    \textcolor{blue!70!black}{\textbf{Jacobian}} only needed for MBF smoother!
-\end{alertblock}
+        % 連接線
+        \draw[colJacob!60, thick] (insight.west) -- (jacobCenter);
+        \fill[colJacob!60] (jacobCenter) circle (1.5pt);
+
+    \end{tikzpicture}
+\end{column}
 \end{columns}
 \end{frame}
 
 \begin{frame}{Opportunity: Conditional Jacobian}
-\begin{columns}
-\column{0.55\textwidth}
-\textbf{When is Jacobian Needed?}
-\begin{itemize}
-    \item Multi-Branch Fit (MBF) smoother requires accumulated Jacobian
-    \item Used for backward smoothing pass
-    \item When MBF disabled: Jacobian computed but \textbf{never used}
-\end{itemize}
+\begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+        \textbf{When is Jacobian Needed?}
+        \begin{itemize}
+            \item Multi-Branch Fit (MBF) smoother requires accumulated Jacobian
+            \item Used for backward smoothing pass
+            \item \textbf{Scenario:} When MBF disabled $\rightarrow$ Jacobian computed but \textcolor{acadred}{never used}
+        \end{itemize}
+    
+        \vspace{1em}
+        \textbf{Current Behavior} (\texttt{parameter\_transporter})
+        \begin{enumerate}
+            \item Compute full 6$\times$6 Jacobian at each surface
+            \item Multiply: $J_{acc} = J_{new} \times J_{acc}$
+            \item Store accumulated Jacobian to global memory
+        \end{enumerate}
+    \end{column}
 
-\vspace{0.5em}
-\textbf{Current Behavior (parameter\_transporter)}
-\begin{enumerate}
-    \item Compute full 6$\times$6 Jacobian at each surface
-    \item Multiply: $J_{acc} = J_{new} \times J_{acc}$ (6$\times$6 $\times$ 6$\times$6)
-    \item Store accumulated Jacobian to global memory
-    \item \textcolor{red}{Wasted work when MBF=false!}
-\end{enumerate}
-
-\column{0.45\textwidth}
-\centering
-\begin{tikzpicture}[scale=0.8]
-    % Track with surfaces
-    \draw[thick,->] (0,0) -- (6,0) node[right] {Track};
-
-    % Surfaces
-    \foreach \x/\label in {1/S1, 2.5/S2, 4/S3, 5.5/S4} {
-        \draw[thick,blue!60] (\x,-0.5) -- (\x,0.5);
-        \node[below] at (\x,-0.6) {\tiny \label};
-    }
-
-    % Jacobian accumulation - spread out more
-    \node[draw=blue!40, fill=blue!15, rounded corners, font=\tiny, inner sep=2pt] at (1,1.2) {$J_1$};
-    \node[draw=blue!40, fill=blue!15, rounded corners, font=\tiny, inner sep=2pt] at (2.5,1.2) {$J_2 \cdot J_1$};
-    \node[draw=blue!40, fill=blue!15, rounded corners, font=\tiny, inner sep=1pt] at (4.3,1.2) {$J_3 \cdot J_2 \cdot J_1$};
-
-    % Arrow indicating accumulation
-    \draw[->,thick,blue!60] (1,0.85) -- (1,0.3);
-    \draw[->,thick,blue!60] (2.5,0.85) -- (2.5,0.3);
-    \draw[->,thick,blue!60] (4,0.85) -- (4,0.3);
-
-    % Label
-    \node[font=\scriptsize] at (3,1.9) {Jacobian Accumulation};
-\end{tikzpicture}
-
-\vspace{0.5em}
-\begin{block}{Savings per Surface}
-\begin{itemize}
-    \item $\sim$216 FLOPs (matrix mult)
-    \item $\sim$288 bytes memory I/O
-\end{itemize}
-\end{block}
+    \begin{column}{0.45\textwidth}
+        \centering
+        \begin{tikzpicture}[scale=0.8]
+            % Track line
+            \draw[thick,->, >=stealth, color=gray!80] (0,0) -- (6,0) node[right, black] {Track};
+            
+            % Surfaces
+            \foreach \x/\label in {1/S1, 2.5/S2, 4/S3, 5.5/S4} {
+                \draw[thick, acadblue] (\x,-0.5) -- (\x,0.5);
+                \node[below, font=\tiny, text=gray] at (\x,-0.6) {\label};
+            }
+    
+            % Jacobian Nodes (Shadowed)
+            \node[shadowbox, fill=acadblue!20, draw=acadblue!40, inner sep=2pt] at (1,1.5) {$J_1$};
+            \node[shadowbox, fill=acadblue!30, draw=acadblue!50, inner sep=2pt] at (2.5,1.5) {$J_2 \cdot J_1$};
+            \node[shadowbox, fill=acadblue!30, draw=acadblue!60, inner sep=2pt] at (4.3,1.5) {$J_3 \cdot J_2 \cdot J_1$};
+            
+            % Accumulation Arrows
+            \draw[arrow, color=acadblue] (1,1.15) -- (1,0.6);
+            \draw[arrow, color=acadblue] (2.5,1.15) -- (2.5,0.6);
+            \draw[arrow, color=acadblue] (4,1.15) -- (4,0.6);
+        \end{tikzpicture}
+    
+        \vspace{1em}
+        \begin{tcolorbox}[colback=acadgreen!10, colframe=acadgreen, title=Savings (per surface), fonttitle=\bfseries\small]
+            \begin{itemize}
+                \item $\sim$216 FLOPs (matrix mult)
+                \item $\sim$288 bytes memory I/O
+            \end{itemize}
+        \end{tcolorbox}
+    \end{column}
 \end{columns}
 \end{frame}
 
@@ -285,700 +302,631 @@
 \section{Implementation}
 %==============================================================================%
 
-\begin{frame}{Solution: Two Actor Chains}
-\begin{columns}
-\column{0.55\textwidth}
-{\scriptsize\textbf{Original: \texttt{ckf\_actor\_chain\_t}}}
-\begin{enumerate}\itemsep-2pt\parskip0pt\topsep0pt
-    \item {\tiny\texttt{pathlimit\_aborter}}
-    \item {\tiny\textcolor{gray!70}{\texttt{parameter\_transporter}} $\leftarrow$ Jacobian ptr}
-    \item {\tiny\texttt{interaction\_register}}
-    \item {\tiny\texttt{ckf\_interactor}}
-    \item {\tiny\texttt{parameter\_resetter}}
-    \item {\tiny\texttt{momentum\_aborter}}
-    \item {\tiny\texttt{ckf\_aborter}}
-\end{enumerate}
+\begin{frame}[fragile]{Solution: Two Actor Chains}
+\begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+        \small
+        \textbf{Original: \texttt{ckf\_actor\_chain\_t}}
+        \begin{enumerate}
+            \item \texttt{pathlimit\_aborter}
+            \item \textcolor{gray}{\texttt{parameter\_transporter} $\leftarrow$ Jacobian ptr}
+            \item \texttt{interaction\_register}
+            \item ...
+        \end{enumerate}
+    
+        \vspace{0.5em}
+        \textbf{New: \texttt{ckf\_actor\_chain\_no\_mbf\_t}}
+        \begin{enumerate}
+            \item \texttt{pathlimit\_aborter}
+            \item \textcolor{acadgreen}{\textbf{\texttt{bound\_updater}} $\leftarrow$ \textbf{Empty state!}}
+            \item \texttt{interaction\_register}
+            \item ...
+        \end{enumerate}
+    \end{column}
 
-{\scriptsize\textbf{New: \texttt{ckf\_actor\_chain\_no\_mbf\_t}}}
-\begin{enumerate}\itemsep-2pt\parskip0pt\topsep0pt
-    \item {\tiny\texttt{pathlimit\_aborter}}
-    \item {\tiny\textcolor{green!50!black}{\texttt{bound\_updater}} $\leftarrow$ \textbf{Empty state!}}
-    \item {\tiny\texttt{interaction\_register}}
-    \item {\tiny\texttt{ckf\_interactor}}
-    \item {\tiny\texttt{parameter\_resetter}}
-    \item {\tiny\texttt{momentum\_aborter}}
-    \item {\tiny\texttt{ckf\_aborter}}
-\end{enumerate}
+\begin{column}{0.5\textwidth}
+    \centering
+        \begin{tikzpicture}[
+            scale=0.85, 
+            transform shape,
+            node distance=1.2cm,
+            % [修改] 樣式已移至 Preamble，這裡只需定義 decision 和 line
+            decision/.style={
+                diamond, 
+                aspect=1.5, 
+                draw=blue!50!black, 
+                thick, 
+                fill=white, 
+                inner sep=2pt,
+                drop shadow={opacity=0.25, shadow xshift=1pt, shadow yshift=-1pt},
+                font=\scriptsize\bfseries
+            },
+            line/.style={
+                draw, 
+                -latex, 
+                thick, 
+                color=darkgray, 
+                rounded corners=2pt
+            }
+        ]
 
-\column{0.45\textwidth}
-\centering
-\begin{tikzpicture}[scale=0.6]
-    % Runtime dispatch
-    \node[draw=blue!40, rounded corners, fill=blue!15, minimum width=3cm, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (config) at (0,3) {\footnotesize \texttt{run\_mbf\_smoother}};
+        % --- Top Node ---
+        \node[block=acadblue!20, minimum width=4cm] (config) {run\_mbf\_smoother};
+        
+        % --- Decision ---
+        \node[decision, below=0.6cm of config] (check) {?};
+        
+        % --- Branches ---
+        % 左側分支 (Gray)
+        \node[block=gray!15, below=of check, xshift=-2.2cm] (old) {parameter\_transporter};
+        
+        % 右側分支 (Green)
+        \node[block=acadgreen!20, draw=acadgreen, below=of check, xshift=2.2cm] (new) {bound\_updater};
+        
+        % --- Arrows ---
+        \draw[line] (config) -- (check);
+        \draw[line] (check) -| node[near start, above, font=\tiny\sffamily] {true} (old);
+        \draw[line] (check) -| node[near start, above, font=\tiny\sffamily] {false} (new);
+        
+        % --- Register Counts ---
+        \node[below=2pt of old, font=\tiny\bfseries, text=gray] {128 registers};
+        \node[below=2pt of new, font=\tiny\bfseries, text=acadgreen] {96 registers};
 
-    % Decision diamond
-    \node[draw=blue!50, diamond, fill=blue!20, aspect=2] (decision) at (0,1.5) {\footnotesize ?};
-
-    % Two paths
-    \node[draw=gray!50, rounded corners, fill=gray!15, minimum width=2.5cm, font=\tiny, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (mbf_on) at (-2,0) {parameter\_transporter};
-    \node[draw=green!50!black, rounded corners, fill=green!15, minimum width=2.5cm, font=\tiny, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (mbf_off) at (2,0) {bound\_updater};
-
-    % Arrows
-    \draw[->,thick,gray!60] (config) -- (decision);
-    \draw[->,thick,gray!60] (decision) -- node[left,font=\tiny] {true} (mbf_on);
-    \draw[->,thick,gray!60] (decision) -- node[right,font=\tiny] {false} (mbf_off);
-
-    % Labels
-    \node[font=\tiny\bfseries,text=gray!70] at (-2,-0.6) {128 registers};
-    \node[font=\tiny\bfseries,text=green!50!black] at (2,-0.6) {96 registers};
-\end{tikzpicture}
-
-\begin{block}{Compile-Time Dispatch}
-    {\scriptsize\texttt{if constexpr} selects actor chain based on propagator type}
-\end{block}
+    \end{tikzpicture}
+    
+    \vspace{1em}
+    
+    \begin{tcolorbox}[
+        colback=gray!5, 
+        colframe=gray!60, 
+        boxrule=0.5pt, 
+        arc=2pt, 
+        width=\linewidth,
+        fontupper=\scriptsize
+    ]
+        \textbf{Compile-Time Dispatch:} \texttt{if constexpr} selects actor chain based on propagator type.
+    \end{tcolorbox}
+\end{column}
 \end{columns}
 \end{frame}
+
+% 確保你的 preamble 有包含這些 library
+% \usepackage{tikz}
+% \usetikzlibrary{positioning, shapes, shadows, arrows.meta, calc, decorations.pathreplacing}
+% \definecolor{acadblue}{RGB}{30, 90, 160} % 假設的顏色，請用你原本的
+% \definecolor{acadgreen}{RGB}{60, 140, 60}
+% \definecolor{acadred}{RGB}{200, 60, 60}
 
 \begin{frame}{Key Code: Actor State Comparison}
-\begin{columns}
-\column{0.5\textwidth}
-\centering
-\textbf{parameter\_transporter}\\{\scriptsize (detray - original)}
 
-\vspace{0.2em}
-\begin{tikzpicture}[scale=0.7,
-    box/.style={draw=gray!40, rounded corners, minimum width=2.8cm, minimum height=0.7cm, font=\scriptsize, line width=0.8pt},
-    statebox/.style={draw=gray!50, rounded corners, fill=gray!15, minimum width=2.4cm, minimum height=1.2cm, font=\tiny, line width=0.8pt},
-    flowarrow/.style={->, thick, gray!60}
-]
-    % Actor box
-    \node[box, fill=gray!15, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (actor) at (0,2.5) {Actor};
+% 定義全域樣式
+\tikzset{
+    card/.style = {
+        rectangle, 
+        rounded corners=3pt, 
+        align=center, 
+        font=\footnotesize\sffamily,
+        inner sep=3pt, % [優化] 稍微減少內距，節省垂直空間
+        minimum width=3.8cm, % [微調] 寬度適中，確保視覺重心穩定
+        minimum height=0.6cm, % [優化] 稍微壓低高度，讓整體能放得更大
+        drop shadow={opacity=0.15, shadow xshift=1pt, shadow yshift=-1pt}
+    },
+    proc/.style = { card, fill=acadblue!10, draw=acadblue!40, thick },
+    critical/.style = { card, fill=acadblue!20, draw=acadblue, thick, font=\footnotesize\sffamily\bfseries },
+    skipped/.style = { card, draw=gray!30, dashed, text=gray!50, fill=white, drop shadow={opacity=0} },
+    statebox/.style = { card, fill=white, draw=gray!40 },
+    myarrow/.style = { -Latex, thick, draw=gray!60 }
+}
 
-    % State box with Jacobian pointer
-    \node[statebox] (state) at (0,1) {};
-    \node[font=\tiny\bfseries, text=gray!70!black] at (0,1.3) {State};
-    \node[font=\tiny, text=gray!70] at (0,0.8) {Jacobian* ptr};
+\begin{columns}[T]
+    % --- Left Column ---
+    \begin{column}{0.5\textwidth}
+        \centering % [關鍵] 強制內容水平置中
+        \textcolor{acadblue}{\textbf{\large parameter\_transporter}}\\
+        \textcolor{gray}{\scriptsize (Original / MBF=true)}
+        
+        \vspace{0.1em} % [微調] 減少標題與圖之間的距離
+        
+        % [優化] scale 回升至 0.78 (放大)，但 node distance 縮小至 0.2cm (變緊湊)
+        % 這樣圖變大了，但總高度卻不會超出邊界
+        \begin{tikzpicture}[node distance=0.2cm, scale=0.78, transform shape]
+            \node[card, fill=gray!20, draw=gray!40] (actor) {Actor};
+            \node[statebox, below=of actor] (state) {State: \texttt{Jacobian*}};
+            \node[proc, below=of state] (comp) {Compute $J$};
+            \node[proc, below=of comp] (trans) {Transport Cov};
+            \node[critical, below=of trans] (agg) {$J_{acc} = J \times J_{acc}$};
+            \node[critical, below=of agg] (write) {Write to Global};
+            
+            \draw[myarrow] (actor) -- (state);
+            \draw[myarrow] (state) -- (comp);
+            \draw[myarrow] (comp) -- (trans);
+            \draw[myarrow] (trans) -- (agg);
+            \draw[myarrow] (agg) -- (write);
+            
+            % [保持 overlay] 讓括號不影響置中計算，確保方塊正對標題
+            \draw[decorate, decoration={brace, amplitude=4pt, raise=2pt}, thick, color=acadred, overlay] 
+                (agg.north east) -- (write.south east) 
+                node[midway, right=6pt, color=acadred, font=\scriptsize\bfseries, align=left] {High Cost};
+        \end{tikzpicture}
+    \end{column}
 
-    % Workflow
-    \node[box, fill=blue!15] (compute) at (0,-0.5) {Compute $J$};
-    \node[box, fill=blue!15] (transport) at (0,-1.5) {Transport Cov};
-    \node[box, fill=blue!25, draw=blue!40] (aggregate) at (0,-2.5) {$J_{acc} = J \times J_{acc}$};
-    \node[box, fill=blue!25, draw=blue!40] (write) at (0,-3.5) {Write to Global};
-
-    % Arrows
-    \draw[flowarrow] (actor) -- (state);
-    \draw[flowarrow] (state) -- (compute);
-    \draw[flowarrow] (compute) -- (transport);
-    \draw[flowarrow] (transport) -- (aggregate);
-    \draw[flowarrow] (aggregate) -- (write);
-
-    % Highlight expensive ops
-    \draw[blue!60, thick, dashed] (-1.6,-2.1) rectangle (1.6,-3.9);
-    \node[font=\tiny\bfseries, text=blue!70!black, right] at (1.6,-3) {Cost};
-\end{tikzpicture}
-
-\column{0.5\textwidth}
-\centering
-\textbf{bound\_updater}\\{\scriptsize (traccc - optimized)}
-
-\vspace{0.2em}
-\begin{tikzpicture}[scale=0.7,
-    box/.style={draw=gray!40, rounded corners, minimum width=2.8cm, minimum height=0.7cm, font=\scriptsize, line width=0.8pt},
-    statebox/.style={draw=green!50!black, rounded corners, fill=green!15, minimum width=2.4cm, minimum height=1.2cm, font=\tiny, line width=0.8pt},
-    flowarrow/.style={->, thick, gray!60}
-]
-    % Actor box
-    \node[box, fill=green!15, draw=green!30, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (actor) at (0,2.5) {Actor};
-
-    % Empty state box
-    \node[statebox] (state) at (0,1) {};
-    \node[font=\tiny\bfseries, text=gray!70!black] at (0,1.3) {State};
-    \node[font=\tiny, text=green!50!black] at (0,0.8) {\textit{(empty)}};
-
-    % Workflow
-    \node[box, fill=blue!15] (compute) at (0,-0.5) {Compute $J$};
-    \node[box, fill=blue!15] (transport) at (0,-1.5) {Transport Cov};
-    \node[box, fill=gray!10, draw=gray!40, text=gray!50] (skip1) at (0,-2.5) {Aggregate};
-    \draw[red!70!black, thick] (skip1.west) -- (skip1.east);
-    \node[box, fill=gray!10, draw=gray!40, text=gray!50] (skip2) at (0,-3.5) {Write};
-    \draw[red!70!black, thick] (skip2.west) -- (skip2.east);
-
-    % Arrows
-    \draw[flowarrow] (actor) -- (state);
-    \draw[flowarrow] (state) -- (compute);
-    \draw[flowarrow] (compute) -- (transport);
-    \draw[->, thick, gray!40, dashed] (transport) -- (skip1);
-    \draw[->, thick, gray!40, dashed] (skip1) -- (skip2);
-
-    % Highlight skipped
-    \draw[green!50!black, thick] (-1.6,-2.1) rectangle (1.6,-3.9);
-    \node[font=\tiny\bfseries, text=green!50!black, right] at (1.6,-3) {Skipped!};
-\end{tikzpicture}
+    % --- Right Column ---
+    \begin{column}{0.5\textwidth}
+        \centering % [關鍵] 強制內容水平置中
+        \textcolor{acadgreen}{\textbf{\large bound\_updater}}\\
+        \textcolor{gray}{\scriptsize (Optimized / MBF=false)}
+        
+        \vspace{0.1em}
+        
+        \begin{tikzpicture}[node distance=0.2cm, scale=0.78, transform shape]
+            \node[card, fill=acadgreen!15, draw=acadgreen] (actor) {Actor};
+            \node[statebox, below=of actor] (state) {State: \textit{(empty)}};
+            \node[proc, below=of state] (comp) {Compute $J$};
+            \node[proc, below=of comp] (trans) {Transport Cov};
+            \node[skipped, below=of trans] (agg) {Aggregate};
+            \node[skipped, below=of agg] (write) {Write};
+            
+            \draw[myarrow] (actor) -- (state);
+            \draw[myarrow] (state) -- (comp);
+            \draw[myarrow] (comp) -- (trans);
+            \draw[myarrow, dashed, gray!30] (trans) -- (agg);
+            \draw[myarrow, dashed, gray!30] (agg) -- (write);
+            
+            % [修正] 
+            % 1. 起點改用 agg.north east (虛線框的頂部)，精確包覆 Skipped 區域
+            % 2. 順序改為 (上) -- (下)，讓括號方向正確朝右凸出
+            \draw[decorate, decoration={brace, amplitude=4pt, raise=2pt}, thick, color=acadgreen, overlay] 
+                (agg.north east) -- (write.south east) 
+                node[midway, right=6pt, align=left, font=\scriptsize\bfseries, color=acadgreen] {Skipped!\\ \tiny (No DRAM Access)};
+        \end{tikzpicture}
+    \end{column}
 \end{columns}
 
-\vspace{0.2em}
-\begin{alertblock}{Key Difference}
-    Empty state $\rightarrow$ \textbf{skip 6$\times$6 matrix mult \& global memory write}
-\end{alertblock}
-\end{frame}
+\vfill % 自動將下方盒子推到底部
 
+\begin{tcolorbox}[colback=acadgreen!5, colframe=acadgreen, boxrule=0.5mm, arc=2mm, left=5pt, right=5pt, top=4pt, bottom=4pt]
+    \centering \small 
+    \textbf{Key Difference:} Empty state $\rightarrow$ \textbf{Eliminates} $6\times6$ matrix multiplication \& Global Memory Write
+\end{tcolorbox}
+
+\end{frame}
 \begin{frame}{Kernel Dispatch Logic}
-\vspace{-0.5em}
-\begin{center}
-\begin{tikzpicture}[scale=0.95,
-    decision/.style={diamond, draw=blue!50, fill=blue!15, minimum width=2cm, minimum height=1cm, aspect=2, font=\small, inner sep=1pt, line width=0.8pt},
-    process/.style={draw=gray!40, rounded corners, fill=blue!15, minimum width=2.5cm, minimum height=0.6cm, font=\small, line width=0.8pt},
-    skipbox/.style={draw=gray!40, rounded corners, fill=gray!10, minimum width=2.5cm, minimum height=0.6cm, font=\small, text=gray!50, line width=0.8pt},
-    myarrow/.style={->, thick, gray!60},
-    tinylabel/.style={font=\small, text=gray!70!black}
+
+% [保持] 使用 centering
+\centering
+
+\begin{tikzpicture}[
+    scale=0.85, transform shape, 
+    node distance=0.6cm and 1.5cm,
+    % 定義樣式
+    base/.style={draw, align=center, font=\footnotesize, rounded corners=2pt, drop shadow={opacity=0.15}},
+    process/.style={base, rectangle, minimum width=2.5cm, minimum height=0.8cm, fill=white, draw=acadblue, thick},
+    decision/.style={base, diamond, aspect=2, fill=acadblue!10, draw=acadblue, thick, inner sep=1pt},
+    ghost/.style={base, rectangle, minimum width=2.5cm, minimum height=0.8cm, draw=gray!40, text=gray!50, dashed, fill=white},
+    arrow/.style={-Stealth, thick, draw=darkgray},
+    dashed_arrow/.style={-Stealth, thick, draw=gray!40, dashed}
 ]
-    % Start
-    \node[process, fill=blue!20, draw=blue!40, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] (start) at (0,2.5) {Propagation Request};
 
-    % Decision diamond
-    \node[decision] (check) at (0,1) {Jacobian?};
+    % 1. 頂層節點
+    \node[process, fill=acadblue!20] (req) {\textbf{Propagation Request}};
+    
+    % 2. 決策點
+    \node[decision, below=0.6cm of req] (check) {Jacobian?};
+    
+    % 3. 左側路徑 (Yes)
+    \node[process, below left=0.8cm and 0.2cm of check] (init1) {Init Identity};
+    \node[process, below=0.4cm of init1] (set1) {Set Jacobian Ptr};
+    \node[process, below=0.4cm of set1, fill=acadblue!10, draw=acadblue, thick] (prop1) {\textbf{Propagate}};
+    
+    % 4. 右側路徑 (No - Optimized)
+    \node[ghost, right=of init1] (init2) {Init Matrix};
+    \node[ghost, below=0.4cm of init2] (set2) {Set Ptr};
+    \node[process, below=0.4cm of set2, fill=acadgreen!10, draw=acadgreen, thick] (prop2) {\textbf{Propagate}};
 
-    % Yes branch (left)
-    \node[process, fill=gray!15, draw=gray!50] (init1) at (-3.5,-0.5) {Init Identity};
-    \node[process, fill=gray!15, draw=gray!50] (init2) at (-3.5,-1.4) {Set Jacobian Ptr};
-    \node[process] (prop1) at (-3.5,-2.3) {Propagate};
+    % 5. 繪製紅色刪除線
+    \draw[acadred, thick] ($(init2.west)+(0.2,0)$) -- ($(init2.east)+(-0.2,0)$);
+    \draw[acadred, thick] ($(set2.west)+(0.2,0)$) -- ($(set2.east)+(-0.2,0)$);
 
-    % No branch (right) - crossed out text
-    \node[skipbox] (skip1) at (3.5,-0.5) {Init Matrix};
-    \draw[red!70!black, thick] (skip1.west) -- (skip1.east);
-    \node[skipbox] (skip2) at (3.5,-1.4) {Set Ptr};
-    \draw[red!70!black, thick] (skip2.west) -- (skip2.east);
-    \node[process, fill=green!15, draw=green!30] (prop2) at (3.5,-2.3) {Propagate};
+    % 6. 連線
+    \draw[arrow] (req) -- (check);
+    
+    % Yes 分支
+    \draw[arrow] (check) -| node[near start, above, font=\scriptsize\bfseries, text=acadblue] {Yes} (init1);
+    \draw[arrow] (init1) -- (set1);
+    \draw[arrow] (set1) -- (prop1);
+    
+    % No 分支
+    \draw[arrow] (check) -| node[pos=0.25, above, font=\scriptsize\bfseries, text=acadgreen] {No} (init2);
+    \draw[dashed_arrow] (init2) -- (set2);
+    \draw[dashed_arrow] (set2) -- (prop2);
 
-    % Arrows
-    \draw[myarrow] (start) -- (check);
-    \draw[myarrow] (check.west) -- ++(-0.5,0) |- (init1.east);
-    \draw[myarrow] (check.east) -- ++(0.5,0) |- (skip1.west);
-    \draw[myarrow] (init1) -- (init2);
-    \draw[myarrow] (init2) -- (prop1);
-    \draw[->, thick, gray!40, dashed] (skip1) -- (skip2);
-    \draw[->, thick, gray!40, dashed] (skip2) -- (prop2);
+    % 7. Register 使用量標籤
+    \node[below=0.1cm of prop1, font=\scriptsize\bfseries, text=gray] {128 regs};
+    \node[below=0.1cm of prop2, font=\scriptsize\bfseries, text=acadgreen] {96 regs};
 
-    % Branch labels
-    \node[tinylabel] at (-1.5,1) {Yes};
-    \node[tinylabel] at (1.5,1) {No};
+    % 8. Compile Time 標籤
+    \node[above right=0.2cm and 0.5cm of check, font=\scriptsize\bfseries, text=acadblue, fill=white, draw=acadblue, rounded corners, inner sep=3pt, drop shadow] (ct_label) {Compile Time Decision};
+    \draw[dotted, thick, acadblue] (ct_label.south west) -- (check.east);
 
-    % Compile-time badge
-    \node[draw=blue!50, rounded corners, fill=blue!20, font=\small\bfseries, text=gray!70!black] at (0,-0.2) {Compile Time};
-
-    % Labels for branches
-    \node[font=\small\bfseries, text=gray!70] at (-3.5,-3) {128 regs};
-    \node[font=\small\bfseries, text=green!50!black] at (3.5,-3) {96 regs};
 \end{tikzpicture}
-\end{center}
 
-\begin{block}{18 Kernel Specializations}
-    3 detector types $\times$ 3 B-field configs $\times$ 2 MBF variants
-\end{block}
+% [修改] 調整垂直間距，稍微放鬆一點，因為下面的盒子變矮了
+\vspace{-0.5em}
+
+\begin{tcolorbox}[
+    colback=acadblue!20,      
+    colframe=acadblue,        
+    title={18 Kernel Specializations}, 
+    fonttitle=\bfseries\scriptsize, % [修改] 標題字體縮小一點
+    halign=center,            
+    arc=3pt,
+    % [新增] 以下參數用於壓縮盒子高度，使其變扁
+    boxsep=1pt, 
+    left=2pt, right=2pt, 
+    top=2pt, bottom=2pt,
+    toptitle=2pt, bottomtitle=2pt
+]
+    \small % [新增] 內容字體設為 small
+    \textbf{3} detector types $\times$ \textbf{3} B-field configs $\times$ \textbf{2} MBF variants
+\end{tcolorbox}
+
 \end{frame}
+
 
 %==============================================================================%
 \section{Results}
 %==============================================================================%
 
 \begin{frame}{Benchmark Results}
-\vspace{-0.3em}
-\begin{center}
-% Performance Dashboard
-\begin{tikzpicture}[scale=1.1,
-    scorecard/.style={draw=gray!40, rounded corners=6pt, minimum width=3.5cm, minimum height=2.2cm, font=\small, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}},
-    arrow/.style={->, very thick, >=stealth}
-]
-    % Main throughput comparison
-    \node[scorecard, fill=gray!10] (baseline) at (-3.2,1.5) {};
-    \node[font=\small, text=gray!60] at (-3.2,2.4) {BASELINE};
-    \node[font=\LARGE\bfseries, text=gray!70!black] at (-3.2,1.5) {36.57};
-    \node[font=\small, text=gray!60] at (-3.2,0.7) {events/s};
-
-    \node[scorecard, fill=green!15, draw=green!50!black] (opt) at (3.2,1.5) {};
-    \node[font=\small, text=green!50!black] at (3.2,2.4) {OPTIMIZED};
-    \node[font=\LARGE\bfseries, text=green!50!black] at (3.2,1.5) {43.27};
-    \node[font=\small, text=gray!60] at (3.2,0.7) {events/s};
-
-    % Arrow with improvement badge
-    \draw[arrow, green!50!black] (-1,1.5) -- (1,1.5);
-    \node[draw=green!50!black, rounded corners, fill=green!50!black, font=\large\bfseries, text=white] at (0,1.5) {+18.3\%};
-
-    % Secondary metrics row
-    \node[scorecard, fill=blue!15, minimum width=2.8cm, minimum height=1.5cm] (latency) at (-3.8,-1.2) {};
-    \node[font=\scriptsize, text=blue!70!black] at (-3.8,-0.5) {LATENCY};
-    \node[font=\large\bfseries, text=gray!70!black] at (-3.8,-1.2) {23.11 ms};
-    \node[font=\scriptsize, text=blue!70!black] at (-3.8,-1.8) {$\downarrow$ 15.5\%};
-
-    \node[scorecard, fill=green!15, minimum width=2.8cm, minimum height=1.5cm] (tests) at (0,-1.2) {};
-    \node[font=\scriptsize, text=green!50!black] at (0,-0.5) {TESTS};
-    \node[font=\large\bfseries, text=green!50!black] at (0,-1.2) {710/710};
-    \node[font=\scriptsize, text=green!50!black] at (0,-1.8) {\checkmark passing};
-
-    \node[scorecard, fill=gray!15, minimum width=2.8cm, minimum height=1.5cm] (config) at (3.8,-1.2) {};
-    \node[font=\scriptsize, text=gray!70] at (3.8,-0.5) {CONFIG};
-    \node[font=\normalsize, text=gray!70!black] at (3.8,-1.2) {V100-SXM2};
-    \node[font=\scriptsize, text=gray!60] at (3.8,-1.8) {8 threads};
-
-\end{tikzpicture}
-\end{center}
-
-\begin{columns}
-\column{0.5\textwidth}
-\centering
-{\small\textit{Apples-to-apples: Both with MBF=false}}
-\column{0.5\textwidth}
-\centering
-{\small Dataset: \texttt{ttbar\_mu200}}
-\end{columns}
-\end{frame}
-
-\begin{frame}{Methodology: Isolating the True Improvement}
 \begin{columns}[T]
-\column{0.55\textwidth}
-\textbf{The Problem}
-\begin{itemize}\itemsep2pt
-    \item Initial benchmark: \textbf{+11.67\%} (38.75 $\rightarrow$ 43.27)
-    \item But \texttt{build\_tracks} improved by 86\%!
-    \item Confounding variable: MBF default changed
-\end{itemize}
+    % --- Left Column: Chart (Visuals based on transcript numbers) ---
+    \begin{column}{0.6\textwidth}
+        \centering
+        \begin{tikzpicture}[
+            scale=0.95, 
+            % 定義樣式
+            bar/.style={ybar, line width=0pt, rounded corners=2pt},
+            label text/.style={font=\small\sffamily, align=center},
+            number text/.style={font=\Huge\bfseries},
+            % 基礎指標框
+            metric box base/.style={
+                rectangle, 
+                rounded corners=4pt, 
+                line width=1.2pt, 
+                minimum width=2.8cm, 
+                minimum height=1.3cm, 
+                align=center,
+                drop shadow={opacity=0.15, shadow xshift=1pt, shadow yshift=-1pt}
+            },
+            % Baseline 風格 (灰)
+            metric box gray/.style={
+                metric box base,
+                draw=gray!50,
+                fill=white
+            },
+            % Optimized 風格 (綠)
+            metric box green/.style={
+                metric box base,
+                draw=acadgreen,
+                fill=acadgreen!5 
+            }
+        ]
+            % 顏色定義
+            \definecolor{acadgreen}{RGB}{34, 120, 70}
 
-\vspace{0.5em}
-\textbf{The Solution}
-\begin{itemize}\itemsep2pt
-    \item Re-benchmark with controlled config
-    \item Both baseline and optimization: MBF=false
-    \item Isolated result: \textbf{+18.3\%} (36.57 $\rightarrow$ 43.27)
-\end{itemize}
+            % --- 1. Baseline Bar (36.57) ---
+            \fill[gray!30, rounded corners=3pt] (0,0) rectangle (2.0, 3.66);
+            \node[anchor=south] at (1.0, 3.7) {\textcolor{gray}{\textbf{36.57}}};
+            \node[anchor=north] (base) at (1.0, 0) {\small \textcolor{gray}{BASELINE}};
+            
+            % --- 2. Optimized Bar (43.27) ---
+            \fill[acadgreen!40, draw=acadgreen, line width=1pt, rounded corners=3pt] (3.5,0) rectangle (5.5, 4.33);
+            \node[anchor=south] at (4.5, 4.4) {\textcolor{acadgreen}{\textbf{43.27}}};
+            \node[anchor=north] at (4.5, 0) {\small \textcolor{acadgreen}{OPTIMIZED}};
+            
+            % --- 3. Y-Axis Label ---
+            \node[rotate=90, anchor=center, text=gray] at (-0.5, 2) {\footnotesize Throughput (events/s)};
 
-\column{0.45\textwidth}
-\centering
-\begin{tikzpicture}[scale=0.9]
-    % Confounded result (crossed out)
-    \node[draw=gray!40, rounded corners, fill=gray!15, minimum width=2.8cm, minimum height=1.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (0,2) {};
-    \node[font=\scriptsize, text=gray!60] at (0,2.4) {Confounded};
-    \node[font=\large\bfseries, text=gray!70!black] at (0,1.9) {+11.67\%};
-    \draw[red!70!black, very thick] (-1.2,1.5) -- (1.2,2.6);
+            % --- 4. Growth Indicator (+18.3%) ---
+            \draw[draw=acadgreen, line width=1.5pt] (2.2, 3.66) -- (2.4, 3.66) -- (2.4, 4.33) -- (3.3, 4.33);
+            \draw[->, >=stealth, acadgreen, line width=1.5pt] (3.3, 4.33) -- (3.45, 4.33); 
+            \node[fill=acadgreen, text=white, rounded corners=3pt, inner sep=3pt] at (2.75, 2.5) {
+                \textbf{+18.3\%}
+            };
 
-    % Arrow
-    \draw[->, very thick, gray!60] (0,1.1) -- (0,0.3);
+            % --- Secondary Metrics (Bottom Row) ---
+            
+            % Latency Box (27.34 -> 23.11 ms, -15.5%)
+            \node[metric box gray, below=0.5cm of base, xshift=1.0cm] (lat) at (0,0) {
+                \scriptsize LATENCY \\
+                \textbf{23.11 ms} \\
+                \scriptsize \textcolor{acadblue}{$\downarrow$ 15.5\%}
+            };
+            
+            % Test Box (710/710 Passing)
+            \node[metric box green, right=0.4cm of lat] (test) {
+                \scriptsize VERIFICATION \\
+                \textbf{710/710} \\
+                \scriptsize \textcolor{acadgreen}{\ding{51} Passing}
+            };
+        \end{tikzpicture}
+    \end{column}
 
-    % Isolated result
-    \node[draw=green!50!black, rounded corners, fill=green!15, minimum width=2.8cm, minimum height=1.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (0,-0.5) {};
-    \node[font=\scriptsize, text=green!50!black] at (0,-0.1) {Isolated};
-    \node[font=\large\bfseries, text=green!50!black] at (0,-0.6) {+18.3\%};
-\end{tikzpicture}
+    % --- Right Column: Text Information (Strictly from Transcript) ---
+    \begin{column}{0.4\textwidth}
+        \textbf{Config:} V100-SXM2 (8 threads) \\
+        \textbf{Dataset:} \texttt{ttbar\_mu200}
+        
+        \vspace{1em}
+        
+
+        
+        \vspace{2em}
+        
+        % [保留] 講稿強調的 Apples-to-apples 比較
+        \begin{tcolorbox}[colback=white, colframe=gray!50, fontupper=\small, title=Test Condition]
+            \textit{Apples-to-apples comparison:} \\
+            Both with MBF=false
+        \end{tcolorbox}
+    \end{column}
 \end{columns}
-
-\vspace{0.3em}
-\begin{alertblock}{Lesson Learned}
-    Always control for configuration changes! The true optimization impact was \textbf{larger} than initially measured.
-\end{alertblock}
 \end{frame}
 
-\begin{frame}{NCU Profiling: Key Metrics Dashboard}
-\vspace{-0.3em}
-{\small \textit{RTX 2080 Ti (sm\_75), ncu 2024.1.1}}
-\begin{center}
-\begin{tikzpicture}[scale=1.05,
-    card/.style={draw=gray!40, rounded corners=6pt, minimum width=3cm, minimum height=2.4cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}},
-    biglabel/.style={font=\Large\bfseries},
-    smalllabel/.style={font=\scriptsize, text=gray!60},
-    change/.style={font=\normalsize\bfseries}
-]
-    % Top row - 4 key metrics
-    % Registers
-    \node[card, fill=blue!20] (reg) at (-5,1.5) {};
-    \node[smalllabel] at (-5,2.5) {REGISTERS};
-    \node[biglabel, text=gray!70!black] at (-5,1.6) {128 $\rightarrow$ 96};
-    \node[change, text=blue!70!black] at (-5,0.7) {$\downarrow$ 25\%};
+\begin{frame}{NCU Profiling: Register Reduction Confirmed}
+    \centering
+    % [版面調整] 減少標題下方的空白
+    \vspace{-0.5em} 
+    
+    % 將硬體資訊移至右側，平衡視覺，避免與置中標題打架
+    \hfill {\scriptsize \textit{Kernel: \texttt{propagate\_to\_next\_surface} | Hardware: RTX 2080 Ti (sm\_75)}} \hspace{1em}
+    \vspace{-0.2em}
 
-    % Occupancy
-    \node[card, fill=blue!15] (occ) at (-1.5,1.5) {};
-    \node[smalllabel] at (-1.5,2.5) {OCCUPANCY};
-    \node[biglabel, text=gray!70!black] at (-1.5,1.6) {48.6\%};
-    \node[change, text=blue!70!black] at (-1.5,0.7) {$\uparrow$ 9.3\%};
+    % --- MAIN CHART ---
+    \begin{tikzpicture}
+        \begin{axis}[
+            xbar,
+            width=0.75\textwidth,
+            height=5.8cm,
+            bar width=5pt,
+            xmin=0, xmax=160,
+            % Reversed order: most important metrics at top (natural reading order)
+            symbolic y coords={Duration, Instructions, Registers, Memory Tpt, Occupancy},
+            ytick=data,
+            y dir=reverse,          % Flip y-axis so Occupancy is at top
+            axis x line=none,
+            axis y line*=left,
+            y axis line style={opacity=0},
+            yticklabel style={font=\footnotesize\bfseries, text width=2.2cm, align=right},
+            nodes near coords,
+            nodes near coords align={horizontal},
+            point meta=explicit symbolic,
+            % Legend outside chart, far upper-left
+            legend style={
+                at={(-0.32,0.88)},
+                anchor=south west,
+                legend columns=2,
+                draw=gray!50,
+                fill=white,
+                fill opacity=0.9,
+                font=\scriptsize,
+                column sep=5pt,
+            },
+            enlarge y limits=0.35
+        ]
 
-    % Instructions
-    \node[card, fill=green!15] (inst) at (2,1.5) {};
-    \node[smalllabel] at (2,2.5) {INSTRUCTIONS};
-    \node[biglabel, text=gray!70!black] at (2,1.6) {78.5M};
-    \node[change, text=green!50!black] at (2,0.7) {$\downarrow$ 4.6\%};
+        % --- 1. Baseline (Gray) - labels offset to the right ---
+        \addplot[fill=gray!30, draw=none,
+            nodes near coords style={anchor=west, font=\scriptsize\color{gray!60}, xshift=118pt}
+        ] coordinates {
+            (100,Duration)       [{3.99 ms}]
+            (100,Instructions)   [{82.3 M}]
+            (100,Registers)      [{128}]
+            (100,Memory Tpt)     [{218 GB/s}]
+            (100,Occupancy)      [{39.3\%}]
+        };
 
-    % Duration
-    \node[card, fill=blue!15] (dur) at (5.5,1.5) {};
-    \node[smalllabel] at (5.5,2.5) {DURATION};
-    \node[biglabel, text=gray!70!black] at (5.5,1.6) {3.61 ms};
-    \node[change, text=blue!70!black] at (5.5,0.7) {$\downarrow$ 9.5\%};
+        % --- 2. Optimized (Green) - labels at bar end ---
+        \addplot[fill=acadgreen, draw=none,
+            nodes near coords style={anchor=west, font=\scriptsize\bfseries\color{black}}
+        ] coordinates {
+            (90.5,Duration)      [{3.61 ms ($\downarrow$9.5\%)}]
+            (95.4,Instructions)  [{78.5 M ($\downarrow$4.6\%)}]
+            (75,Registers)       [{96 ($\downarrow$25\%)}]
+            (112,Memory Tpt)     [{245 GB/s ($\uparrow$12\%)}]
+            (123.6,Occupancy)    [{48.6\% ($\uparrow$9.3pp)}]
+        };
 
-    % Mechanism explanation below
-    \node[draw=gray!40, rounded corners=6pt, fill=gray!10, minimum width=11cm, minimum height=2cm, line width=0.8pt] at (0.25,-1.3) {};
-    \node[font=\normalsize\bfseries, text=gray!70!black] at (0.25,-0.5) {Dual Optimization Mechanism};
+        \legend{Baseline, Optimized}
+        \end{axis}
+    \end{tikzpicture}
 
-    % Left mechanism
-    \node[draw=blue!40, rounded corners, fill=blue!15, minimum width=4.2cm, minimum height=0.7cm, font=\small, text=gray!70!black, line width=0.8pt] at (-2.5,-1.3) {Register Reduction};
-    \node[font=\scriptsize, text=gray!60] at (-2.5,-1.9) {$\rightarrow$ Higher occupancy};
+    % --- BOTTOM: Dual Optimization Mechanism ---
+    % [調整] 適度 padding，確保不超出頁面
+    \begin{tcolorbox}[
+        title=Dual Optimization Mechanism,
+        colback=white,
+        colframe=acadblue,
+        left=3mm, right=3mm, top=2mm, bottom=2mm,
+        boxsep=1pt,
+        arc=2mm,
+        boxrule=0.8pt,
+        fonttitle=\bfseries\small
+    ]
+        \begin{columns}[T]
+            % --- 左欄：Register Reduction ---
+            \begin{column}{0.55\textwidth}
+                \centering
+                \textbf{\footnotesize 1. Register Reduction} \\
+                \vspace{0.3em}
+                \scriptsize Theoretical Occ.: $50\% \to \mathbf{62.5\%}$ \\
+                \tiny (Achieved Occ.: $39.3\% \to 48.6\%$)
+            \end{column}
 
-    % Right mechanism
-    \node[draw=green!30, rounded corners, fill=green!15, minimum width=4.2cm, minimum height=0.7cm, font=\small, text=gray!70!black, line width=0.8pt] at (3,-1.3) {Instruction Reduction};
-    \node[font=\scriptsize, text=gray!60] at (3,-1.9) {$\rightarrow$ Less compute work};
-
-    % Combined result
-    \node[font=\normalsize\bfseries, text=green!50!black] at (0.25,-2.5) {Combined: 9.5\% kernel speedup};
-
-\end{tikzpicture}
-\end{center}
-\end{frame}
-
-\begin{frame}{Architecture-Dependent Behavior}
-\begin{center}
-\begin{tikzpicture}[
-    panel/.style={draw=gray!40, rounded corners=6pt, minimum width=5.5cm, minimum height=4cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}},
-    barlabel/.style={font=\scriptsize, text=gray!60}
-]
-    % V100 Panel (left) - faded
-    \node[panel, fill=gray!10] (v100) at (-4,0) {};
-    \node[font=\small\bfseries, text=gray!70] at (-4,1.7) {V100 (sm\_70)};
-    \node[font=\tiny, text=gray!60] at (-4,1.3) {cuobjdump analysis};
-
-    % V100 bars - same height
-    \fill[blue!40] (-5.2,-1.2) rectangle (-4.6,0.8);
-    \fill[blue!40] (-4.4,-1.2) rectangle (-3.8,0.8);
-    \node[barlabel] at (-4.9,-1.5) {Base};
-    \node[barlabel] at (-4.1,-1.5) {Opt};
-    \node[font=\tiny, text=gray!60] at (-4.9,0.5) {128};
-    \node[font=\tiny, text=gray!60] at (-4.1,0.5) {128};
-
-    % No change indicator
-    \node[draw=gray!40, rounded corners, fill=white, font=\scriptsize, text=gray!70!black, line width=0.8pt] at (-4,0) {No Change};
-
-    % RTX 2080 Ti Panel (right) - highlighted
-    \node[panel, fill=green!10, draw=green!50!black] (rtx) at (4,0) {};
-    \node[font=\small\bfseries, text=green!50!black] at (4,1.7) {RTX 2080 Ti (sm\_75)};
-    \node[font=\tiny, text=green!50!black] at (4,1.3) {ncu profiling};
-
-    % RTX bars - different heights
-    \fill[blue!50] (2.8,-1.2) rectangle (3.4,0.8);
-    \fill[green!50!black] (3.6,-1.2) rectangle (4.2,0.2);
-    \node[barlabel] at (3.1,-1.5) {Base};
-    \node[barlabel] at (3.9,-1.5) {Opt};
-    \node[font=\tiny, text=gray!70!black] at (3.1,0.5) {128};
-    \node[font=\tiny\bfseries, text=green!50!black] at (3.9,-0.1) {96};
-
-    % Bracket showing reduction
-    \draw[thick, green!50!black, decorate, decoration={brace, amplitude=5pt}]
-        (4.4,0.8) -- (4.4,0.2) node[midway, right, font=\scriptsize\bfseries, xshift=3pt, text=green!50!black] {-25\%};
-
-    % Arrow between panels
-    \draw[->, very thick, gray!60] (-0.8,0) -- (0.8,0);
-    \node[font=\tiny, above, text=gray!70!black] at (0,0.2) {Different};
-    \node[font=\tiny, below, text=gray!70!black] at (0,-0.2) {Compiler};
-
-\end{tikzpicture}
-\end{center}
-
-\vspace{0.2em}
-\begin{alertblock}{Key Insight}
-    \textbf{Always profile on target hardware!} The same code compiles to different register counts on different architectures.
-\end{alertblock}
+            % --- 右欄：Instruction Reduction ---
+            \begin{column}{0.45\textwidth}
+                \centering
+                \textbf{\footnotesize 2. Instruction Reduction} \\
+                \vspace{0.3em}
+                \scriptsize \vphantom{Theoretical Occ.:} Less compute work \\
+                \tiny ($82.3\text{M} \to 78.5\text{M}$)
+            \end{column}
+        \end{columns}
+    \end{tcolorbox}
 \end{frame}
 
 \begin{frame}{Optimization Mechanism Summary}
-\begin{center}
-\begin{tikzpicture}[scale=0.85]
-    % Title
-    \node[font=\large\bfseries, text=gray!70!black] at (0,4) {Two Complementary Mechanisms};
-
-    % Mechanism 1 - Register Reduction
-    \node[draw=blue!40, rounded corners=6pt, fill=blue!15, minimum width=4.2cm, minimum height=2.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}] (mech1) at (-3.2,1.5) {};
-    \node[font=\small\bfseries, text=blue!70!black] at (-3.2,2.4) {Register Reduction};
-    \node[font=\scriptsize, align=center, text=gray!70!black] at (-3.2,1.5) {128 $\rightarrow$ 96 registers\\(on sm\_75)};
-    \node[font=\scriptsize\bfseries, text=blue!70!black] at (-3.2,0.6) {+9.3\% occupancy};
-
-    % Mechanism 2 - Skipped Aggregation
-    \node[draw=green!30, rounded corners=6pt, fill=green!15, minimum width=4.2cm, minimum height=2.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}] (mech2) at (3.2,1.5) {};
-    \node[font=\small\bfseries, text=green!50!black] at (3.2,2.4) {Skipped Aggregation};
-    \node[font=\scriptsize, align=center, text=gray!70!black] at (3.2,1.5) {No 6$\times$6 matrix mult\\No global memory I/O};
-    \node[font=\scriptsize\bfseries, text=green!50!black] at (3.2,0.6) {-4.6\% instructions};
-
-    % Combined effect
-    \node[draw=green!50!black, rounded corners=6pt, fill=green!20, minimum width=5.5cm, minimum height=1.2cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}] (result) at (0,-0.7) {};
-    \node[font=\normalsize\bfseries, text=green!50!black] at (0,-0.7) {+18.3\% Throughput};
-
-    % Arrows
-    \draw[->, thick, gray!60] (-3.2,0.2) -- (-1.2,-0.3);
-    \draw[->, thick, gray!60] (3.2,0.2) -- (1.2,-0.3);
-
-    % Per-track savings
-    \node[draw=gray!40, dashed, rounded corners=4pt, fill=white, font=\tiny, align=center, text=gray!70!black, line width=0.8pt] at (0,-2.2) {
-        Per track (15 surfaces):\\
-        $\sim$3,240 FLOPs saved\\
-        $\sim$4,320 bytes memory saved
-    };
-\end{tikzpicture}
-\end{center}
-\end{frame}
-
-%==============================================================================%
-\section{Lessons Learned}
-%==============================================================================%
-
-\begin{frame}{Key Takeaways: Paper Analysis vs Real Hardware}
-\begin{center}
-\begin{tikzpicture}[
-    panel/.style={draw=gray!40, rounded corners=6pt, minimum width=5cm, minimum height=4.5cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.25}},
-    metric/.style={font=\scriptsize},
-    value/.style={font=\small\bfseries}
-]
-    % Paper Analysis Panel (left)
-    \node[panel, fill=blue!15] (paper) at (-4,0.5) {};
-    \node[font=\normalsize\bfseries, text=blue!70!black] at (-4,2.5) {Paper Analysis};
-    \node[font=\tiny, text=gray!60] at (-4,2.1) {(Theoretical estimates)};
-
-    % Paper metrics
-    \node[metric, text=gray!60] at (-5.5,1.2) {Registers:};
-    \node[value, text=gray!70!black] at (-2.8,1.2) {-36};
-    \node[metric, text=gray!60] at (-5.5,0.4) {Occupancy:};
-    \node[value, text=gray!70!black] at (-2.8,0.4) {+10-25\%};
-    \node[metric, text=gray!60] at (-5.5,-0.4) {Throughput:};
-    \node[value, text=gray!70!black] at (-2.8,-0.4) {+5-15\%};
-
-    % Document icon (simple rectangle)
-    \draw[blue!60, thick] (-4.3,-1.6) rectangle (-3.7,-1);
-    \draw[blue!60] (-4.2,-1.15) -- (-3.8,-1.15);
-    \draw[blue!60] (-4.2,-1.3) -- (-3.8,-1.3);
-    \draw[blue!60] (-4.2,-1.45) -- (-3.8,-1.45);
-
-    % Real Hardware Panel (right)
-    \node[panel, fill=green!15, draw=green!50!black] (hw) at (4,0.5) {};
-    \node[font=\normalsize\bfseries, text=green!50!black] at (4,2.5) {Real Hardware};
-    \node[font=\tiny, text=gray!60] at (4,2.1) {(NCU profiling, sm\_75)};
-
-    % Hardware metrics
-    \node[metric, text=gray!60] at (2.5,1.2) {Registers:};
-    \node[value, text=green!50!black] at (5.2,1.2) {-32};
-    \node[metric, text=gray!60] at (2.5,0.4) {Occupancy:};
-    \node[value, text=green!50!black] at (5.2,0.4) {+9.3\%};
-    \node[metric, text=gray!60] at (2.5,-0.4) {Throughput:};
-    \node[value, text=green!50!black] at (5.5,-0.4) {\textbf{+18.3\%}};
-
-    % GPU icon (simple chip)
-    \draw[green!50!black, thick] (3.7,-1.5) rectangle (4.3,-1.1);
-    \foreach \x in {3.8,4,4.2} {
-        \draw[green!50!black] (\x,-1.5) -- (\x,-1.6);
-        \draw[green!50!black] (\x,-1.1) -- (\x,-1);
-    }
-
-    % Arrow between panels
-    \draw[->, very thick, blue!60] (-1,0.5) -- (1,0.5);
-    \node[font=\tiny\bfseries, text=blue!70!black, above] at (0,0.7) {Profile!};
-
-    % Checkmarks/X marks
-    \node[text=blue!60] at (-1.8,1.2) {$\approx$};
-    \node[text=blue!60] at (-1.8,0.4) {$\approx$};
-    \node[text=green!50!black] at (-1.8,-0.4) {\checkmark};
-
-\end{tikzpicture}
-\end{center}
-
-\vspace{0.2em}
-\begin{alertblock}{Important Caveat}
-    Optimization only works when \textbf{MBF smoother is disabled}. Trade-off: No backward smoothing.
-\end{alertblock}
+    \centering
+    \begin{tikzpicture}
+        % Mech 1
+        \node[shadowbox, fill=acadblue!20, text width=4cm, align=center] (m1) {
+            \textbf{Register Reduction} \\
+            \scriptsize (Architecture Dependent) \\
+            \vspace{0.2em}
+            \textcolor{acadblue}{\textbf{+9.3\% Occupancy}}
+        };
+        
+        % Mech 2
+        \node[shadowbox, fill=acadgreen!20, text width=4cm, align=center, right=1cm of m1] (m2) {
+            \textbf{Skipped Aggregation} \\
+            \scriptsize (Universal) \\
+            \vspace{0.2em}
+            \textcolor{acadgreen}{\textbf{-4.6\% Instructions}}
+        };
+        
+        % Result
+        \node[shadowbox, fill=acadgreen, text=white, text width=6cm, align=center, below=1cm of $(m1.east)!0.5!(m2.west)$] (res) {
+            \large \textbf{+18.3\% Throughput}
+        };
+        
+        \draw[arrow] (m1.south) -- (res.north west);
+        \draw[arrow] (m2.south) -- (res.north east);
+    \end{tikzpicture}
+    
+    \vspace{1em}
+    \begin{tcolorbox}[colback=gray!5, colframe=gray!40, size=small]
+        \centering
+        \textbf{Per Track Savings:} $\sim$3,240 FLOPs and $\sim$4,320 bytes memory I/O
+    \end{tcolorbox}
 \end{frame}
 
 %==============================================================================%
 \section{Conclusion}
 %==============================================================================%
 
-\begin{frame}{Summary}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Achievements}
-\begin{itemize}\itemsep0pt
-    \item \textbf{+18.3\%} throughput improvement
-    \item \textbf{-25\%} register usage (on sm\_75)
-    \item \textbf{+9.3\%} achieved occupancy
-    \item \textbf{710/710} tests passing
-\end{itemize}
+\begin{frame}{Conclusion} % 修正1: 補上 begin frame
+\begin{columns}[T]
+    % 修正2: 移除重複的 \begin{column}{0.5\textwidth}
+    \begin{column}{0.5\textwidth}
+        \begin{tcolorbox}[colback=blue!5, colframe=acadblue, title=Paper Analysis (Theoretical)]
+            \begin{itemize}
+                \item Registers: -36
+                \item Occupancy: +10-25\%
+                \item Throughput: +5-15\%
+            \end{itemize}
+        \end{tcolorbox}
+    \end{column}
 
-\vspace{0.2em}
-\textbf{Implementation}
-\begin{itemize}\itemsep0pt
-    \item New \texttt{bound\_updater} actor
-    \item Two actor chain variants
-    \item 18 kernel specializations
-    \item Compile-time dispatch
-\end{itemize}
-
-\column{0.5\textwidth}
-\textbf{Mechanism}
-\begin{itemize}\itemsep0pt
-    \item Skip 6$\times$6 matrix multiplication
-    \item Reduce global memory traffic
-    \item Architecture-dependent register savings
-\end{itemize}
-
-\vspace{0.2em}
-\textbf{Key Files}
-\begin{itemize}\itemsep0pt
-    \item {\scriptsize\texttt{bound\_updater.hpp}}
-    \item {\scriptsize\texttt{combinatorial\_kalman\_filter\_types.hpp}}
-    \item {\scriptsize\texttt{propagate\_to\_next\_surface.ipp}}
-\end{itemize}
+    \begin{column}{0.5\textwidth}
+        \begin{tcolorbox}[colback=green!5, colframe=acadgreen, title=Real Hardware (sm\_75)]
+            \begin{itemize}
+                \item Registers: -32 \ding{51}
+                \item Occupancy: +9.3\% \ding{51}
+                \item \textbf{Throughput: +18.3\%} \ding{51}
+            \end{itemize}
+        \end{tcolorbox}
+    \end{column}
 \end{columns}
 
-\vspace{0.1em}
-\begin{block}{Conclusion}
-    Conditional Jacobian Aggregation provides \textbf{+18.3\% throughput} through dual mechanism: register reduction (architecture-dependent) and skipped matrix operations (universal).
+\vspace{1em}
+\begin{block}{Caveat}
+    Optimization only works when \textbf{MBF smoother is disabled}. Trade-off: No backward smoothing.
 \end{block}
+\end{frame}
+
+\begin{frame}{Summary}
+\begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+        \textbf{Achievements}
+        \begin{itemize}
+            \item \textcolor{acadgreen}{\ding{51}} \textbf{+18.3\%} throughput
+            \item \textcolor{acadgreen}{\ding{51}} \textbf{-25\%} register usage (sm\_75)
+            \item \textcolor{acadgreen}{\ding{51}} \textbf{710/710} tests passing
+        \end{itemize}
+        
+        \vspace{1em}
+        \textbf{Implementation}
+        \begin{itemize}
+            \item New \texttt{bound\_updater} actor
+            \item 18 kernel specializations
+            \item Compile-time dispatch
+        \end{itemize}
+    \end{column}
+
+    \begin{column}{0.5\textwidth}
+        \textbf{Mechanism}
+        \begin{enumerate}
+            \item Skip 6$\times$6 matrix multiplication
+            \item Reduce global memory traffic
+            \item Architecture-dependent register savings
+        \end{enumerate}
+        
+        \vspace{1em}
+        \textbf{Key Files}
+        \begin{itemize}
+            \item \texttt{bound\_updater.hpp}
+            \item \texttt{propagate\_to\_next\_surface.ipp}
+        \end{itemize}
+    \end{column}
+\end{columns}
 \end{frame}
 
 \begin{frame}{Questions?}
-\begin{center}
-\vspace{1em}
-
-\begin{tikzpicture}
-    % Main thank you message
-    \node[font=\Large\bfseries, text=blue!70!black] at (0,2) {Thank you for your attention!};
-
-    % Decorative line
-    \fill[blue!60] (-3,1.3) rectangle (3,1.38);
-    \fill[blue!40] (-1,1.15) rectangle (1,1.22);
-
-    % Key results summary
-    \node[draw=gray!40, rounded corners=8pt, fill=green!15, minimum width=3cm, minimum height=1cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (-4,-0.3) {};
-    \node[font=\Large\bfseries, text=green!50!black] at (-4,-0.3) {+18.3\%};
-    \node[font=\tiny, text=gray!60] at (-4,-0.8) {Throughput};
-
-    \node[draw=gray!40, rounded corners=8pt, fill=blue!15, minimum width=3cm, minimum height=1cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (0,-0.3) {};
-    \node[font=\Large\bfseries, text=blue!70!black] at (0,-0.3) {-25\%};
-    \node[font=\tiny, text=gray!60] at (0,-0.8) {Registers};
-
-    \node[draw=gray!40, rounded corners=8pt, fill=green!15, minimum width=3cm, minimum height=1cm, line width=0.8pt, drop shadow={shadow xshift=1pt, shadow yshift=-1pt, opacity=0.2}] at (4,-0.3) {};
-    \node[font=\Large\bfseries, text=green!50!black] at (4,-0.3) {710/710};
-    \node[font=\tiny, text=gray!60] at (4,-0.8) {Tests Passing};
-
-    % Links
-    \node[font=\normalsize, text=gray!70!black] at (0,-2) {\texttt{github.com/acts-project/traccc}};
-    \node[font=\small, text=gray!60] at (0,-2.6) {Documentation: \texttt{doc/conditional\_jacobian\_transport\_*.md}};
-\end{tikzpicture}
-
-\end{center}
+    \centering
+    \vspace{1em}
+    
+    {\Huge \textcolor{acadblue}{\textbf{Thank you!}}}
+    
+    \vspace{2em}
+    \begin{tikzpicture}
+        \node[kpibox, fill=acadgreen!30, draw=acadgreen] at (-4,0) {
+            \Huge \textbf{+18.3\%} \\
+            \small Throughput
+        };
+        \node[kpibox, fill=acadblue!30, draw=acadblue] at (0,0) {
+            \Huge \textbf{-25\%} \\
+            \small Registers
+        };
+        \node[kpibox, fill=gray!20, draw=gray] at (4,0) {
+            \Large \textbf{710/710} \\
+            \small Tests Passed
+        };
+    \end{tikzpicture}
+    
+    \vspace{2em}
+    \texttt{github.com/acts-project/traccc}
 \end{frame}
 
 %==============================================================================%
-% BACKUP SLIDES
+% BACKUP
 %==============================================================================%
 \appendix
-\newcounter{finalframe}
-\setcounter{finalframe}{\value{framenumber}}
+\begin{frame}{Backup: FAQ}
+    \textbf{Q1: Why does Jacobian computation still happen?}
+    \begin{itemize}
+        \item \texttt{get\_full\_jacobian()} is needed for covariance transport. We only skip the \textit{aggregation}.
+    \end{itemize}
 
-\begin{frame}{Backup: Anticipated Questions (1/2)}
-\textbf{Q1: Why does Jacobian computation still happen?}
-\begin{itemize}
-    \item \texttt{get\_full\_jacobian()} is needed for covariance transport
-    \item We skip the \textit{aggregation}, not the computation
-    \item Future work: skip computation entirely when not needed
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Q2: Why not runtime dispatch instead of compile-time?}
-\begin{itemize}
-    \item \texttt{if constexpr} allows dead code elimination
-    \item Runtime \texttt{if} would still allocate registers for Jacobian pointer
-    \item Compile-time dispatch enables different kernel specializations
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Q3: What is MBF smoother and when is it needed?}
-\begin{itemize}
-    \item Multi-Branch Fit smoother: backward pass to improve track parameters
-    \item Needed for high-precision physics measurements
-    \item Can be disabled for real-time trigger applications
-\end{itemize}
+    \vspace{0.5em}
+    \textbf{Q2: Why not runtime dispatch?}
+    \begin{itemize}
+        \item \texttt{if constexpr} enables dead code elimination and specific register allocation.
+    \end{itemize}
+    
+    \vspace{0.5em}
+    \textbf{Q3: Why different results on sm\_70 vs sm\_75?}
+    \begin{itemize}
+        \item Compiler optimizations, instruction sets (tensor cores), and register allocation heuristics vary by architecture.
+    \end{itemize}
 \end{frame}
 
-\begin{frame}{Backup: Anticipated Questions (2/2)}
-\textbf{Q4: Why different results on sm\_70 vs sm\_75?}
-\begin{itemize}
-    \item CUDA compiler makes architecture-specific optimizations
-    \item Different instruction sets (sm\_75 has tensor cores)
-    \item Register allocation heuristics vary by architecture
-    \item Always profile on production hardware
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Q5: What about other register-heavy kernels?}
-\begin{itemize}
-    \item \texttt{fit\_forward}: 168 registers
-    \item \texttt{fit\_backward}: 168 registers
-    \item Similar conditional optimization could apply
-    \item Future work opportunity
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Q6: How does this compare to other optimizations?}
-\begin{itemize}
-    \item Multi-event batching: +93\% throughput
-    \item Conditional Jacobian: +18.3\% throughput
-    \item Complementary optimizations, can be combined
-\end{itemize}
-\end{frame}
-
-\begin{frame}{Backup: Detailed NCU Metrics}
-\textbf{Full Profiling Data (RTX 2080 Ti, sm\_75, ncu 2024.1.1)}
-
-\begin{columns}
-\column{0.5\textwidth}
-\begin{table}
-    \tiny
-    \begin{tabular}{lccc}
-        \toprule
-        \textbf{Metric} & \textbf{Base} & \textbf{Opt} & \textbf{$\Delta$} \\
-        \midrule
-        \multicolumn{4}{l}{\textit{Occupancy}} \\
-        Registers/thread & 128 & 96 & -25\% \\
-        Block limit & 4 & 5 & +25\% \\
-        Theor. occupancy & 50.0\% & 62.5\% & +12.5\% \\
-        Achieved occupancy & 39.28\% & 48.62\% & +9.34\% \\
-        \midrule
-        \multicolumn{4}{l}{\textit{Compute}} \\
-        Duration (ms) & 3.99 & 3.61 & -9.5\% \\
-        Instructions (M) & 82.3 & 78.5 & -4.6\% \\
-        IPC & 0.26 & 0.26 & 0\% \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-
-\column{0.5\textwidth}
-\begin{table}
-    \tiny
-    \begin{tabular}{lccc}
-        \toprule
-        \textbf{Metric} & \textbf{Base} & \textbf{Opt} & \textbf{$\Delta$} \\
-        \midrule
-        \multicolumn{4}{l}{\textit{Memory}} \\
-        Mem throughput & 218 GB/s & 245 GB/s & +12\% \\
-        DRAM throughput & 33.2\% & 37.7\% & +4.5\% \\
-        L1 hit rate & 54.1\% & 46.3\% & -7.8\% \\
-        L2 hit rate & 79.6\% & 76.6\% & -3.0\% \\
-        \midrule
-        \multicolumn{4}{l}{\textit{Scheduler}} \\
-        No eligible (\%) & 93.24\% & 93.27\% & +0.03\% \\
-        Active warps/sched & 3.23 & 4.03 & +0.80 \\
-        Warp cycles/instr & 47.74 & 59.92 & \textcolor{red}{+25\%} \\
-        \bottomrule
-    \end{tabular}
-\end{table}
-\end{columns}
-
-\vspace{0.3em}
-\begin{block}{Bottleneck Analysis}
-    Kernel remains \textbf{latency-bound}: 93\% of cycles have no eligible warps.
-    Note: Warp cycles/instruction \textit{increased} despite speedup---fewer total instructions but each waits longer (more memory parallelism).
-\end{block}
-\end{frame}
-
-\setcounter{framenumber}{\value{finalframe}}
 \end{document}

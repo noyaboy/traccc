@@ -21,7 +21,7 @@
 
 > "Let's start with the problem. The `propagate_to_next_surface` kernel is the most compute-intensive part of the Combinatorial Kalman Filter, taking about 63% of total GPU time.
 
-> The challenge is that this kernel achieves only 10 to 25 percent GPU occupancy. On an NVIDIA V100, we need 32 registers or fewer per thread to achieve 100% occupancy. But our kernel uses 128 to 203 registers.
+> The challenge is that this kernel achieves only 10 to 25 percent GPU occupancy. On an NVIDIA V100, we need 32 registers or fewer per thread to achieve 100% occupancy. But our kernel uses 128 registers per thread.
 
 > Looking at the register budget breakdown, we can see where these registers go: 6 for bound parameters, 21 for the covariance matrix, 12 for Runge-Kutta derivatives, and so on. But notice this item: approximately 36 registers for the 6-by-6 Jacobian matrix.
 
@@ -103,25 +103,11 @@
 
 ---
 
-## Slide 9: Methodology: Isolating the True Improvement
+## Slide 9: NCU Profiling: Register Reduction Confirmed
 
-> "Before I continue with the profiling results, let me explain an important methodological challenge we faced.
+> "To understand *why* we got this speedup, we used NVIDIA Nsight Compute version 2024.1.1 for detailed kernel profiling. We focused on the `propagate_to_next_surface` kernel - the main track finding kernel. This was done on an RTX 2080 Ti using a single event with one CPU thread to isolate GPU behavior.
 
-> Our initial benchmark showed only an 11.67% improvement - from 38.75 to 43.27 events per second. But when we investigated further, we found something surprising: the `build_tracks` kernel had improved by 86.3%!
-
-> The problem was a confounding variable. The baseline used MBF=true, while our optimization defaults MBF to false. This default change improved `build_tracks`, which has nothing to do with our Jacobian aggregation optimization.
-
-> So we re-ran the benchmark with an apples-to-apples comparison: both baseline and optimization with MBF=false. This isolated only the effect of skipping Jacobian aggregation.
-
-> The true isolated improvement is 18.3%: from 36.57 to 43.27 events per second. This is the real impact of our optimization, separate from the MBF default change."
-
----
-
-## Slide 10: NCU Profiling: Register Reduction Confirmed
-
-> "To understand *why* we got this speedup, we used NVIDIA Nsight Compute version 2024.1.1 for detailed kernel profiling. This was done on an RTX 2080 Ti using a single event with one CPU thread to isolate GPU behavior.
-
-> The key finding is that **register usage dropped from 128 to 96 registers per thread** - a 25% reduction. This is exactly what we hoped for.
+> The key finding is that **register usage in `propagate_to_next_surface` dropped from 128 to 96 registers per thread** - a 25% reduction. This is exactly what we hoped for.
 
 > This register reduction has a cascading effect: the block limit per SM increases from 4 to 5, theoretical occupancy jumps from 50% to 62.5%, and achieved occupancy improves from 39.3% to 48.6%.
 
@@ -131,21 +117,7 @@
 
 ---
 
-## Slide 11: Architecture-Dependent Behavior
-
-> "Now here's something important we discovered: **the register reduction is architecture-dependent**.
-
-> We initially used `cuobjdump` to analyze the compiled binary on V100 - that's sm_70. It showed 128 registers in both baseline and optimization. No change.
-
-> But when we profiled with NCU on RTX 2080 Ti - that's sm_75 - we saw the register count drop from 128 to 96.
-
-> Why the difference? Different GPU architectures cause the CUDA compiler to make different optimization decisions. The sm_75 architecture has additional instructions and different register allocation heuristics.
-
-> The implication is clear: **always profile on your target production hardware**. What works on one GPU may behave differently on another."
-
----
-
-## Slide 12: Optimization Mechanism Summary
+## Slide 10: Optimization Mechanism Summary
 
 > "Let me summarize the two complementary mechanisms behind this optimization.
 
@@ -159,21 +131,19 @@
 
 ---
 
-## Slide 13: Key Takeaways
+## Slide 11: Conclusion
 
 > "What did we learn from this work?
 
-> First, always profile on target hardware. Our cuobjdump analysis on V100 said 'no register reduction.' NCU on 2080 Ti said '25% reduction.' Both were correct - for their respective architectures.
+> Our theoretical analysis predicted about 36 registers saved; we achieved 32 on sm_75. We expected 10 to 25 percent occupancy gain; we got 9.3 percent. But we exceeded our throughput target with 18.3% improvement.
 
-> Second, our original claims were partially wrong. We expected about 36 registers saved from removing the Jacobian pointer; we got 32 - only on sm_75. We expected 25% occupancy gain; we got 9.3%. But we still exceeded our throughput target.
+> Multiple mechanisms contribute to performance - it's not just register reduction OR instruction reduction, it's both working together.
 
-> Third, multiple mechanisms can contribute to performance. It's not just register reduction OR instruction reduction - it's both working together.
-
-> And finally, there's a trade-off: this optimization only applies when MBF smoother is disabled. For physics analyses requiring backward smoothing, the original actor chain is still needed."
+> And there's a trade-off: this optimization only applies when MBF smoother is disabled. For physics analyses requiring backward smoothing, the original actor chain is still needed."
 
 ---
 
-## Slide 14: Summary
+## Slide 12: Summary
 
 > "To summarize: Conditional Jacobian Aggregation achieves an 18.3% throughput improvement, 25% register reduction on sm_75, and 9.3% higher occupancy - while maintaining full test correctness.
 
@@ -181,13 +151,13 @@
 
 > The mechanism is straightforward: skip the 6-by-6 matrix multiplication when MBF is disabled. The Jacobian is still computed for covariance transport, but we don't aggregate it.
 
-> The key files are `bound_updater.hpp` for the new actor, `combinatorial_kalman_filter_types.hpp` for the actor chain definitions, and `propagate_to_next_surface.ipp` for the dispatch logic.
+> The key files are `bound_updater.hpp` for the new actor and `propagate_to_next_surface.ipp` for the dispatch logic.
 
 > The main conclusion is that this optimization works through a dual mechanism: architecture-dependent register reduction plus universal instruction savings from skipped matrix operations."
 
 ---
 
-## Slide 15: Questions
+## Slide 13: Questions
 
 > "Thank you for your attention. I'm happy to take any questions.
 
@@ -234,11 +204,11 @@
 | Introduction | 1-2 | 1-2 min |
 | Problem Context | 3-4 | 3-4 min |
 | Implementation | 5-7 | 4-5 min |
-| Results | 8-12 | 5-6 min |
-| Lessons & Conclusion | 13-15 | 2-3 min |
+| Results | 8-10 | 4-5 min |
+| Conclusion | 11-13 | 2-3 min |
 | Q&A | - | 3-5 min |
 
-**Total: ~18-22 minutes**
+**Total: ~16-20 minutes**
 
 ---
 
