@@ -11,11 +11,13 @@
 
 **Root Cause**: Adaptive RK4 stepping in detray adjusts step size based on local integration error. Track-dependent factors (momentum, magnetic field, material) cause up to 31x variance in step counts.
 
-**Measured Distribution** (2025-12-30):
+**Measured Distribution** (2025-12-30, 94K propagations):
 - 89% of propagations: 1-9 steps
 - 10% of propagations: 10-19 steps
 - <1% of propagations: 20+ steps
 - Average: 5.45 steps, Max: 31 steps
+
+> **Note:** Larger dataset analysis (1.05M propagations) in `doc/step_count_correlation_analysis.md` shows mean 6.32 steps, max 34 steps.
 
 **Key Insight**: traccc already has a load-balanced work distribution model in `find_tracks` kernel that solves similar divergence for measurements—this pattern could be adapted for propagation. Despite 89% of threads finishing quickly, probability math shows 97% of warps have at least one slow thread, making work redistribution a HIGH priority optimization.
 

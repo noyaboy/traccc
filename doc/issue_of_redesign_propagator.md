@@ -16,7 +16,7 @@ The Phase 3 persistent threads implementation compiles and is functionally corre
 
 ### 1.1 Original Goal
 
-Reduce warp divergence in the `propagate_to_next_surface` kernel caused by variable RK4 propagation step counts (observed range: 1-31 steps). Warp divergence wastes ~62% of GPU cycles.
+Reduce warp divergence in the `propagate_to_next_surface` kernel caused by variable RK4 propagation step counts (observed range: 1-34 steps, mean 6.32; see `doc/step_count_correlation_analysis.md`). Warp divergence wastes ~62% of GPU cycles.
 
 ### 1.2 Attempted Solution
 

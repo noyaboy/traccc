@@ -46,7 +46,7 @@ From GitHub Issue #851:
 | Problem | Cause | Symptom | Impact |
 |---------|-------|---------|--------|
 | **Register Pressure** | Too many registers per thread | Low occupancy (10-25%) | SM underutilization |
-| **Warp Divergence** | Variable RK4 step counts (1-31) | Threads waiting for slowest | ~62% wasted cycles |
+| **Warp Divergence** | Variable RK4 step counts (1-34) | Threads waiting for slowest | ~62% wasted cycles |
 
 These are **independent problems** requiring different solutions. Previous work in `doc/work_redistribution_*.md` addressed warp divergence. This document addresses register pressure.
 

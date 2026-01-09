@@ -8,7 +8,7 @@
 
 ## The Problem
 
-**Warp divergence in CKF propagation:** ~62% of GPU cycles wasted because 32 threads in a warp wait for the slowest thread (1-31 RK4 steps variance, 97% of warps have at least one slow thread).
+**Warp divergence in CKF propagation:** ~62% of GPU cycles wasted because 32 threads in a warp wait for the slowest thread (1-34 RK4 steps variance, mean 6.32; 97% of warps have at least one slow thread). See `doc/step_count_correlation_analysis.md` for full analysis.
 
 ---
 
