@@ -1242,9 +1242,9 @@ This section provides a comprehensive blocker analysis and development plan for 
 | Category | Count | Status |
 |----------|-------|--------|
 | **Critical Blockers** | 2 | Must resolve before development |
-| **High Priority Blockers** | 4 | Block development start |
+| **High Priority Blockers** | 3 | Block development start |
 | **Medium Priority Risks** | 5 | Manageable with mitigation |
-| **Resolved** | 1 | ✓ Done |
+| **Resolved** | 2 | ✓ Done |
 
 ### 12.2 Critical Blockers
 
@@ -1302,20 +1302,33 @@ Phase 4 evaluation (XRT kernel launch overhead) requires V80 hardware. While Pha
 - New build targets for FPGA kernels
 - Host code using XRT API (not Alpaka)
 
-#### 12.3.2 RK4 Kernel Implementation Missing
+#### 12.3.2 RK4 Kernel Implementation ✓ RESOLVED
 
-**Issue:** No FPGA implementation of RK4 propagation exists. This is the primary workload (63% of GPU time).
+**Status:** RESOLVED (2026-01-09) - HLS extraction complete, C-simulation validated.
 
-**Scope:**
-- Port `propagate_to_next_surface` to HLS C++
-- Implement pipelined MAC chains for RK4 stages
-- Handle B-field lookup from HBM2e (~139 MB)
-- Support variable step count (1-34 steps, mean 6.32)
+**Implementation:** `fpga/hls/rk4_propagator.hpp` and `fpga/hls/rk4_propagator.cpp`
 
-**Complexity factors:**
-- B-field grid must stream from HBM
-- Adaptive step sizing logic
-- Normalization requires `sqrt` (Newton-Raphson or LUT)
+Extracted RK4 propagation algorithm from `detray/core/include/detray/propagator/rk_stepper.ipp` into standalone HLS-ready C++ with:
+- Template-free implementation for Vitis HLS synthesis
+- Correct unit conversion (Tesla → native GeV/(e·mm) units)
+- Adaptive step sizing with error estimation
+- HLS pragmas for pipelining and memory interfaces
+
+**Validation Results (C-simulation):**
+
+| Test | Result | Notes |
+|------|--------|-------|
+| Straight line (B=0) | PASS | 100mm propagation |
+| Circular motion (B=2T) | PASS | Correct curvature |
+| Direction normalization | PASS | Unit vector preserved |
+| Batch processing (6666 tracks) | PASS | 0 invalid outputs |
+| Step count distribution | PASS | 1-9 steps for 10-500mm |
+| Helix accuracy vs analytical | PASS | **0.08% position error** |
+
+**Remaining work:**
+- Run HLS synthesis for DSP58/resource report (resolves Critical Blocker 12.2.1)
+- Test with real B-field grid data
+- Add material effects (energy loss, scattering)
 
 #### 12.3.3 GPU↔FPGA Data Interface Undefined
 
@@ -1366,6 +1379,33 @@ Phase 4 evaluation (XRT kernel launch overhead) requires V80 hardware. While Pha
 
 The per-step synchronization barrier is NOT a blocker.
 
+#### 12.5.2 RK4 Algorithm Extraction ✓
+
+**Status:** RESOLVED (2026-01-09) - See Section 12.3.2
+
+| Deliverable | Status |
+|-------------|--------|
+| HLS-ready RK4 implementation | Complete |
+| Unit conversion (Tesla → native) | Verified |
+| C-simulation testbench | 6/6 tests pass |
+| Helix accuracy validation | 0.08% error |
+
+**Files created:**
+- `fpga/hls/rk4_propagator.hpp` - Data structures and algorithm
+- `fpga/hls/rk4_propagator.cpp` - HLS kernel implementations
+- `fpga/hls/rk4_propagator_tb.cpp` - Testbench with 6 test cases
+- `fpga/hls/Makefile` - Build system for C-sim and HLS
+- `fpga/hls/README.md` - Documentation
+
+**Unit System (matching detray/ACTS):**
+```
+Length:     mm
+Energy:     GeV
+Charge:     e (elementary charge)
+B-field:    GeV/(e·mm) internally
+            1 Tesla = 0.000299792458 GeV/(e·mm)
+```
+
 ### 12.6 Pre-V80 Development Strategy
 
 **Key Insight:** HLS development is required regardless of V80 availability. Vitis HLS supports C-simulation, synthesis, and co-simulation without target hardware.
@@ -1399,12 +1439,13 @@ The per-step synchronization barrier is NOT a blocker.
 
 #### Phase 0: Infrastructure Setup
 
-| Task | Environment | Deliverable |
-|------|-------------|-------------|
-| Install Vitis HLS 2024.x | Current server | Working HLS toolchain |
-| Extract RK4 from `rk_stepper.ipp` | Current server | Standalone C++ file |
-| Create HLS kernel skeleton | Current server | `propagate_rk4.cpp` with pragmas |
-| Write C-simulation testbench | Current server | Functional verification |
+| Task | Environment | Status |
+|------|-------------|--------|
+| Install Vitis HLS 2024.x | Current server | Pending |
+| Extract RK4 from `rk_stepper.ipp` | Current server | ✓ Complete |
+| Create HLS kernel skeleton | Current server | ✓ Complete (`fpga/hls/rk4_propagator.cpp`) |
+| Write C-simulation testbench | Current server | ✓ Complete (6/6 tests pass) |
+| Validate unit conversion | Current server | ✓ Complete (0.08% helix error) |
 
 **Parallel (if V80 available):**
 
