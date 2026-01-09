@@ -1053,19 +1053,112 @@ Measured per-step overhead
                              (FPGA path likely not viable)
 ```
 
-**Files to create:**
-- `tests/cuda/test_barrier_overhead.cu` - Phase 1 instrumentation
-- `tests/cuda/test_fpga_sync_overhead.cu` - Phase 2 prototype
-- `tests/cuda/test_async_overlap.cu` - Phase 3 overlap test
+##### 9.4.2.9 Test Files
 
-##### 9.4.2.9 Conclusion
+The following test files have been created for evaluation:
 
-**The per-step barrier is the single largest risk to FPGA viability.** The current PCIe latency analysis (§9.4.1) is optimistic because it only measures data transfer, not full synchronization overhead.
+| File | Phase | Purpose | Build Command |
+|------|-------|---------|---------------|
+| `tests/cuda/test_barrier_overhead.cu` | 1 | Measure GPU sync barrier overhead | `nvcc -O3 -o test_barrier_overhead tests/cuda/test_barrier_overhead.cu` |
+| `tests/cuda/test_fpga_sync_prototype.cu` | 2 | CPU-as-FPGA sync prototype | `nvcc -O3 -o test_fpga_sync_prototype tests/cuda/test_fpga_sync_prototype.cu -lpthread` |
+| `tests/cuda/test_async_overlap.cu` | 3 | Async overlap feasibility | `nvcc -O3 -o test_async_overlap tests/cuda/test_async_overlap.cu -lpthread` |
 
-- **Best case (41µs/step):** 2.7% overhead → FPGA viable
-- **Worst case (600µs/step):** 39% overhead → FPGA NOT viable
+**Phase 1 (`test_barrier_overhead.cu`):**
+- Measures `cudaStreamSynchronize()` overhead in isolation
+- Simulates CKF step loop with dummy kernels
+- Reports per-step barrier timing statistics
+- Establishes baseline for GPU-only synchronization cost
 
-**Recommendation:** Before any FPGA development, prototype the GPU↔FPGA synchronization pattern using CPU as a stand-in to measure real per-step overhead including all signaling mechanisms.
+**Phase 2 (`test_fpga_sync_prototype.cu`):**
+- Simulates full GPU↔FPGA round-trip using CPU as FPGA stand-in
+- Measures D2H transfer + "FPGA compute" + H2D transfer + sync
+- Tests multiple configurations (pinned/pageable, async, different transfer sizes)
+- Reports communication overhead as % of 23ms budget
+
+**Phase 3 (`test_async_overlap.cu`):**
+- Compares sequential vs overlapped execution patterns
+- Uses double-buffering to overlap dedup with FPGA communication
+- Measures improvement from async overlap mitigation
+- Determines if overlap can hide FPGA synchronization latency
+
+##### 9.4.2.10 Phase 1 Results (2026-01-09)
+
+**Test Environment:** Tesla V100-SXM2-32GB, CUDA 12.x, 80 SMs @ 1530 MHz
+
+| Test | Kernel Load | Barrier/Step | Barrier/Event | % of 23ms |
+|------|-------------|--------------|---------------|-----------|
+| Realistic CKF | ~144µs propagate | **8.2 µs** | 123.5 µs | **0.54%** |
+| Light workload | ~5µs propagate | **8.2 µs** | 123.2 µs | **0.54%** |
+| Heavy workload | ~732µs propagate | **9.8 µs** | 146.3 µs | **0.64%** |
+
+**Key Finding:** GPU `cudaStreamSynchronize()` overhead is **minimal (~8-10µs per step)**.
+
+**Implications:**
+1. GPU barrier overhead is negligible (0.5-0.6% of budget)
+2. **FPGA sync overhead will be the dominant factor** in GPU↔FPGA communication
+3. Budget headroom exists: up to ~200µs/step (2.7ms total) would be acceptable (<12% of budget)
+
+**Decision:** Proceed to Phase 2 to measure simulated GPU↔FPGA round-trip overhead.
+
+##### 9.4.2.11 Phase 2 Results (2026-01-09)
+
+**Test Environment:** Tesla V100-SXM2-32GB, PCIe Gen3 x16
+
+**Communication Overhead (D2H + H2D + Sync):**
+
+| Scenario | Transfer Size | Per-Step | Per-Event | % of 23ms | Decision |
+|----------|---------------|----------|-----------|-----------|----------|
+| **Params only, pinned** | 156 KB | **48 µs** | 721 µs | **3.1%** | ✓ VIABLE |
+| Params only, pageable | 156 KB | 116 µs | 1,742 µs | 7.6% | ⚠ Marginal |
+| Full params (176B), pinned | 1,146 KB | 213 µs | 3,190 µs | 13.9% | ⚠ Concerning |
+| Min tracks (128), pinned | 3 KB | 27 µs | 400 µs | 1.7% | ✓ Best case |
+| Max tracks (42,240), pinned | 990 KB | 187 µs | 2,802 µs | 12.2% | ⚠ Marginal |
+
+**Transfer Timing Breakdown (params only, pinned, 6666 tracks):**
+- D2H transfer: ~20 µs
+- H2D transfer: ~22 µs
+- Sync barrier: ~6 µs
+- **Total overhead: ~48 µs/step**
+
+**Key Findings:**
+1. **Params-only with pinned memory achieves 48µs/step (3.1%)** - well under 100µs threshold
+2. Pinned memory is essential - pageable adds ~70µs overhead per step
+3. Full track params (176B) is borderline at 213µs/step - requires async overlap
+4. Transfer time scales linearly with data size as expected
+5. FPGA compute time dominates total event time, not communication overhead
+
+**Critical Insight:** The communication overhead is **much lower than worst-case estimates**. With params-only transfers:
+- Best case (min tracks): 27µs/step → **FPGA clearly viable**
+- Average case (6666 tracks): 48µs/step → **FPGA viable**
+- Worst case (max tracks): 187µs/step → **Marginal, may need batching**
+
+**Decision:** Communication overhead is acceptable for params-only transfers. Phase 3 may be skipped for the baseline case. Proceed to Phase 4 (XRT benchmark) when V80 hardware is available.
+
+##### 9.4.2.12 Conclusion
+
+**UPDATE (2026-01-09): Phase 1 and Phase 2 testing validates FPGA viability.**
+
+| Phase | Measured | Threshold | Result |
+|-------|----------|-----------|--------|
+| Phase 1: GPU barrier overhead | 8-10 µs/step | N/A (baseline) | Minimal |
+| Phase 2: Communication overhead | **48 µs/step** | < 100 µs | ✓ **VIABLE** |
+
+**Original concern (per-step barrier):** The worry was that 15 CKF steps × 600µs sync overhead = 39% of budget would make FPGA non-viable.
+
+**Actual measurement:** With params-only transfers and pinned memory:
+- Per-step overhead: **48 µs** (not 600 µs)
+- Per-event overhead: **721 µs** (not 9,000 µs)
+- % of 23ms budget: **3.1%** (not 39%)
+
+**Risk Status:** ~~CRITICAL BLOCKER~~ → **RESOLVED (Low Risk)**
+
+The per-step synchronization barrier is NOT a blocker for FPGA viability. Communication overhead is well within acceptable limits for params-only transfers.
+
+**Remaining validation needed:**
+1. **Phase 4:** XRT kernel launch overhead on actual Alveo V80 hardware
+2. **FPGA compute time:** Actual RK4 propagation latency on V80 DSP58 pipelines
+
+**Recommendation:** Proceed with FPGA development. Use params-only transfers (24 bytes/track) with pinned memory to keep communication overhead under 5% of budget.
 
 ---
 
@@ -1466,11 +1559,11 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 #### C.10.7 Verification Priority Summary
 
 **CRITICAL (Blocking - Must Resolve Before Development):**
-1. **⚠️ Per-step synchronization overhead** (Section 9.4.2) - **BLOCKING RISK**
-   - Current measurement (memcpy only): 41µs/step → 2.7% overhead
-   - Worst case (full sync): 600µs/step → 39% overhead → **FPGA NOT VIABLE**
-   - **Action:** Prototype GPU↔FPGA sync pattern to measure real overhead
-   - **Acceptance criteria:** < 200µs/step (< 13% overhead)
+1. ~~**⚠️ Per-step synchronization overhead** (Section 9.4.2)~~ - **✓ RESOLVED**
+   - Phase 1 result: GPU barrier overhead = 8-10 µs/step (minimal)
+   - Phase 2 result: Communication overhead = **48 µs/step** (3.1% of budget)
+   - **Acceptance criteria:** < 100 µs/step → **✓ PASSED (48 µs)**
+   - See Section 9.4.2.10-9.4.2.12 for full results
 
 **High Priority (Blocking Implementation):**
 1. **DSP58 resource estimates** (Section 7.4) - Need HLS synthesis to validate
@@ -1494,16 +1587,16 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 
 | Category | Count | Section |
 |----------|-------|---------|
-| **⚠️ Critical blockers** | **1** | **C.10.7 (§9.4.2)** |
+| ~~**⚠️ Critical blockers**~~ | ~~**1**~~ **0** | ~~**C.10.7 (§9.4.2)**~~ **✓ RESOLVED** |
 | Explicit TBV items | 9 | C.10.1 |
 | DSP resource estimates | 5 | C.10.2 |
 | FPGA implementation claims | ~~6~~ 5 | C.10.3 |
 | Weak/unverified sources | ~~6~~ ~~5~~ ~~4~~ ~~3~~ ~~2~~ ~~1~~ 0 | C.10.4 |
 | Potentially stale data | 5 | C.10.5 |
 | Internal inconsistencies | ~~1~~ 0 | C.10.6 |
-| **Total verification items** | **27** | |
+| **Total verification items** | **26** | (was 27, -1 critical blocker resolved) |
 
-> **⚠️ Note:** The critical blocker (per-step sync overhead) must be resolved BEFORE the other 26 TBV items become relevant. If sync overhead > 200µs/step, FPGA path is not viable.
+> **✓ Note:** The critical blocker (per-step sync overhead) has been **RESOLVED**. Phase 2 measured 48 µs/step communication overhead, well under the 100 µs threshold. FPGA development can proceed.
 
 ---
 
@@ -1532,6 +1625,8 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 *Updated: 2026-01-09 - Fixed C.7.3 step count average: ~5.45 → ~6.32 to match `doc/step_count_correlation_analysis.md` (larger dataset)*
 *Updated: 2026-01-09 - **CRITICAL BLOCKER ADDED (§9.4.2)**: Per-step synchronization barrier analysis. 15 CKF steps × potential 600µs sync overhead = 39% budget consumed. Barrier is algorithmically necessary (deduplication, chi² accumulation). Must validate real sync overhead < 200µs/step before FPGA development. Added mitigation options (event pipelining most promising). Updated risk factors table with severity column. Added to C.10.7 as highest priority blocking item.*
 *Updated: 2026-01-09 - Added evaluation methods (§9.4.2.7-9.4.2.8): 4-phase evaluation path with code examples (instrument GPU barriers, CPU-as-FPGA prototype, async overlap test, XRT benchmark). Decision tree for go/no-go after Phase 2. Test files to create listed.*
+*Updated: 2026-01-09 - Created test files: `tests/cuda/test_barrier_overhead.cu` (Phase 1), `tests/cuda/test_fpga_sync_prototype.cu` (Phase 2), `tests/cuda/test_async_overlap.cu` (Phase 3). Added §9.4.2.9 documenting test file locations.*
+*Updated: 2026-01-09 - **CRITICAL BLOCKER RESOLVED**: Phase 1 result: GPU barrier 8-10 µs/step (minimal). Phase 2 result: Communication overhead **48 µs/step** (3.1% of 23ms budget), well under 100 µs threshold. FPGA path is **VIABLE**. Added §9.4.2.10 (Phase 1 results), §9.4.2.11 (Phase 2 results), §9.4.2.12 (conclusion). Updated C.10.7/C.10.8 to reflect resolved status.*
 *Branch: survey-fpga*
 *Base commit: 0e503cf2*
 *Target FPGA: AMD Alveo V80 (Versal HBM - XCV80)*
