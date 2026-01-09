@@ -1233,6 +1233,260 @@ The per-step synchronization barrier is NOT a blocker for FPGA viability. Commun
 
 ---
 
+## 12. Implementation Roadmap
+
+This section provides a comprehensive blocker analysis and development plan for the FPGA+GPU hybrid implementation.
+
+### 12.1 Blocker Summary
+
+| Category | Count | Status |
+|----------|-------|--------|
+| **Critical Blockers** | 2 | Must resolve before development |
+| **High Priority Blockers** | 4 | Block development start |
+| **Medium Priority Risks** | 5 | Manageable with mitigation |
+| **Resolved** | 1 | ✓ Done |
+
+### 12.2 Critical Blockers
+
+#### 12.2.1 DSP58 Resource Estimates Unvalidated
+
+**Status:** BLOCKING (design phase)
+
+All DSP58 resource estimates are rough approximations that require HLS synthesis to validate:
+
+| Component | Estimated DSP58 | Confidence |
+|-----------|-----------------|------------|
+| RK4 MAC chain | ~50 | Low |
+| Matrix-MAC systolic | ~40 | Low |
+| Reduction tree | ~20 | Low |
+| **Total per pipeline** | **~110** | Low |
+| **Parallel pipelines** | **~98** | Low (derived) |
+
+**What we don't know:**
+- Actual DSP58 usage after HLS synthesis
+- Routing congestion impact on achievable clock
+- LUT/BRAM usage for control logic
+- Whether 98 parallel pipelines is achievable
+
+**Action Required:**
+1. Implement RK4 propagation in Vitis HLS
+2. Run synthesis to get actual resource utilization
+3. Validate timing closure at 500 MHz target
+
+#### 12.2.2 XRT Kernel Launch Overhead Unknown
+
+**Status:** BLOCKING (requires V80 hardware)
+
+Phase 4 evaluation (XRT kernel launch overhead) requires V80 hardware. While Phase 1-2 validated communication overhead using CPU as FPGA proxy, the actual FPGA kernel dispatch overhead is unknown.
+
+**What we don't know:**
+- XRT kernel launch latency on V80
+- Actual DSP58 pipeline throughput at 500 MHz
+- HBM2e memory access patterns from compute fabric
+- Real-world power consumption under load
+
+**Action Required:**
+- Set up V80 hardware environment
+- Run Phase 4 XRT benchmark
+- Measure actual kernel dispatch overhead
+
+### 12.3 High Priority Blockers
+
+#### 12.3.1 No Vitis HLS Development Infrastructure
+
+**Issue:** Current TRACCC build system has no Vitis HLS integration. The existing Alpaka FPGA support targets Intel FPGAs only (`device/alpaka/src/utils/utils.hpp:26-27`).
+
+**What's needed:**
+- Vitis HLS 2023.x or 2024.x installation
+- XRT (Xilinx Runtime) setup
+- New build targets for FPGA kernels
+- Host code using XRT API (not Alpaka)
+
+#### 12.3.2 RK4 Kernel Implementation Missing
+
+**Issue:** No FPGA implementation of RK4 propagation exists. This is the primary workload (63% of GPU time).
+
+**Scope:**
+- Port `propagate_to_next_surface` to HLS C++
+- Implement pipelined MAC chains for RK4 stages
+- Handle B-field lookup from HBM2e (~139 MB)
+- Support variable step count (1-34 steps, mean 6.32)
+
+**Complexity factors:**
+- B-field grid must stream from HBM
+- Adaptive step sizing logic
+- Normalization requires `sqrt` (Newton-Raphson or LUT)
+
+#### 12.3.3 GPU↔FPGA Data Interface Undefined
+
+**Issue:** No concrete interface specification for GPU-FPGA data exchange.
+
+| Direction | Data | Size (avg 6,666 tracks) |
+|-----------|------|-------------------------|
+| GPU → FPGA | Track parameters | 24B × 6,666 = 156 KB/step |
+| GPU → FPGA | Detector geometry | 1-5 MB (one-time) |
+| GPU → FPGA | B-field grid | 139 MB (one-time) |
+| FPGA → GPU | Propagated params | 24B × 6,666 = 156 KB/step |
+| FPGA → GPU | Chi² values | 4B × 6,666 = 26 KB/step |
+| FPGA → GPU | Branch decisions | ~1 KB/step |
+
+**Open questions:**
+- Direct GPU↔FPGA via PCIe P2P or through host memory?
+- Buffer management strategy (pinned memory required)
+- Synchronization mechanism (polling vs events)
+
+#### 12.3.4 Precision Validation Suite Missing
+
+**Issue:** No mechanism to validate that SP propagation on FPGA produces physics-compatible results compared to GPU DP baseline.
+
+**Concerns:**
+- SP vs DP may diverge after many RK4 steps
+- Chi² threshold decisions may differ
+- Track quality metrics may degrade
+
+### 12.4 Medium Priority Risks
+
+| Risk | Issue | Mitigation |
+|------|-------|------------|
+| Full state transfer overhead | 176B/track → 213µs/step (9.3%) | Use params-only (24B), cache covariance on HBM |
+| B-field HBM access latency | 139 MB grid, unknown if limits DSP throughput | BRAM/URAM caching, pre-fetch, HBM channel parallelism |
+| Variable RK4 step count | 1-34 steps causes pipeline bubbles | Sort tracks by step count, multiple pipelines |
+| Clock frequency uncertainty | 500 MHz may not be achievable | Deep pipelining, accept 400 MHz with more pipelines |
+| Power budget | 490W total (300W GPU + 190W V80) | V80-only for suitable workloads |
+
+### 12.5 Resolved Blockers
+
+#### 12.5.1 Per-Step Synchronization Barrier ✓
+
+**Status:** RESOLVED (2026-01-09) - See Section 9.4.2.12
+
+| Original Concern | Actual Measurement |
+|------------------|-------------------|
+| 15 steps × 600µs = 9ms (39%) | 15 steps × 48µs = 720µs (3.1%) |
+
+The per-step synchronization barrier is NOT a blocker.
+
+### 12.6 Pre-V80 Development Strategy
+
+**Key Insight:** HLS development is required regardless of V80 availability. Vitis HLS supports C-simulation, synthesis, and co-simulation without target hardware.
+
+#### 12.6.1 What Can Be Done WITHOUT V80
+
+| Activity | Tool | V80 Needed |
+|----------|------|------------|
+| Write HLS C++ kernel | Vitis HLS | No |
+| C-simulation (functional test) | Vitis HLS | No |
+| HLS Synthesis (resource report) | Vitis HLS | No |
+| Co-simulation (RTL verification) | Vitis HLS | No |
+| Place & Route (timing report) | Vivado | No |
+| Extract RK4 algorithm | Editor | No |
+| Design GPU↔FPGA interface | Editor | No |
+| Build precision validation framework | CPU | No |
+| Write XRT host code (compiles only) | Vitis | No |
+| Generate test vectors | GPU | No |
+
+#### 12.6.2 What REQUIRES V80
+
+| Activity | Why V80 Required |
+|----------|------------------|
+| Phase 4 XRT benchmark | Actual kernel launch overhead |
+| Real HBM2e latency | Memory access patterns |
+| End-to-end integration test | Full GPU↔FPGA data flow |
+| Power measurement | Actual TDP under load |
+| Production performance | Real throughput numbers |
+
+### 12.7 Development Phases
+
+#### Phase 0: Infrastructure Setup
+
+| Task | Environment | Deliverable |
+|------|-------------|-------------|
+| Install Vitis HLS 2024.x | Current server | Working HLS toolchain |
+| Extract RK4 from `rk_stepper.ipp` | Current server | Standalone C++ file |
+| Create HLS kernel skeleton | Current server | `propagate_rk4.cpp` with pragmas |
+| Write C-simulation testbench | Current server | Functional verification |
+
+**Parallel (if V80 available):**
+
+| Task | Environment | Deliverable |
+|------|-------------|-------------|
+| Identify server with PCIe slot | Lab | Server selection |
+| Physical V80 installation | Lab | Hardware ready |
+| Install XRT drivers | V80 server | Runtime ready |
+| Test XRT with hello_world | V80 server | XRT functional |
+
+#### Phase 1: HLS Development
+
+| Task | Deliverable |
+|------|-------------|
+| Run HLS synthesis | **DSP58/LUT/BRAM report** |
+| Iterate on pragmas | Meet resource/timing targets |
+| Define interface structs | `fpga_interface.hpp` |
+| Write XRT host code | `fpga_propagator.cpp` |
+| Build precision validation | SP vs DP comparison tool |
+| Generate test vectors | 1000+ reference tracks |
+| Run co-simulation | RTL-level verification |
+| Full Vivado P&R | Timing closure report |
+
+#### Phase 2: V80 Validation
+
+| Task | Deliverable |
+|------|-------------|
+| Deploy .xclbin to V80 | FPGA programmed |
+| Run Phase 4 XRT benchmark | Kernel launch overhead |
+| Measure HBM2e latency | Memory access patterns |
+| End-to-end integration | GPU↔FPGA data flow |
+
+#### Phase 3: Integration & Optimization
+
+| Task | Deliverable |
+|------|-------------|
+| Integrate into CKF pipeline | Replace `propagate_to_next_surface` |
+| Profile end-to-end | Identify bottlenecks |
+| Optimize HLS kernel | Pipeline depth, parallelism |
+| Tune buffer sizes | Batch tracks for efficiency |
+
+### 12.8 Go/No-Go Decision Points
+
+| Checkpoint | Criteria | Fallback |
+|------------|----------|----------|
+| After HLS synthesis | DSP58 < 5,000/pipeline, timing @ 400+ MHz | Reduce parallel pipelines or simplify algorithm |
+| After XRT benchmark | Kernel launch < 100µs | Use event batching |
+| After precision validation | Track quality within 1% of GPU DP | Add selective DP on FPGA |
+| After integration | Throughput > GPU-only baseline | Profile and optimize bottlenecks |
+
+### 12.9 Resource Requirements
+
+#### 12.9.1 Hardware
+
+| Item | Specification | Status |
+|------|---------------|--------|
+| Alveo V80 | PCIe Gen4 x16 or Gen5 x8 | Available |
+| Server | PCIe slot, 300W+ power, adequate cooling | TBD |
+| Development GPU | For baseline comparison | Available (V100) |
+
+#### 12.9.2 Software
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Vitis HLS | 2024.x | HLS kernel development |
+| Vitis | 2024.x | Full FPGA flow |
+| Vivado | 2024.x | Place & Route |
+| XRT | 2024.x | Runtime |
+| V80 Platform | Latest | Deployment target |
+
+### 12.10 Risk Mitigation Summary
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| DSP58 exceeds estimate | Medium | High | Start with minimal kernel, iterate |
+| Timing not met at 500 MHz | Medium | Medium | Accept 400 MHz, add pipelines |
+| HBM latency limits throughput | Low | Medium | BRAM caching, pre-fetch |
+| Precision degradation | Low | High | Selective DP, validation suite |
+| XRT overhead too high | Low | Medium | Event batching, async dispatch |
+
+---
+
 ## Appendix A: Benchmark Results Summary
 
 ### A.1 Conditional Jacobian Optimization (Apples-to-Apples)
@@ -1627,6 +1881,7 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 *Updated: 2026-01-09 - Added evaluation methods (§9.4.2.7-9.4.2.8): 4-phase evaluation path with code examples (instrument GPU barriers, CPU-as-FPGA prototype, async overlap test, XRT benchmark). Decision tree for go/no-go after Phase 2. Test files to create listed.*
 *Updated: 2026-01-09 - Created test files: `tests/cuda/test_barrier_overhead.cu` (Phase 1), `tests/cuda/test_fpga_sync_prototype.cu` (Phase 2), `tests/cuda/test_async_overlap.cu` (Phase 3). Added §9.4.2.9 documenting test file locations.*
 *Updated: 2026-01-09 - **CRITICAL BLOCKER RESOLVED**: Phase 1 result: GPU barrier 8-10 µs/step (minimal). Phase 2 result: Communication overhead **48 µs/step** (3.1% of 23ms budget), well under 100 µs threshold. FPGA path is **VIABLE**. Added §9.4.2.10 (Phase 1 results), §9.4.2.11 (Phase 2 results), §9.4.2.12 (conclusion). Updated C.10.7/C.10.8 to reflect resolved status.*
+*Updated: 2026-01-09 - Added Section 12 (Implementation Roadmap): Comprehensive blocker analysis (2 critical, 4 high, 5 medium, 1 resolved), pre-V80 development strategy, development phases (0-3), go/no-go decision points, resource requirements. Key insight: HLS development can proceed without V80 hardware.*
 *Branch: survey-fpga*
 *Base commit: 0e503cf2*
 *Target FPGA: AMD Alveo V80 (Versal HBM - XCV80)*
