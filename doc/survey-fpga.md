@@ -6,8 +6,8 @@ This document surveys the feasibility of hybrid GPU/FPGA execution for the TRACC
 
 The analysis explores:
 
-1. **Partial DP operations on GPU** - Double-precision for numerically sensitive operations (covariance, matrix inversion)
-2. **Partial SP operations on Alveo V80** - Single-precision on Versal HBM DSP58 (native FP32) for sequential/pipelined workloads
+1. **Current SP pipeline** - TRACCC uses FP32 (single-precision) by default throughout the entire pipeline
+2. **SP operations on Alveo V80** - Single-precision on Versal HBM DSP58 (native FP32) for sequential/pipelined workloads
 3. **NCU/Nsys profiling cross-validation** - Empirical data supporting partitioning decisions
 
 **Key Finding:** The `propagate_to_next_surface` kernel consumes 63% of GPU time and is **latency-bound** (93% warp stalls), making it a strong candidate for FPGA offloading where:
@@ -76,6 +76,8 @@ The Alpaka abstraction layer already supports FPGA via Intel SYCL OneAPI. The in
 
 ### 2.1 Current Precision Configuration
 
+> **Key Finding (2026-01-11):** TRACCC uses **FP32 (single-precision) by default** throughout the entire CPU and GPU pipeline. This simplifies FPGA integration since DSP58 natively supports FP32 with no precision conversion overhead.
+
 **Location:** `CMakeLists.txt:52-53`
 
 ```cmake
@@ -84,6 +86,19 @@ set( TRACCC_CUSTOM_SCALARTYPE "float" CACHE STRING
 ```
 
 TRACCC uses **uniform single-precision (SP) floating-point by default**. The scalar type is template-based and flows through all algebra plugins via CMake configuration.
+
+**Precision throughout pipeline:**
+
+| Component | Default Precision | Source |
+|-----------|-------------------|--------|
+| Core algorithms | FP32 | `TRACCC_CUSTOM_SCALARTYPE` |
+| GPU kernels (CUDA) | FP32 | Via `scalar` type abstraction |
+| Matrix operations | FP32 | Via algebra plugin |
+| Magnetic field | FP32/FP64 | Explicit support for both |
+| RK4 propagation | FP32 | Via `scalar` type |
+| Kalman filter | FP32 | Via `scalar` type |
+
+**Configurable:** Can be changed to FP64 at build time via `-DTRACCC_CUSTOM_SCALARTYPE=double`
 
 **Key Files:**
 - `plugins/algebra/*/include/traccc/plugins/algebra/*_definitions.hpp` - All define `using scalar = TRACCC_CUSTOM_SCALARTYPE`
@@ -106,24 +121,26 @@ TRACCC uses **uniform single-precision (SP) floating-point by default**. The sca
 
 ### 2.3 Mixed-Precision Strategy Recommendation
 
-**Current Status:** No mixed-precision support exists in the codebase.
+**Current Status:** All-FP32 pipeline. No mixed-precision support exists in the codebase.
 
-**Proposed Hybrid Precision:**
+**FPGA Implication:** Since GPU already uses FP32 and FPGA DSP58 natively supports FP32, **no precision conversion is needed** for GPU↔FPGA data exchange. This eliminates a potential source of overhead and complexity.
+
+**Optional Future Hybrid Precision (if precision issues arise):**
 
 ```cpp
-// Current (all SP):
+// Current (all SP - working):
 using state_scalar = float;      // 6 params × 4 bytes = 24 bytes per track state
 using cov_scalar = float;        // 6×6 matrix × 4 bytes = 144 bytes (full storage)
 
-// Proposed hybrid:
+// Possible future hybrid (if needed):
 using state_scalar = float;      // 24 bytes (RK4, bound params) - FPGA
 using cov_scalar = double;       // 6×6 matrix × 8 bytes = 288 bytes (DP covariance) - GPU
 ```
 
-**Rationale:**
-1. **Covariance matrices** accumulate error through Kalman updates (multiplicative error growth)
-2. **Bound parameters** are updated once per surface (additive errors cancel)
-3. **RK4 integration** is highly stable (error shrinks with step count)
+**Rationale for current FP32:**
+1. **RK4 integration** is highly stable (error shrinks with step count) ✓
+2. **Current physics validation** shows acceptable precision
+3. **FPGA compatibility** - DSP58 native FP32 matches GPU precision exactly
 
 ### 2.4 Precision Impact Estimates
 
