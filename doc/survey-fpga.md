@@ -201,6 +201,185 @@ using cov_scalar = double;       // 6×6 matrix × 8 bytes = 288 bytes (DP covar
 
 **Recommended future work:** Systematic FP32 vs FP64 comparison using `base-fp32` and `base-fp64` CMake presets to quantify actual efficiency/resolution differences.
 
+### 2.6 FP32 vs FP64 Comparison Procedure
+
+This section documents the procedure for systematic precision comparison.
+
+#### 2.6.1 Prerequisites
+
+```bash
+# Required dependencies
+- CUDA toolkit (for GPU builds)
+- ROOT (for histogram analysis)
+- Python 3.x with numpy, matplotlib (for plotting)
+
+# Test data
+- ODD (Open Data Detector) geometry
+- Simulated muon samples (1, 10, 100 GeV)
+```
+
+#### 2.6.2 Build Configuration
+
+**Available CMake Presets:**
+
+| Preset | Precision | Backend | Use Case |
+|--------|-----------|---------|----------|
+| `host-fp32` | FP32 | CPU | Baseline CPU |
+| `host-fp64` | FP64 | CPU | Reference CPU |
+| `cuda-fp32` | FP32 | CUDA | Production GPU |
+| `cuda-fp64` | FP64 | CUDA | Reference GPU |
+
+**Build Commands:**
+
+```bash
+# Clone and setup
+git clone --recursive https://github.com/acts-project/traccc.git
+cd traccc
+
+# Build FP32 version
+cmake --preset cuda-fp32
+cmake --build build-cuda-fp32 --parallel
+
+# Build FP64 version
+cmake --preset cuda-fp64
+cmake --build build-cuda-fp64 --parallel
+```
+
+**Manual precision override (if presets unavailable):**
+
+```bash
+# FP32
+cmake -B build-fp32 -S . \
+    -DTRACCC_CUSTOM_SCALARTYPE=float \
+    -DTRACCC_BUILD_CUDA=ON \
+    -DTRACCC_BUILD_TESTING=ON
+
+# FP64
+cmake -B build-fp64 -S . \
+    -DTRACCC_CUSTOM_SCALARTYPE=double \
+    -DTRACCC_BUILD_CUDA=ON \
+    -DTRACCC_BUILD_TESTING=ON
+```
+
+#### 2.6.3 Tests to Run
+
+**Primary validation tests:**
+
+| Test | Binary | Purpose |
+|------|--------|---------|
+| Kalman fitting | `traccc_test_cpu_kalman_fitter` | Pull distributions, p-values |
+| Momentum resolution | `traccc_test_cpu_kalman_fitter_momentum_resolution` | Resolution vs theory |
+| CKF combinatorics | `traccc_test_cpu_combinatorial_kalman_filter` | Track finding efficiency |
+
+**Run commands:**
+
+```bash
+# Run all tests (FP32)
+cd build-cuda-fp32
+ctest --output-on-failure -R kalman
+
+# Run all tests (FP64)
+cd build-cuda-fp64
+ctest --output-on-failure -R kalman
+```
+
+**Run specific test with verbose output:**
+
+```bash
+# FP32
+./bin/traccc_test_cpu_kalman_fitter --gtest_filter="*pull*" 2>&1 | tee fp32_pulls.log
+
+# FP64
+./bin/traccc_test_cpu_kalman_fitter --gtest_filter="*pull*" 2>&1 | tee fp64_pulls.log
+```
+
+#### 2.6.4 Metrics to Compare
+
+| Metric | Source | FP32 Expected | FP64 Expected | How to Extract |
+|--------|--------|---------------|---------------|----------------|
+| **Pull distribution mean** | `kalman_fitting_test.cpp` | 0 ± 0.05 | 0 ± 0.01 | ROOT histogram fit |
+| **Pull distribution σ** | `kalman_fitting_test.cpp` | 1 ± 0.1 | 1 ± 0.02 | ROOT histogram fit |
+| **P-value mean** | `kalman_fitting_test.cpp` | 0.5 ± 0.05 | 0.5 ± 0.01 | ROOT histogram mean |
+| **Fit success rate** | `momentum_resolution_test.cpp` | ≥98% | ≥99% | Pass/fail count |
+| **q/pT resolution** | `momentum_resolution_test.cpp` | Match PDG | Match PDG (tighter) | Gaussian σ |
+| **Chi²/NDF** | Track output | ~1.0 | ~1.0 (less bias) | Mean of distribution |
+
+#### 2.6.5 Analysis Procedure
+
+**Step 1: Extract pull distribution parameters**
+
+```bash
+# Parse test output for pull fit results
+grep -A2 "pull_d0\|pull_z0\|pull_phi\|pull_theta\|pull_qop" fp32_pulls.log > fp32_summary.txt
+grep -A2 "pull_d0\|pull_z0\|pull_phi\|pull_theta\|pull_qop" fp64_pulls.log > fp64_summary.txt
+```
+
+**Step 2: Compare distributions**
+
+```python
+# compare_precision.py
+import numpy as np
+
+# Expected: σ closer to 1.0 indicates better precision
+fp32_sigma = [1.05, 1.08, 1.03, 1.04, 1.10]  # d0, z0, phi, theta, qop
+fp64_sigma = [1.01, 1.02, 1.00, 1.01, 1.02]  # Expected tighter
+
+improvement = [(s32 - s64) / s32 * 100 for s32, s64 in zip(fp32_sigma, fp64_sigma)]
+print(f"Average improvement: {np.mean(improvement):.1f}%")
+```
+
+**Step 3: Statistical significance**
+
+```python
+# Chi-squared test for distribution comparison
+from scipy import stats
+
+# Compare pull distributions (should be N(0,1))
+fp32_chi2 = stats.chisquare(fp32_hist, expected_normal)
+fp64_chi2 = stats.chisquare(fp64_hist, expected_normal)
+
+print(f"FP32 χ²/NDF: {fp32_chi2.statistic/ndf:.3f}, p={fp32_chi2.pvalue:.3f}")
+print(f"FP64 χ²/NDF: {fp64_chi2.statistic/ndf:.3f}, p={fp64_chi2.pvalue:.3f}")
+```
+
+#### 2.6.6 Expected Results Template
+
+| Parameter | FP32 | FP64 | Δ | Significance |
+|-----------|------|------|---|--------------|
+| pull_d0 mean | | | | |
+| pull_d0 σ | | | | |
+| pull_z0 mean | | | | |
+| pull_z0 σ | | | | |
+| pull_phi mean | | | | |
+| pull_phi σ | | | | |
+| pull_theta mean | | | | |
+| pull_theta σ | | | | |
+| pull_qop mean | | | | |
+| pull_qop σ | | | | |
+| p-value mean | | | | |
+| Fit success % | | | | |
+| χ²/NDF mean | | | | |
+
+#### 2.6.7 Interpretation Guidelines
+
+| Observation | Interpretation | Action |
+|-------------|----------------|--------|
+| σ > 1.1 in FP32, ~1.0 in FP64 | Covariance underestimated in FP32 | Consider DP covariance |
+| Mean ≠ 0 in FP32 | Systematic bias from precision | Investigate specific operation |
+| p-value < 0.4 in FP32 | Chi² calculation biased | May need DP for chi² |
+| Success rate < 95% in FP32 | Matrix inversion failures | Need DP for ill-conditioned cases |
+| No significant difference | FP32 sufficient for physics | Safe for FPGA offloading |
+
+#### 2.6.8 FPGA-Specific Considerations
+
+If FP64 shows significant improvement, evaluate:
+
+1. **Which operations benefit most** - Covariance vs propagation vs chi²
+2. **FPGA impact** - Can we keep propagation in FP32 while covariance stays on GPU in FP64?
+3. **Hybrid strategy** - RK4 (FP32 on FPGA) + Kalman update (FP64 on GPU)
+
+**Current recommendation:** Run comparison before finalizing FPGA precision strategy.
+
 ---
 
 ## 3. Sequential vs Parallel Operation Analysis
