@@ -380,6 +380,421 @@ If FP64 shows significant improvement, evaluate:
 
 **Current recommendation:** Run comparison before finalizing FPGA precision strategy.
 
+### 2.7 Validation Gaps and Execution Plan
+
+This section documents specific gaps from Section 2.5.3 and the plan to address them.
+
+#### 2.7.1 FP32 vs FP64 Numerical Differences
+
+**Gap:** No detailed analysis of where and how FP32 differs from FP64 in the tracking pipeline (Priority: High)
+
+##### 2.7.1.1 Floating-Point Representation
+
+| Property | FP32 | FP64 | Impact |
+|----------|------|------|--------|
+| Mantissa bits | 23 | 52 | 29 additional bits = 2^29× finer granularity |
+| Decimal digits | ~7 | ~16 | FP32 loses precision after 7 significant figures |
+| Epsilon | 1.19e-7 | 2.22e-16 | Smallest distinguishable difference from 1.0 |
+| Min subnormal | 1.4e-45 | 4.9e-324 | Underflow threshold |
+| Dynamic range | 10^±38 | 10^±308 | Both sufficient for HEP |
+
+##### 2.7.1.2 Operations Sensitive to Precision
+
+| Operation | FP32 Risk | Why |
+|-----------|-----------|-----|
+| **Covariance accumulation** | High | C' = J·C·J^T repeated N times; errors multiply |
+| **Matrix inversion (6×6)** | High | Condition number κ can exceed 10^6; FP32 fails when κ > 10^7 |
+| **Kalman gain K = C·H^T·S^-1** | Medium | Involves matrix inversion of S |
+| **Chi-squared χ² = r^T·V^-1·r** | Medium | Residual r can be small; V^-1 can be large |
+| **RK4 propagation** | Low | Adaptive stepping controls total error per propagation |
+| **Cross product (Lorentz force)** | Low | Simple arithmetic; no accumulation |
+
+##### 2.7.1.3 Error Accumulation Model
+
+For N sequential Kalman updates, covariance error grows approximately as:
+
+```
+ε_accumulated ≈ ε_machine × √N × κ_avg    (heuristic estimate)
+```
+
+Where:
+- ε_machine = 1.19e-7 (FP32) or 2.22e-16 (FP64)
+- N = number of measurements (~12-25 for ODD)
+- κ_avg = average condition number of covariance matrix (estimated 10^3 to 10^5; **TBV**)
+
+**Example calculation (order-of-magnitude estimate):**
+- FP32: ε ≈ 1.19e-7 × √20 × 10^4 ≈ 5e-3 (0.5% relative error)
+- FP64: ε ≈ 2.22e-16 × √20 × 10^4 ≈ 1e-11 (negligible)
+
+**Implication:** After ~20 Kalman updates, FP32 covariance may have ~0.5% accumulated error. This affects pull distributions (σ deviates from 1.0) but typically not track finding.
+
+> **Note:** This is a simplified model. Actual error depends on specific matrix structure and numerical algorithms used. Empirical validation required.
+
+##### 2.7.1.4 Where FP32 is Sufficient
+
+| Operation | Why FP32 Works |
+|-----------|----------------|
+| Hit clustering | Integer pixel coordinates; no precision issue |
+| Seeding | Approximate; tolerances >> FP32 epsilon |
+| RK4 propagation | Adaptive stepping maintains 0.1% accuracy per propagation (validated in `rk4_propagator_tb.cpp`) |
+| Surface intersection | Geometric tolerance ~μm >> FP32 error |
+| Track parameter transport | Single operation; no accumulation |
+
+##### 2.7.1.5 Where FP64 May Help
+
+| Scenario | FP32 Symptom | FP64 Benefit |
+|----------|--------------|--------------|
+| Many Kalman updates (>20) | Pull σ > 1.1 (**estimate, TBV**) | Pull σ ≈ 1.0 |
+| Low-pT tracks (<500 MeV) | Matrix inversion failures (**estimate, TBV**) | Stable inversion |
+| Forward region (high |η|) | Higher fit failure rate (**estimate, TBV**) | Lower failure rate |
+| Iterative fitting (>3 iterations) | Convergence issues (**estimate, TBV**) | Stable convergence |
+
+> **Note:** ODD geometry has ~25 layers maximum. All values in this table are estimates requiring empirical validation.
+
+##### 2.7.1.6 Hybrid Precision Strategy
+
+Based on the analysis above, a hybrid approach is possible:
+
+| Component | Precision | Rationale |
+|-----------|-----------|-----------|
+| RK4 propagation | FP32 | No accumulation; FPGA DSP58 native |
+| Jacobian transport | FP32 | Single operation per surface |
+| Covariance update | FP64 | Accumulation over N measurements |
+| Chi-squared calculation | FP64 | Sensitive to residual precision |
+| Matrix inversion | FP64 | Condition number sensitivity |
+
+**FPGA implication:** Offload RK4 propagation (FP32) to FPGA; keep Kalman gain/covariance update (FP64) on GPU.
+
+#### 2.7.2 Quantitative FP32 vs FP64 Comparison
+
+**Gap:** No empirical comparison of FP32 vs FP64 tracking performance (Priority: High)
+
+##### 2.7.2.1 Build Configuration
+
+```bash
+# Option 1: Use CMake presets (if available)
+cmake --list-presets 2>/dev/null | grep -E "fp32|fp64"
+
+# Option 2: Manual configuration (CPU-only, no CUDA required)
+# FP32 build
+cmake -B build-fp32 -S . \
+    -DTRACCC_CUSTOM_SCALARTYPE=float \
+    -DTRACCC_BUILD_TESTING=ON
+cmake --build build-fp32 --parallel
+
+# FP64 build
+cmake -B build-fp64 -S . \
+    -DTRACCC_CUSTOM_SCALARTYPE=double \
+    -DTRACCC_BUILD_TESTING=ON
+cmake --build build-fp64 --parallel
+
+# Option 3: With CUDA (if GPU comparison also needed)
+# Add: -DTRACCC_BUILD_CUDA=ON
+```
+
+##### 2.7.2.2 Test Execution
+
+```bash
+# Run Kalman fitter tests (uses CPU algorithm, precision set at build time)
+./build-fp32/bin/traccc_test_cpu_kalman_fitter 2>&1 | tee fp32_kalman.log
+./build-fp64/bin/traccc_test_cpu_kalman_fitter 2>&1 | tee fp64_kalman.log
+
+# Extract pull distribution results
+grep -E "pull|mean|sigma|success" fp32_kalman.log > fp32_summary.txt
+grep -E "pull|mean|sigma|success" fp64_kalman.log > fp64_summary.txt
+
+# Compare
+diff fp32_summary.txt fp64_summary.txt
+```
+
+##### 2.7.2.3 Metrics and Quality Cuts
+
+**Fit Quality Cuts** (applied internally by test):
+- Exclude tracks with fit status ≠ 0 (failed)
+- Require χ²/NDF < 5
+- Require ≥6 hits on track
+
+**Metrics to Extract:**
+
+| Metric | Source | Acceptance |
+|--------|--------|------------|
+| Pull mean (d0, z0, φ, θ, q/p) | Test output (pre-fitted by test framework) | \|mean\| < 0.1 |
+| Pull σ (d0, z0, φ, θ, q/p) | Test output (pre-fitted by test framework) | 0.9 < σ < 1.1 |
+| Fit success rate | Test output: passed/total | > 98% |
+| χ²/NDF distribution | Test output | 0.8 < mean < 1.2 |
+
+> **Note:** The `traccc_test_cpu_kalman_fitter` test internally fits Gaussians to pull distributions and reports mean/σ. The grep commands in 2.7.2.2 extract these pre-computed values from test output.
+
+##### 2.7.2.4 Results Template
+
+| Metric | FP32 | FP64 | Δ | Significant? |
+|--------|------|------|---|--------------|
+| pull_d0 mean | | | | |
+| pull_d0 σ | | | | |
+| pull_z0 mean | | | | |
+| pull_z0 σ | | | | |
+| pull_phi mean | | | | |
+| pull_phi σ | | | | |
+| pull_theta mean | | | | |
+| pull_theta σ | | | | |
+| pull_qop mean | | | | |
+| pull_qop σ | | | | |
+| Fit success % | | | | |
+| Mean χ²/NDF | | | | |
+
+**Significance test:** Difference is significant if |Δ| > 3× statistical uncertainty.
+
+#### 2.7.3 Accumulated Precision Loss vs Kalman Updates
+
+**Gap:** Not systematically tested for tracks with many Kalman updates (Priority: Medium)
+
+> **⚠ BLOCKING PREREQUISITE:** This analysis requires per-track output (n_measurements, pull values, η) which the current test framework does not provide. Before executing this plan, the test code must be modified to dump per-track data, OR use the seeding_example binary with `--output` flag to generate track-level output.
+
+**Approach:** ODD geometry has fixed layer count (~25 layers), so vary track η to change number of crossed layers:
+- |η| < 0.5: ~12 barrel layers
+- |η| ~ 1.0: ~18 layers (barrel + endcap transition)
+- |η| ~ 2.0: ~25 layers (full endcap)
+
+##### 2.7.3.1 Available Samples
+
+```bash
+# Check available simulation samples (do not generate new ones)
+ls -la data/odd/
+
+# Expected structure:
+# data/odd/geant4_1muon_1GeV/
+# data/odd/geant4_1muon_10GeV/
+# data/odd/geant4_1muon_100GeV/
+
+# Samples contain tracks at various η; bin by η post-hoc during analysis
+# η is computed from track θ: η = -ln(tan(θ/2))
+```
+
+##### 2.7.3.2 Analysis Procedure
+
+**Option A: Modify test code (recommended)**
+
+```cpp
+// Add to kalman_fitting_test.cpp after each track fit:
+std::cout << "TRACK_DATA: "
+          << "n_meas=" << track.n_measurements() << " "
+          << "eta=" << eta << " "
+          << "pull_qop=" << pull_qop << std::endl;
+```
+
+```bash
+# Run modified test
+./build-fp32/bin/traccc_test_cpu_kalman_fitter 2>&1 | grep "TRACK_DATA" > fp32_tracks.csv
+./build-fp64/bin/traccc_test_cpu_kalman_fitter 2>&1 | grep "TRACK_DATA" > fp64_tracks.csv
+```
+
+**Option B: Use seeding_example with output (if available)**
+
+```bash
+# Check if --output option exists
+./build-fp32/bin/traccc_seeding_example --help | grep -i output
+
+# If available:
+./build-fp32/bin/traccc_seeding_example \
+    --detector-file=geometries/odd/odd-detray_geometry_detray.json \
+    --input-directory=data/odd/geant4_1muon_10GeV/ \
+    --events=100 --output=fp32_tracks.csv
+```
+
+##### 2.7.3.3 Error Model and Analysis
+
+```python
+#!/usr/bin/env python3
+"""
+analyze_precision_vs_hits.py
+Analyze pull σ vs number of Kalman updates for FP32 vs FP64.
+
+Usage: python analyze_precision_vs_hits.py fp32_tracks.csv fp64_tracks.csv
+"""
+
+import sys
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from scipy.stats import binned_statistic
+
+# Error accumulation models
+def sqrt_model(N, sigma0, beta):
+    """Random error accumulation: σ = σ_0 × √(1 + β×N)"""
+    return sigma0 * np.sqrt(1 + beta * N)
+
+def linear_model(N, sigma0, alpha):
+    """Systematic error accumulation: σ = σ_0 + α×N"""
+    return sigma0 + alpha * N
+
+def load_track_data(filename):
+    """Load per-track data from CSV/log file."""
+    n_meas, pull_qop = [], []
+    with open(filename, 'r') as f:
+        for line in f:
+            if 'n_meas=' in line:
+                parts = line.strip().split()
+                for p in parts:
+                    if p.startswith('n_meas='):
+                        n_meas.append(int(p.split('=')[1]))
+                    elif p.startswith('pull_qop='):
+                        pull_qop.append(float(p.split('=')[1]))
+    return np.array(n_meas), np.array(pull_qop)
+
+def analyze(fp32_file, fp64_file):
+    # Load data
+    n32, pull32 = load_track_data(fp32_file)
+    n64, pull64 = load_track_data(fp64_file)
+
+    # Bin by n_measurements and compute σ in each bin
+    bins = [5, 10, 15, 20, 25, 30]
+
+    def get_sigma_vs_n(n_meas, pulls):
+        bin_centers, sigma_vals = [], []
+        for i in range(len(bins)-1):
+            mask = (n_meas >= bins[i]) & (n_meas < bins[i+1])
+            if mask.sum() > 10:
+                bin_centers.append((bins[i] + bins[i+1]) / 2)
+                sigma_vals.append(np.std(pulls[mask]))
+        return np.array(bin_centers), np.array(sigma_vals)
+
+    n_bins32, sigma32 = get_sigma_vs_n(n32, pull32)
+    n_bins64, sigma64 = get_sigma_vs_n(n64, pull64)
+
+    # Fit models
+    try:
+        popt_sqrt32, _ = curve_fit(sqrt_model, n_bins32, sigma32, p0=[1.0, 0.01])
+        popt_lin32, _ = curve_fit(linear_model, n_bins32, sigma32, p0=[1.0, 0.01])
+        popt_sqrt64, _ = curve_fit(sqrt_model, n_bins64, sigma64, p0=[1.0, 0.01])
+        popt_lin64, _ = curve_fit(linear_model, n_bins64, sigma64, p0=[1.0, 0.01])
+
+        print("FP32 sqrt model: σ_0={:.3f}, β={:.4f}".format(*popt_sqrt32))
+        print("FP32 linear model: σ_0={:.3f}, α={:.4f}".format(*popt_lin32))
+        print("FP64 sqrt model: σ_0={:.3f}, β={:.4f}".format(*popt_sqrt64))
+        print("FP64 linear model: σ_0={:.3f}, α={:.4f}".format(*popt_lin64))
+
+        # Compare: if α_FP32 >> α_FP64, FP32 has systematic accumulation
+        if popt_lin32[1] > 2 * popt_lin64[1]:
+            print("\n⚠ FP32 shows faster error accumulation than FP64")
+        else:
+            print("\n✓ FP32 and FP64 show similar error accumulation")
+
+    except RuntimeError as e:
+        print(f"Curve fitting failed: {e}")
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    plt.scatter(n_bins32, sigma32, label='FP32', marker='o')
+    plt.scatter(n_bins64, sigma64, label='FP64', marker='s')
+    plt.xlabel('Number of measurements')
+    plt.ylabel('Pull σ (q/p)')
+    plt.legend()
+    plt.title('Precision vs Kalman Updates')
+    plt.savefig('precision_vs_hits.png', dpi=150)
+    plt.show()
+
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print("Usage: python analyze_precision_vs_hits.py fp32_tracks.csv fp64_tracks.csv")
+        sys.exit(1)
+    analyze(sys.argv[1], sys.argv[2])
+```
+
+**Output:**
+- `precision_vs_hits.png`: Pull σ vs N_measurements plot
+- Console: Fitted model parameters and accumulation comparison
+
+#### 2.7.4 GPU↔FPGA Algorithmic Equivalence
+
+**Gap:** FPGA RK4 kernel not validated against GPU reference (Priority: Low - deferred)
+
+**Clarification:** IEEE 754 FP32 representation is identical on GPU (CUDA) and FPGA (Vitis HLS). Binary data transfer via PCIe introduces **no precision loss**. The actual concerns are:
+
+1. **Algorithmic equivalence:** Does HLS RK4 produce same results as GPU RK4?
+2. **Numerical differences:** Different FMA ordering may cause ULP-level differences (1-2 ULP typical)
+
+**Prerequisite:** FPGA kernel must be synthesized and functional (Phase 3+)
+
+##### 2.7.4.1 Test Procedure (Future)
+
+```bash
+# These binaries do not exist yet - to be created in Phase 3
+
+# Step 1: Create GPU reference output
+# (Modify existing rk4 test to dump input/output to binary files)
+
+# Step 2: Run FPGA C-simulation on same inputs
+cd fpga/hls
+make csim  # Uses rk4_propagator_tb.cpp
+
+# Step 3: Compare outputs
+# (Create comparison script during Phase 3)
+```
+
+##### 2.7.4.2 Acceptance Criteria
+
+- Max |Δ| per parameter < 1.2e-6 (10× FP32 epsilon = 10 × 1.19e-7)
+- No systematic bias: |mean(Δ)| < 1e-7
+- ULP difference: 95% of values within 2 ULP
+
+**Output:** Bit-difference histogram; max/mean/std deviation table
+
+#### 2.7.5 Execution Order
+
+| Priority | Task | Depends On | Effort |
+|----------|------|------------|--------|
+| 1 | 2.7.2 Quantitative comparison | FP32/FP64 builds | Low |
+| 2 | 2.7.3 Accumulated precision loss | 2.7.2 + η-binned analysis | Medium |
+| 3 | 2.7.4 GPU↔FPGA equivalence | FPGA kernel (Phase 3+) | High |
+
+**Dependency Graph:**
+```
+CMake builds (fp32, fp64)
+    │
+    ├── 2.7.2 Quantitative comparison (run existing tests)
+    │       │
+    │       └── 2.7.3 Accumulated loss (add η binning to analysis)
+    │
+    └── [Phase 3] FPGA kernel synthesis
+            │
+            └── 2.7.4 GPU↔FPGA equivalence
+```
+
+#### 2.7.6 Prerequisites
+
+**Software:**
+- CMake 3.18+
+- CUDA toolkit 11.x+ (optional, for GPU builds)
+- Python 3.x with:
+  - numpy
+  - scipy (for curve_fit in 2.7.3)
+  - matplotlib (for plotting)
+
+**Data:**
+```bash
+# ODD geometry files (included in traccc repo)
+# Verify they exist:
+ls geometries/odd/odd-detray_geometry_detray.json
+ls geometries/odd/odd-detray_surface_grids_detray.json
+
+# Simulated samples - check what's available:
+ls data/odd/ 2>/dev/null || echo "Run: python data/traccc_data_get_files.py"
+```
+
+**Build verification:**
+```bash
+# Check if presets are available (may not exist in all traccc versions)
+cmake --list-presets 2>/dev/null || echo "Presets not available, use manual cmake flags"
+
+# Verify TRACCC_CUSTOM_SCALARTYPE option exists
+grep -r "TRACCC_CUSTOM_SCALARTYPE" CMakeLists.txt cmake/
+```
+
+**Known limitations:**
+- CMake presets `cuda-fp32`, `cuda-fp64` may not exist in upstream traccc
+- If presets unavailable, use manual `-DTRACCC_CUSTOM_SCALARTYPE=float|double`
+- Kalman fitter tests output summary statistics only; per-track data requires code modification
+
 ---
 
 ## 3. Sequential vs Parallel Operation Analysis
