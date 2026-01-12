@@ -1,0 +1,12 @@
+{
+    "header": {
+        "common": {
+            "version": "detray - 0.101.0",
+            "detector": "wire_chamber",
+            "date": "2026-01-11T 20:56:30Z",
+            "tag": "material_maps"
+        },
+        "grid_count": 0
+    },
+    "data": null
+}

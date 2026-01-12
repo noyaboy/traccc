@@ -1,0 +1,587 @@
+{
+    "header": {
+        "common": {
+            "version": "detray - 0.101.0",
+            "detector": "telescope_detector",
+            "date": "2026-01-12T 02:11:06Z",
+            "tag": "geometry"
+        },
+        "volume_count": 1,
+        "surface_count": 15
+    },
+    "data": {
+        "volumes": [
+            {
+                "name": "telescope_world_0",
+                "index": 0,
+                "type": 4,
+                "transform": {
+                    "translation": [
+                        0.0,
+                        0.0,
+                        0.0
+                    ],
+                    "rotation": [
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        1.0
+                    ]
+                },
+                "surfaces": [
+                    {
+                        "barcode": 281474976710783,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                20.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 0
+                        },
+                        "index_in_coll": 0
+                    },
+                    {
+                        "barcode": 281475110928575,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                40.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 1
+                        },
+                        "index_in_coll": 1
+                    },
+                    {
+                        "barcode": 281475245146367,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                60.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 2
+                        },
+                        "index_in_coll": 2
+                    },
+                    {
+                        "barcode": 281475379364159,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                80.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 3
+                        },
+                        "index_in_coll": 3
+                    },
+                    {
+                        "barcode": 281475513581951,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                100.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 4
+                        },
+                        "index_in_coll": 4
+                    },
+                    {
+                        "barcode": 281475647799743,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                120.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 5
+                        },
+                        "index_in_coll": 5
+                    },
+                    {
+                        "barcode": 281475782017535,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                140.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 6
+                        },
+                        "index_in_coll": 6
+                    },
+                    {
+                        "barcode": 281475916235327,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                160.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 7
+                        },
+                        "index_in_coll": 7
+                    },
+                    {
+                        "barcode": 281476050453119,
+                        "type": 1,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                180.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                -0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                1.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 0,
+                                "boundaries": [
+                                    100000.0,
+                                    100000.0
+                                ]
+                            }
+                        ],
+                        "material": {
+                            "type": 6,
+                            "index": 8
+                        },
+                        "index_in_coll": 8
+                    },
+                    {
+                        "barcode": 1207960255,
+                        "type": 0,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                100.0,
+                                0.0,
+                                100080.0
+                            ],
+                            "rotation": [
+                                1.0,
+                                0.0,
+                                0.0,
+                                0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                0.0,
+                                1.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 65535,
+                                "boundaries": [
+                                    160.0,
+                                    100080.0
+                                ]
+                            }
+                        ],
+                        "index_in_coll": 9
+                    },
+                    {
+                        "barcode": 1342178047,
+                        "type": 0,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                100.0,
+                                0.0,
+                                -100080.0
+                            ],
+                            "rotation": [
+                                1.0,
+                                0.0,
+                                0.0,
+                                0.0,
+                                1.0,
+                                0.0,
+                                0.0,
+                                0.0,
+                                1.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 65535,
+                                "boundaries": [
+                                    160.0,
+                                    100080.0
+                                ]
+                            }
+                        ],
+                        "index_in_coll": 10
+                    },
+                    {
+                        "barcode": 1476395839,
+                        "type": 0,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                100.0,
+                                100080.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                0.0,
+                                1.0,
+                                0.0,
+                                -1.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 65535,
+                                "boundaries": [
+                                    160.0,
+                                    100080.0
+                                ]
+                            }
+                        ],
+                        "index_in_coll": 11
+                    },
+                    {
+                        "barcode": 1610613631,
+                        "type": 0,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                100.0,
+                                -100080.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                1.0,
+                                0.0,
+                                0.0,
+                                -0.0,
+                                0.0,
+                                1.0,
+                                0.0,
+                                -1.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 65535,
+                                "boundaries": [
+                                    160.0,
+                                    100080.0
+                                ]
+                            }
+                        ],
+                        "index_in_coll": 12
+                    },
+                    {
+                        "barcode": 1744831423,
+                        "type": 0,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                260.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                0.0,
+                                -1.0,
+                                -0.0,
+                                1.0,
+                                0.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 65535,
+                                "boundaries": [
+                                    100080.0,
+                                    100080.0
+                                ]
+                            }
+                        ],
+                        "index_in_coll": 13
+                    },
+                    {
+                        "barcode": 1879049215,
+                        "type": 0,
+                        "source": 18446744073709551615,
+                        "transform": {
+                            "translation": [
+                                -60.0,
+                                0.0,
+                                0.0
+                            ],
+                            "rotation": [
+                                0.0,
+                                0.0,
+                                -1.0,
+                                -0.0,
+                                1.0,
+                                0.0,
+                                1.0,
+                                0.0,
+                                0.0
+                            ]
+                        },
+                        "masks": [
+                            {
+                                "shape": 5,
+                                "volume_link": 65535,
+                                "boundaries": [
+                                    100080.0,
+                                    100080.0
+                                ]
+                            }
+                        ],
+                        "index_in_coll": 14
+                    }
+                ]
+            }
+        ]
+    }
+}
