@@ -165,61 +165,20 @@ TEST_P(KalmanFittingTelescopeTests, Run) {
 
         for (std::size_t i_trk = 0; i_trk < n_tracks; i_trk++) {
 
-            const auto& track = track_states.tracks.at(i_trk);
-
-            EXPECT_EQ(track.fit_outcome(),
+            EXPECT_EQ(track_states.tracks.at(i_trk).fit_outcome(),
                       traccc::track_fit_outcome::SUCCESS);
 
-            consistency_tests(track,
+            consistency_tests(track_states.tracks.at(i_trk),
                               track_states.states);
 
-            ndf_tests(track, track_states.states,
+            ndf_tests(track_states.tracks.at(i_trk), track_states.states,
                       measurements);
 
-            ASSERT_EQ(track.nholes(), 0u);
+            ASSERT_EQ(track_states.tracks.at(i_trk).nholes(), 0u);
 
             fit_performance_writer.write(
-                track, track_states.states,
+                track_states.tracks.at(i_trk), track_states.states,
                 measurements, detector.as<detector_traits>(), evt_data);
-
-            // Per-track data output for precision analysis (Section 2.7.3)
-            // Get number of track states (Kalman updates)
-            const std::size_t n_meas = track.constituent_links().size();
-
-            // Get smoothed parameters from first smoothed state
-            const auto first_state_idx = std::find_if(
-                track.constituent_links().begin(),
-                track.constituent_links().end(),
-                [&](const edm::track_constituent_link& link) {
-                    return track_states.states.at(link.index).is_smoothed();
-                })->index;
-            const auto& smoothed = track_states.states.at(first_state_idx).smoothed_params();
-
-            // Compute eta from theta
-            const scalar theta = smoothed.theta();
-            const scalar eta = -std::log(std::tan(theta / 2.f));
-
-            // Get truth parameters for pull calculation
-            const auto meas = measurements.at(
-                track_states.states.at(first_state_idx).measurement_index());
-            const auto& truth_param_pair = evt_data.m_meas_to_param_map.at(meas);
-            const auto& truth_mom = truth_param_pair.second;
-            const auto& ptc_map = evt_data.m_meas_to_ptc_map.at(meas);
-            const scalar truth_qop = ptc_map.begin()->first.charge /
-                                     vector::norm(truth_mom);
-
-            // Compute pull for q/p
-            const scalar fit_qop = smoothed.qop();
-            const scalar cov_qop = smoothed.covariance()[e_bound_qoverp][e_bound_qoverp];
-            const scalar pull_qop = (fit_qop - truth_qop) / std::sqrt(cov_qop);
-
-            // Output per-track data (parseable format)
-            std::cout << "TRACK_DATA: n_meas=" << n_meas
-                      << " eta=" << eta
-                      << " chi2=" << track.chi2()
-                      << " ndf=" << track.ndf()
-                      << " pull_qop=" << pull_qop
-                      << std::endl;
         }
     }
 
