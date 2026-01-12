@@ -463,9 +463,16 @@ Where:
 >
 > **Iterative fitting finding (2026-01-12):**
 > - Setting `n_iterations > 1` causes 100% fit failure (0/100 tracks succeed)
-> - The fitter code has a TODO note: "For multiple iterations, seed parameter should be set to the first track state which has either filtered or smoothed state"
-> - **Conclusion:** Iterative fitting is not implemented. This TBV cannot be tested until the feature is completed.
-> - **Location:** `core/include/traccc/fitting/kalman_filter/kalman_fitter.hpp:181-186`
+> - **Root cause:** The iteration loop structure exists (`kalman_fitter.hpp:175-194`), but has a bug:
+>   - Seed parameters are FREE parameters (6D global coordinates)
+>   - `filtered_params()` returns BOUND parameters (5D on surface)
+>   - Missing bound→free conversion before next iteration
+> - **Fix difficulty:** Low - requires adding `bound_to_free_vector()` conversion (function exists in detray)
+> - **Why not fixed:** Single iteration sufficient for current use cases (seeds from truth with small smearing)
+> - **When needed:** Real reconstruction with pattern recognition seeds (10-20% deviation from truth)
+> - **FPGA impact:** Good news - no iteration loop overhead, simpler pipelined architecture
+> - **Recommendation:** Keep single iteration for FPGA work; iterative fitting is a future enhancement
+> - **Location:** `core/include/traccc/fitting/kalman_filter/kalman_fitter.hpp:175-194`
 >
 > **High |η| ODD test findings (2026-01-12):**
 > - Test: `truth_fitting_example --input-directory odd/geant4_10muon_1GeV/ --input-events 10 --check-performance`
