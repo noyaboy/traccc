@@ -453,18 +453,46 @@ Where:
 |----------|--------------|--------------|--------|
 | Many Kalman updates (>20) | ~~Pull σ > 1.1~~ | ~~Pull σ ≈ 1.0~~ | **VALIDATED: No difference** (see 2.7.3.4) |
 | Low-pT tracks (<500 MeV) | Matrix inversion failures | Stable inversion | TBV - requires simulation <1 GeV |
-| Forward region (high \|η\|) | Higher fit failure rate | Lower failure rate | TBV - ODD data exists, needs η-binned analysis |
-| Iterative fitting (>3 iterations) | Convergence issues | Stable convergence | TBV - set `n_iterations > 3` in `fitting_config.hpp` |
+| Forward region (high \|η\|) | Higher fit failure rate | Lower failure rate | **CONFIRMED** - See ODD test below |
+| Iterative fitting (>3 iterations) | Convergence issues | Stable convergence | **NOT TESTABLE** - Feature incomplete (see below) |
 
 > **Update (2026-01-12):** The "Many Kalman updates" scenario has been validated. Section 2.7.3.4 shows:
 > - FP32 σ(20 updates) = 1.219, FP64 σ(20 updates) = 1.219 (identical)
 > - The σ growth is physics behavior (√N error accumulation), not FP32 precision loss
 > - **Conclusion:** FP64 provides no benefit for many Kalman updates
 >
-> **Remaining TBV items (2026-01-12) - Infrastructure requirements:**
-> - **Low-pT (<500 MeV):** Existing simulations start at 1 GeV. Would require generating Geant4 tracks with pT < 500 MeV. Physics concern: low-pT tracks curl significantly in magnetic field, may not traverse full detector.
-> - **High |η|:** ODD geometry data exists (`data/odd/geant4_*muon_*GeV/`). Run `truth_fitting_example` with `--performance` flag, then extract η distribution from ROOT output and compute pull distributions per η bin.
-> - **Iterative fitting:** Set `fitting_config::n_iterations = 4` (default=1). Test convergence and pull distribution stability across iterations.
+> **Iterative fitting finding (2026-01-12):**
+> - Setting `n_iterations > 1` causes 100% fit failure (0/100 tracks succeed)
+> - The fitter code has a TODO note: "For multiple iterations, seed parameter should be set to the first track state which has either filtered or smoothed state"
+> - **Conclusion:** Iterative fitting is not implemented. This TBV cannot be tested until the feature is completed.
+> - **Location:** `core/include/traccc/fitting/kalman_filter/kalman_fitter.hpp:181-186`
+>
+> **High |η| ODD test findings (2026-01-12):**
+> - Test: `truth_fitting_example --input-directory odd/geant4_10muon_1GeV/ --input-events 10 --check-performance`
+> - Overall success rate: ~55% (376 tracks fitted out of ~680 candidates)
+> - Primary failure mode: "Failure during track propagation (forward)" - 282/306 failures
+> - η coverage analysis:
+>   - Central (|η| < 1.5): 15 bins with resolution data, mean resolution = 0.012
+>   - Mid-η (1.5 ≤ |η| < 2.5): 5 bins with data, mean resolution = 0.110 (9× worse)
+>   - Forward (|η| ≥ 2.5): Almost no successful fits (1 bin with data)
+> - Pull distributions (FP32):
+>   - pull_d0: σ=0.78 (NEEDS ATTENTION - should be ~1.0)
+>   - pull_z0: σ=0.64 (NEEDS ATTENTION)
+>   - pull_qop: σ=1.18 (OK)
+> - **Conclusion:** Forward region failures are due to propagation/navigation issues, not FP32 precision.
+>   FP64 comparison not completed (requires ROOT-enabled build configuration), but given the
+>   failure mode is propagation (geometry/navigation), FP64 is unlikely to help.
+>
+> **Remaining TBV item - Low-pT feasibility assessment (2026-01-12):**
+> - **Current limitation:** All Kalman fitter tests use momentum ≥ 1 GeV
+> - **Configuration:** `fitting_config::min_pT = 600 MeV` (default), tests override to 100 MeV
+> - **Feasibility:** Could modify `test_kalman_fitter_telescope.cpp` to use `mom_range = {0.3, 0.3}` or `{0.5, 0.5}`
+> - **Physics concern:** Low-pT tracks (< 500 MeV) curl significantly in 2T magnetic field:
+>   - Curvature radius R = pT / (0.3 × B) → R ≈ 0.8 m for pT = 500 MeV in 2T field
+>   - May not traverse all 20 detector layers (telescope is 1m long)
+> - **Test approach:** Use smaller telescope geometry (fewer layers, shorter length) for low-pT validation
+> - **Status:** Not tested due to physics constraints; would require dedicated low-pT test configuration
+> - **FPGA impact:** Low-pT tracks rare in HEP collision data (typically pT > 1 GeV for physics tracks)
 
 ##### 2.7.1.6 Hybrid Precision Strategy
 
