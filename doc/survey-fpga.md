@@ -23,10 +23,11 @@ The analysis explores:
 
 **TRACCC** (Demonstrator Tracking Chain for Accelerators) is a C++20 high-performance GPU-accelerated particle tracking reconstruction framework developed by CERN as part of the ACTS project.
 
-- **Repository Size:** 9.9 GB
-- **C++ implementations:** 5,948 files
-- **CUDA sources:** 684 files
-- **Core headers:** 110 files
+- **Repository Size:** ~9.0 GB (including build artifacts)
+- **TRACCC source files:** 631 C++ files, 88 CUDA files, 110 core headers
+- **With dependencies:** 8,376 C++ files, 901 CUDA files (includes detray, vecmem, algebra-plugins)
+
+*Statistics updated: 2026-01-12*
 
 ### 1.2 Tracking Pipeline
 
@@ -2960,11 +2961,11 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 
 | Section | Data | Issue |
 |---------|------|-------|
-| 1.1 | Repository: 9.9 GB | May change with ongoing development |
-| 1.1 | C++ files: 5,948 | May change with ongoing development |
-| 1.1 | CUDA sources: 684 | May change with ongoing development |
-| 1.1 | Core headers: 110 | May change with ongoing development |
-| 7.1 | MSRP: $9,495 | Pricing subject to change |
+| ~~1.1~~ | ~~Repository: 9.9 GB~~ | **Updated 2026-01-12**: ~9.0 GB |
+| ~~1.1~~ | ~~C++ files: 5,948~~ | **Updated 2026-01-12**: 631 (traccc), 8,376 (with deps) |
+| ~~1.1~~ | ~~CUDA sources: 684~~ | **Updated 2026-01-12**: 88 (traccc), 901 (with deps) |
+| ~~1.1~~ | ~~Core headers: 110~~ | **Updated 2026-01-12**: 110 (unchanged) |
+| ~~7.1~~ | ~~MSRP: $9,495~~ | **Verified 2026-01-12**: $9,495 MSRP confirmed (retailers ~$10,349) |
 
 #### C.10.6 Internal Inconsistencies
 
@@ -3008,9 +3009,9 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 | DSP resource estimates | 5 | C.10.2 |
 | FPGA implementation claims | ~~6~~ 5 | C.10.3 |
 | Weak/unverified sources | ~~6~~ ~~5~~ ~~4~~ ~~3~~ ~~2~~ ~~1~~ 0 | C.10.4 |
-| Potentially stale data | 5 | C.10.5 |
+| Potentially stale data | ~~5~~ **0** | C.10.5 (all updated 2026-01-12) |
 | Internal inconsistencies | ~~1~~ 0 | C.10.6 |
-| **Total verification items** | ~~26~~ **23** | (-3 TBV items resolved 2026-01-12) |
+| **Total verification items** | ~~26~~ ~~23~~ **18** | (-8 items resolved 2026-01-12) |
 
 > **✓ Note:** The critical blocker (per-step sync overhead) has been **RESOLVED**. Phase 2 measured 48 µs/step communication overhead, well under the 100 µs threshold. FPGA development can proceed.
 >
