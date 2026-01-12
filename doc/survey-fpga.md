@@ -156,6 +156,27 @@ using cov_scalar = double;       // 6×6 matrix × 8 bytes = 288 bytes (DP covar
 > - FP64: χ²/NDF = 1.0042 ± 0.0020 (n=9), 1.0055 ± 0.0038 (n=20)
 > - **No measurable difference** - original estimate of 100× improvement incorrect
 
+#### 2.4.1 Condition Number Validation
+
+**TBV claim:** κ_avg = 10³ to 10⁵ for covariance matrices
+
+**Validation methodology:** Theoretical analysis using `scripts/analyze_condition_numbers.py` with covariance structure from telescope test configurations:
+
+| Configuration | Initial (Seed) κ | Filtered κ | 2×2 M Matrix κ |
+|---------------|------------------|------------|----------------|
+| 1 GeV, 20 layers | 1.0×10⁴ | 4.4×10⁴ | ~1 |
+| 10 GeV, 9 layers | 1.0×10⁴ | 8.9×10³ | ~1 |
+| 100 GeV, 9 layers | 1.0×10⁴ | 8.9×10³ | ~1 |
+
+**Key findings:**
+- **Geometric mean κ ≈ 1.5×10⁴** - validates the 10³-10⁵ estimate
+- Initial seed covariance: κ ~ 10⁴ (from measurement scale differences)
+- Filtered covariance: κ ~ 10³-10⁴ (depends on measurement precision)
+- 2×2 M matrix (H×C×Hᵀ+V, inverted for Kalman gain): κ ~ 1 (very well-conditioned)
+- **FP32 safe threshold: κ < 10⁷** - current values are well within safe range
+
+**Implication:** The condition numbers confirm FP32 is adequate for Kalman filter matrix inversions. The critical 2×2 matrices have near-unity condition numbers, making them extremely robust.
+
 ### 2.5 FP32 vs FP64 Physics Validation Status
 
 > **Key Finding (2026-01-11):** Current FP32 pipeline passes all physics validation tests. No systematic FP32 vs FP64 efficiency comparison has been performed.
@@ -427,7 +448,7 @@ For N sequential Kalman updates, covariance error grows approximately as:
 Where:
 - ε_machine = 1.19e-7 (FP32) or 2.22e-16 (FP64)
 - N = number of measurements (~12-25 for ODD)
-- κ_avg = average condition number of covariance matrix (estimated 10^3 to 10^5; **TBV**)
+- κ_avg = average condition number of covariance matrix (**validated: κ ≈ 1.5×10⁴**, see Section 2.4.3.1)
 
 **Example calculation (order-of-magnitude estimate):**
 - FP32: ε ≈ 1.19e-7 × √20 × 10^4 ≈ 5e-3 (0.5% relative error)
@@ -2249,9 +2270,9 @@ This section provides a comprehensive blocker analysis and development plan for 
 | Category | Count | Status |
 |----------|-------|--------|
 | **Critical Blockers** | 2 | Must resolve before development |
-| **High Priority Blockers** | 3 | Block development start |
+| **High Priority Blockers** | ~~3~~ 2 | Block development start |
 | **Medium Priority Risks** | 5 | Manageable with mitigation |
-| **Resolved** | 2 | ✓ Done |
+| **Resolved/Partial** | ~~2~~ 4 | ✓ 12.3.2, 12.5.1, 12.5.2; ◐ 12.3.4 |
 
 ### 12.2 Critical Blockers
 
@@ -2355,14 +2376,24 @@ Extracted RK4 propagation algorithm from `detray/core/include/detray/propagator/
 - Buffer management strategy (pinned memory required)
 - Synchronization mechanism (polling vs events)
 
-#### 12.3.4 Precision Validation Suite Missing
+#### 12.3.4 Precision Validation Suite ✓ PARTIALLY RESOLVED
 
-**Issue:** No mechanism to validate that SP propagation on FPGA produces physics-compatible results compared to GPU DP baseline.
+**Original Issue:** No mechanism to validate that SP propagation on FPGA produces physics-compatible results compared to GPU DP baseline.
 
-**Concerns:**
-- SP vs DP may diverge after many RK4 steps
-- Chi² threshold decisions may differ
-- Track quality metrics may degrade
+**Original Concerns → Resolution Status:**
+
+| Concern | Status | Evidence |
+|---------|--------|----------|
+| SP vs DP diverge after many RK4 steps | ✓ **RESOLVED** | Section 2.7.3.4: σ difference < 0.01% after 20 updates |
+| Chi² threshold decisions may differ | ✓ **RESOLVED** | Section 2.7.3.4: χ²/NDF identical (1.004 both) |
+| Track quality metrics may degrade | ✓ **RESOLVED** | Section 2.7.2.4: Pull distributions identical |
+| GPU↔FPGA round-trip precision loss | **PENDING** | Requires FPGA implementation |
+
+**Remaining work:**
+- Validate GPU↔FPGA data transfer preserves precision (requires V80)
+
+**Completed:**
+- ✓ Measure covariance matrix condition numbers: κ ≈ 1.5×10⁴ (Section 2.4.1)
 
 ### 12.4 Medium Priority Risks
 
