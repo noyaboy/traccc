@@ -452,14 +452,19 @@ Where:
 | Scenario | FP32 Symptom | FP64 Benefit | Status |
 |----------|--------------|--------------|--------|
 | Many Kalman updates (>20) | ~~Pull σ > 1.1~~ | ~~Pull σ ≈ 1.0~~ | **VALIDATED: No difference** (see 2.7.3.4) |
-| Low-pT tracks (<500 MeV) | Matrix inversion failures | Stable inversion | TBV - requires test config |
-| Forward region (high \|η\|) | Higher fit failure rate | Lower failure rate | TBV - requires ODD geometry test |
-| Iterative fitting (>3 iterations) | Convergence issues | Stable convergence | TBV - requires iteration config |
+| Low-pT tracks (<500 MeV) | Matrix inversion failures | Stable inversion | TBV - requires simulation <1 GeV |
+| Forward region (high \|η\|) | Higher fit failure rate | Lower failure rate | TBV - ODD data exists, needs η-binned analysis |
+| Iterative fitting (>3 iterations) | Convergence issues | Stable convergence | TBV - set `n_iterations > 3` in `fitting_config.hpp` |
 
 > **Update (2026-01-12):** The "Many Kalman updates" scenario has been validated. Section 2.7.3.4 shows:
 > - FP32 σ(20 updates) = 1.219, FP64 σ(20 updates) = 1.219 (identical)
 > - The σ growth is physics behavior (√N error accumulation), not FP32 precision loss
 > - **Conclusion:** FP64 provides no benefit for many Kalman updates
+>
+> **Remaining TBV items (2026-01-12) - Infrastructure requirements:**
+> - **Low-pT (<500 MeV):** Existing simulations start at 1 GeV. Would require generating Geant4 tracks with pT < 500 MeV. Physics concern: low-pT tracks curl significantly in magnetic field, may not traverse full detector.
+> - **High |η|:** ODD geometry data exists (`data/odd/geant4_*muon_*GeV/`). Run `truth_fitting_example` with `--performance` flag, then extract η distribution from ROOT output and compute pull distributions per η bin.
+> - **Iterative fitting:** Set `fitting_config::n_iterations = 4` (default=1). Test convergence and pull distribution stability across iterations.
 
 ##### 2.7.1.6 Hybrid Precision Strategy
 
@@ -2768,10 +2773,10 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 | 11.3 | Throughput improvement: 50-100% over GPU-only | **TBV** - Requires FPGA implementation |
 | 11.3 | Power efficiency: ~1.6× improvement | **TBV** - Requires V80 hardware measurement |
 | 11.3 | Numerical stability: 100× chi² accuracy | ~~TBV~~ **INVALIDATED** - No difference measured (2.7.3.4) |
-| A.2 | `find_tracks` kernel timing | **TBV** - Requires profiling |
-| A.2 | `build_tracks` kernel timing (MBF=false) | **TBV** - Requires profiling |
+| ~~A.2~~ 5.2 | `find_tracks` kernel timing | ~~TBV~~ **VALIDATED** - 10.2%, 143.8 µs (Section 5.2) |
+| ~~A.2~~ 5.2 | `build_tracks` kernel timing (MBF=false) | ~~TBV~~ **VALIDATED** - 1.8%, 512.1 µs (Section 5.2) |
 
-> **Update (2026-01-12):** Two TBV items validated, two invalidated (original estimates were incorrect - FP32 and FP64 show no measurable chi² difference).
+> **Update (2026-01-12):** Four TBV items validated, two invalidated. Kernel timing already documented in Section 5.2 (referenced as "A.2" was an error).
 
 #### C.10.2 Speculative Estimates - Need Implementation Validation
 
@@ -2853,7 +2858,7 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 | Category | Count | Section |
 |----------|-------|---------|
 | ~~**⚠️ Critical blockers**~~ | ~~**1**~~ **0** | ~~**C.10.7 (§9.4.2)**~~ **✓ RESOLVED** |
-| Explicit TBV items | ~~9~~ **6** remaining (1 validated, 2 invalidated) | C.10.1 |
+| Explicit TBV items | ~~9~~ ~~6~~ **4** remaining (3 validated, 2 invalidated) | C.10.1 |
 | DSP resource estimates | 5 | C.10.2 |
 | FPGA implementation claims | ~~6~~ 5 | C.10.3 |
 | Weak/unverified sources | ~~6~~ ~~5~~ ~~4~~ ~~3~~ ~~2~~ ~~1~~ 0 | C.10.4 |
