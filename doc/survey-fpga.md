@@ -144,12 +144,17 @@ using cov_scalar = double;       // 6×6 matrix × 8 bytes = 288 bytes (DP covar
 
 ### 2.4 Precision Impact Estimates
 
-| Metric | All-SP | Hybrid DP/SP | Impact |
-|--------|--------|--------------|--------|
-| Memory per track | 168 bytes (24+144) | 312 bytes (24+288) | +86% |
-| Kalman gain matrix error | ~10⁻⁶ | ~10⁻¹⁵ | 9 orders of magnitude (TBV) |
-| Chi-squared bias | ±0.01 | ±10⁻⁴ | 100× improvement (TBV) |
-| Throughput cost | Baseline | -2-5% | Acceptable for stability (TBV) |
+| Metric | All-SP (FP32) | All-DP (FP64) | Impact | Status |
+|--------|---------------|---------------|--------|--------|
+| Memory per track | 168 bytes | 312 bytes | +86% | Verified |
+| Kalman gain matrix error | ~10⁻⁶ | ~10⁻¹⁵ | 9 orders magnitude | TBV - theoretical |
+| Chi-squared bias | χ²/NDF = 1.004 | χ²/NDF = 1.004 | **No difference** | **VALIDATED** (2.7.3.4) |
+| Throughput cost | Baseline | -2-5% | TBV | Requires benchmark |
+
+> **Update (2026-01-12):** Chi-squared bias validated in Section 2.7.3.4:
+> - FP32: χ²/NDF = 1.0042 ± 0.0020 (n=9), 1.0055 ± 0.0038 (n=20)
+> - FP64: χ²/NDF = 1.0042 ± 0.0020 (n=9), 1.0055 ± 0.0038 (n=20)
+> - **No measurable difference** - original estimate of 100× improvement incorrect
 
 ### 2.5 FP32 vs FP64 Physics Validation Status
 
@@ -183,11 +188,13 @@ using cov_scalar = double;       // 6×6 matrix × 8 bytes = 288 bytes (DP covar
 
 | Study | Status | Priority |
 |-------|--------|----------|
-| FP32 vs FP64 efficiency comparison | Not performed | Medium |
-| Track reconstruction efficiency difference | Not measured | Medium |
-| Physics resolution degradation quantification | Estimated only (TBV) | High |
-| Long track precision loss (many hits) | Not systematically tested | Medium |
+| FP32 vs FP64 efficiency comparison | **DONE** (2.7.2.4) - No difference | ~~Medium~~ ✓ |
+| Track reconstruction efficiency difference | **DONE** (2.7.2.4) - Identical | ~~Medium~~ ✓ |
+| Physics resolution degradation quantification | **DONE** (2.7.3.4) - < 0.01% difference | ~~High~~ ✓ |
+| Long track precision loss (many hits) | **DONE** (2.7.3.4) - No FP32-specific loss | ~~Medium~~ ✓ |
 | GPU↔FPGA round-trip precision loss | Not measured | High for FPGA work |
+
+> **Update (2026-01-12):** Four of five studies completed in Sections 2.7.2 and 2.7.3. All show FP32 and FP64 are statistically equivalent. Only GPU↔FPGA round-trip remains (requires FPGA implementation).
 
 #### 2.5.4 Conclusion
 
@@ -442,14 +449,17 @@ Where:
 
 ##### 2.7.1.5 Where FP64 May Help
 
-| Scenario | FP32 Symptom | FP64 Benefit |
-|----------|--------------|--------------|
-| Many Kalman updates (>20) | Pull σ > 1.1 (**estimate, TBV**) | Pull σ ≈ 1.0 |
-| Low-pT tracks (<500 MeV) | Matrix inversion failures (**estimate, TBV**) | Stable inversion |
-| Forward region (high |η|) | Higher fit failure rate (**estimate, TBV**) | Lower failure rate |
-| Iterative fitting (>3 iterations) | Convergence issues (**estimate, TBV**) | Stable convergence |
+| Scenario | FP32 Symptom | FP64 Benefit | Status |
+|----------|--------------|--------------|--------|
+| Many Kalman updates (>20) | ~~Pull σ > 1.1~~ | ~~Pull σ ≈ 1.0~~ | **VALIDATED: No difference** (see 2.7.3.4) |
+| Low-pT tracks (<500 MeV) | Matrix inversion failures | Stable inversion | TBV - requires test config |
+| Forward region (high \|η\|) | Higher fit failure rate | Lower failure rate | TBV - requires ODD geometry test |
+| Iterative fitting (>3 iterations) | Convergence issues | Stable convergence | TBV - requires iteration config |
 
-> **Note:** ODD geometry has ~25 layers maximum. All values in this table are estimates requiring empirical validation.
+> **Update (2026-01-12):** The "Many Kalman updates" scenario has been validated. Section 2.7.3.4 shows:
+> - FP32 σ(20 updates) = 1.219, FP64 σ(20 updates) = 1.219 (identical)
+> - The σ growth is physics behavior (√N error accumulation), not FP32 precision loss
+> - **Conclusion:** FP64 provides no benefit for many Kalman updates
 
 ##### 2.7.1.6 Hybrid Precision Strategy
 
@@ -2751,14 +2761,17 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 | Section | Claim | Status |
 |---------|-------|--------|
 | 2.4 | Kalman gain matrix error: ~10⁻⁶ → ~10⁻¹⁵ | **TBV** - Theoretical, not measured |
-| 2.4 | Chi² bias improvement: ±0.01 → ±10⁻⁴ (100×) | **TBV** - Theoretical, not measured |
-| 2.4 | Throughput cost: -2-5% for hybrid precision | **TBV** - Estimate, no basis |
-| 8.5 | Throughput improvement: +50-100% | **TBV** - Already marked |
-| 11.3 | Throughput improvement: 50-100% over GPU-only | **TBV** |
-| 11.3 | Power efficiency: ~1.6× improvement | **TBV** - Consistent with 8.5 |
-| 11.3 | Numerical stability: 100× chi² accuracy | **TBV** |
-| A.2 | `find_tracks` kernel timing | **TBV** - N/A listed |
-| A.2 | `build_tracks` kernel timing (MBF=false) | **TBV** - N/A listed |
+| 2.4 | Chi² bias improvement: ±0.01 → ±10⁻⁴ (100×) | ~~TBV~~ **INVALIDATED** - No difference measured (2.7.3.4) |
+| 2.4 | Throughput cost: -2-5% for hybrid precision | **TBV** - Requires benchmark |
+| 2.7.1.5 | Many Kalman updates (>20): Pull σ > 1.1 | ~~TBV~~ **VALIDATED** - σ=1.22 for both FP32/FP64 (2.7.3.4) |
+| 8.5 | Throughput improvement: +50-100% | **TBV** - Requires FPGA implementation |
+| 11.3 | Throughput improvement: 50-100% over GPU-only | **TBV** - Requires FPGA implementation |
+| 11.3 | Power efficiency: ~1.6× improvement | **TBV** - Requires V80 hardware measurement |
+| 11.3 | Numerical stability: 100× chi² accuracy | ~~TBV~~ **INVALIDATED** - No difference measured (2.7.3.4) |
+| A.2 | `find_tracks` kernel timing | **TBV** - Requires profiling |
+| A.2 | `build_tracks` kernel timing (MBF=false) | **TBV** - Requires profiling |
+
+> **Update (2026-01-12):** Two TBV items validated, two invalidated (original estimates were incorrect - FP32 and FP64 show no measurable chi² difference).
 
 #### C.10.2 Speculative Estimates - Need Implementation Validation
 
@@ -2840,15 +2853,20 @@ Adaptive step sizing allows 1-10000 iterations per propagation (average ~6.32 st
 | Category | Count | Section |
 |----------|-------|---------|
 | ~~**⚠️ Critical blockers**~~ | ~~**1**~~ **0** | ~~**C.10.7 (§9.4.2)**~~ **✓ RESOLVED** |
-| Explicit TBV items | 9 | C.10.1 |
+| Explicit TBV items | ~~9~~ **6** remaining (1 validated, 2 invalidated) | C.10.1 |
 | DSP resource estimates | 5 | C.10.2 |
 | FPGA implementation claims | ~~6~~ 5 | C.10.3 |
 | Weak/unverified sources | ~~6~~ ~~5~~ ~~4~~ ~~3~~ ~~2~~ ~~1~~ 0 | C.10.4 |
 | Potentially stale data | 5 | C.10.5 |
 | Internal inconsistencies | ~~1~~ 0 | C.10.6 |
-| **Total verification items** | **26** | (was 27, -1 critical blocker resolved) |
+| **Total verification items** | ~~26~~ **23** | (-3 TBV items resolved 2026-01-12) |
 
 > **✓ Note:** The critical blocker (per-step sync overhead) has been **RESOLVED**. Phase 2 measured 48 µs/step communication overhead, well under the 100 µs threshold. FPGA development can proceed.
+>
+> **Update (2026-01-12):** Three TBV items resolved via Section 2.7 validation:
+> - **VALIDATED:** "Many Kalman updates σ > 1.1" → Confirmed σ = 1.22 for both FP32/FP64
+> - **INVALIDATED:** "Chi² bias 100× improvement" → No measurable difference
+> - **INVALIDATED:** "Numerical stability 100× improvement" → No measurable difference
 
 ---
 
