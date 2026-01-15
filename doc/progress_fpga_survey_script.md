@@ -186,7 +186,7 @@ The full documentation is in doc/survey-fpga.md.
 
 *[20 秒]*
 
-各位好，這是我本週關於 TRACCC FPGA 卸載可行性調查的進度報告。
+老師好，這是我這週的進度報告，主要是關於 TRACCC 做 FPGA offload 的可行性調查。
 
 ---
 
@@ -194,9 +194,9 @@ The full documentation is in doc/survey-fpga.md.
 
 *[30 秒]*
 
-這張投影片列出了我這週完成的所有工作項目。接下來我會逐一說明每項工作的內容，以及它對我們 FPGA 卸載決策的意義。
+這邊先列出我完成的工作項目，等一下會一個一個說明我做了什麼、還有這些結果代表什麼意義。
 
-主要的產出是一份完整的調查文件，總共超過三千行的分析內容，放在 survey-fpga.md 裡面。
+主要產出是一份蠻完整的調查文件，大概三千多行，放在 survey-fpga.md 裡面。
 
 ---
 
@@ -205,12 +205,12 @@ The full documentation is in doc/survey-fpga.md.
 *[1 分鐘]*
 
 **我做了什麼：**
-我分別用單精度和雙精度編譯了 TRACCC，然後對一萬條 muon 軌跡執行 Kalman fitter 測試，比較兩者的 pull 分布和卡方值。
+我把 TRACCC 分別用 FP32 跟 FP64 編譯，然後跑 Kalman fitter 的測試，總共測了一萬條 muon track，去比較 pull distribution 跟 chi-square。
 
-**這代表什麼意義：**
-結果顯示 FP32 和 FP64 產生的物理結果完全相同。Pull 的標準差差異小於 0.003，這在統計誤差範圍內。兩種精度的卡方值都是 1.0042。
+**這代表什麼：**
+結果發現 FP32 跟 FP64 的物理結果基本上一樣。Pull 的 sigma 差不到 0.003，在統計誤差內。Chi-square 兩邊都是 1.0042。
 
-這個結果的意義是：DSP58 原生的 FP32 運算對 FPGA 卸載來說是安全的，不會損失任何物理精度。
+所以結論是 DSP58 原生的 FP32 拿來做 FPGA offload 是沒問題的，不會掉精度。
 
 ---
 
@@ -219,12 +219,12 @@ The full documentation is in doc/survey-fpga.md.
 *[1 分鐘]*
 
 **我做了什麼：**
-我用 NVIDIA Nsight Compute 對 propagate-to-next-surface 這個 kernel 做了詳細的效能分析，檢查暫存器壓力、快取命中率，還有 warp stall 的原因。
+我用 Nsight Compute 去 profile propagate-to-next-surface 這個 kernel，看它的 register pressure、cache hit rate、還有 warp stall 的狀況。
 
-**這代表什麼意義：**
-93% 的 cycle 都在 warp stall，這表示這個 kernel 是延遲受限的，不是運算受限的。每個 thread 用了 96 到 128 個暫存器，這限制了 occupancy。L1 快取命中率只有 46% 到 54%，顯示記憶體存取模式很不規則。
+**這代表什麼：**
+結果發現 93% 的 cycle 都卡在 warp stall，所以這個 kernel 是 latency-bound，不是 compute-bound。每個 thread 用了 96 到 128 個 register，occupancy 很低。L1 cache hit rate 只有五成左右，表示 memory access pattern 很亂。
 
-這代表 GPU 的 SIMT 執行模型對這種工作負載根本上就是沒效率的。FPGA 的 pipeline 執行方式可以完全消除這些 stall。
+簡單來說，GPU 的 SIMT model 跑這種東西本來就不太適合。但 FPGA 用 pipeline 的方式就可以避掉這些 stall。
 
 ---
 
@@ -233,12 +233,12 @@ The full documentation is in doc/survey-fpga.md.
 *[1 分鐘]*
 
 **我做了什麼：**
-我用 Nsight Systems 跑了完整的 pipeline，量測 GPU 時間在各個 kernel 之間的分布。
+我用 Nsight Systems 跑整個 pipeline，看 GPU time 花在哪些 kernel 上面。
 
-**這代表什麼意義：**
-propagate-to-next-surface 佔了 63% 的 GPU 時間，這是我們主要的 FPGA 卸載目標。build_tracks 佔 14.6%，但因為有 pointer chasing 的問題，必須留在 GPU 上。剩下的 22% 大部分都適合放到 FPGA。
+**這代表什麼：**
+propagate-to-next-surface 吃掉 63% 的時間，這是我們主要想 offload 的目標。build_tracks 佔 14.6%，但它有 pointer chasing 的問題，不太適合搬到 FPGA。剩下大概 22% 大部分都可以考慮放 FPGA。
 
-總結來說，大約 80% 的 GPU 工作有機會移到 FPGA 上執行。
+整體來看，大概 80% 的 GPU 工作有機會搬到 FPGA 上。
 
 ---
 
@@ -247,14 +247,14 @@ propagate-to-next-surface 佔了 63% 的 GPU 時間，這是我們主要的 FPGA
 *[1 分鐘]*
 
 **我做了什麼：**
-我分析了每個 kernel 的運算特性，包括乘加鏈、記憶體存取模式、分支行為，然後對應到 DSP58 的能力。
+我去分析每個 kernel 的運算特性，像是有沒有 MAC chain、memory access pattern 規不規則、branching 多不多，然後對應到 DSP58 能做什麼。
 
-**這代表什麼意義：**
-適合 FPGA 的有：RK4 傳播運算因為是乘加鏈、磁場多項式用 Horner's method 很適合、矩陣向量運算可以用 systolic array、還有 CCL clustering 本來就是 FPGA 上很成熟的設計。
+**這代表什麼：**
+適合放 FPGA 的像是：RK4 propagation 因為就是一直做乘加、B-field 的多項式用 Horner's method 很適合、matrix-vector 可以用 systolic array、CCL clustering 本來就是 FPGA 很成熟的東西。
 
-需要留在 GPU 的有：軌跡去重因為分支很不規則、build_tracks 有 pointer chasing、還有 6x6 矩陣反運算控制流程太複雜。
+要留在 GPU 的像是：track deduplication 因為 branching 很亂、build_tracks 有 pointer chasing、還有 6x6 matrix inversion 控制流程太複雜。
 
-這給了我們一個清楚的切分策略。
+所以我們有一個蠻清楚的切分策略。
 
 ---
 
@@ -263,12 +263,12 @@ propagate-to-next-surface 佔了 63% 的 GPU 時間，這是我們主要的 FPGA
 *[45 秒]*
 
 **我做了什麼：**
-我估算了每條軌跡 pipeline 大約需要 110 個 DSP58，然後計算 V80 上可以放多少條平行的 pipeline。
+我估了一下每條 track 的 pipeline 大概要 110 個 DSP58，然後算 V80 可以塞幾條。
 
-**這代表什麼意義：**
-V80 有 10,848 個 DSP58，理論上可以支援大約 98 條平行的軌跡 pipeline。32GB 的 HBM 足夠存放幾何資料和磁場。
+**這代表什麼：**
+V80 有一萬多個 DSP58，理論上可以跑大概 98 條平行的 track pipeline。HBM 有 32GB，放 geometry 跟 B-field 絕對夠。
 
-不過這是理論估算，實際數字要等 Vitis HLS 合成之後才能確認。
+不過這是紙上估算啦，實際要等 Vitis HLS 合成才知道。
 
 ---
 
@@ -277,14 +277,14 @@ V80 有 10,848 個 DSP58，理論上可以支援大約 98 條平行的軌跡 pip
 *[1 分鐘]*
 
 **我做了什麼：**
-我量測了 GPU 到 Host 的傳輸延遲，用這個來估算未來 GPU 到 FPGA 的通訊成本，測試了不同的資料大小。
+我量了 GPU 到 Host 的傳輸延遲，拿這個來估 GPU 到 FPGA 的通訊成本，測了不同的資料大小。
 
-要注意這只是一個代理量測，實際 GPU 到 FPGA 的路徑會因為 XRT runtime 的 overhead 和 PCIe 拓撲不同而有差異。這只能給我們一個粗略的估計，實際數字要在真正的硬體上驗證。
+不過要先說，這只是一個 proxy，實際 GPU 到 FPGA 會因為 XRT 的 overhead 跟 PCIe topology 不一樣而有差異。這只能給一個大概，真正的數字要在硬體上驗證。
 
-**這代表什麼意義：**
-如果只傳 24 bytes 的參數向量，overhead 是 2.7%，這是可以接受的。如果傳完整的軌跡狀態 176 bytes，overhead 就跳到 13%，這就有點令人擔心。如果再加上 Jacobian，就到 18%，這太高了。
+**這代表什麼：**
+如果只傳 24 bytes 的 parameter，overhead 大概 2.7%，OK。如果傳整個 track state 176 bytes，就跳到 13%，有點多。再加 Jacobian 的話到 18%，太高了。
 
-結論是傳輸策略已經確定，就是只傳參數向量，但實際的 overhead 還需要在真正的 V80 硬體上驗證。
+結論是傳輸策略確定了，就是只傳 parameter，但實際 overhead 還是要在 V80 上驗證。
 
 ---
 
@@ -292,21 +292,23 @@ V80 有 10,848 個 DSP58，理論上可以支援大約 98 條平行的軌跡 pip
 
 *[1.5 分鐘]*
 
-這是我們接下來要處理的關鍵阻礙。
+接下來要處理一個比較關鍵的問題。
 
-CKF 演算法在每一個偵測面都需要 GPU 和 FPGA 之間做同步，總共有 15 個面。如果每步的同步 overhead 超過 200 微秒，FPGA 卸載就根本不可行。
+CKF 演算法每過一個偵測面就要做一次 GPU 跟 FPGA 的同步，總共 15 個面。如果每步的 sync overhead 超過 200 微秒，那 FPGA offload 基本上就不可行了。
 
-**需要做的事：**
-1. 在 CKF 迴圈中加入計時，量測實際的每步同步時間
-2. 先用 GPU 到 Host 的同步來測試，因為我們還沒有 FPGA 硬體
-3. 計算總 overhead，跟 23 毫秒的 baseline 比較
+前面的 survey 其實是為了這個測試做準備，要先知道傳多少資料、有幾個 sync point、FP32 可不可以用，才能設計這個測試。
+
+**要做的事：**
+1. 在 CKF loop 裡面加 timing，量每一步的 sync 時間
+2. 先用 GPU 到 Host 的 sync 來測，因為 FPGA 還在裝
+3. 算總 overhead，跟 23ms 的 baseline 比
 
 **決策標準：**
-- 如果 overhead 小於 5%，我們就繼續進行 FPGA 開發
-- 如果在 5% 到 15% 之間，要考慮非同步重疊的策略
-- 如果超過 15%，FPGA 卸載對 CKF 來說就不可行
+- 小於 5%：繼續做 FPGA
+- 5% 到 15%：要想辦法用 async 或 overlap
+- 超過 15%：FPGA offload 對 CKF 來說就不太行了
 
-這是我們投入任何 FPGA 開發之前的關鍵決策點。
+這是我們決定要不要繼續投入 FPGA 開發的關鍵點。
 
 ---
 
@@ -314,37 +316,37 @@ CKF 演算法在每一個偵測面都需要 GPU 和 FPGA 之間做同步，總�
 
 *[45 秒]*
 
-總結一下已完成的工作：
-1. FP32 等於 FP64 的物理結果，DSP58 原生 FP32 是安全的
-2. 63% 的 GPU 時間集中在一個 kernel，而且有 93% 的 stall，非常適合 FPGA
+總結一下：
+1. FP32 跟 FP64 物理結果一樣，DSP58 的 FP32 可以用
+2. 63% 的 GPU time 集中在一個 kernel，而且 93% 都在 stall，很適合 FPGA
 3. 80% 的工作適合 FPGA，切分策略很清楚
-4. V80 可以支援大約 98 條平行 pipeline，資源足夠
-5. 只傳參數的話 PCIe overhead 是 2.7%，傳輸策略已經確定
+4. V80 理論上可以跑 98 條平行 pipeline，資源夠
+5. 只傳 parameter 的話 PCIe overhead 2.7%，策略確定了
 
-下一步是量測每步同步屏障的 overhead，這是關鍵的決策點。如果可行的話，我們就開始用 Vitis HLS 做 RK4 kernel 的原型。
+下一步就是量 sync barrier 的 overhead，這是關鍵決策點。如果可行的話，就開始用 Vitis HLS 做 RK4 kernel 的 prototype。
 
-完整的文件在 doc/survey-fpga.md。
+完整文件在 survey-fpga.md。
 
 ---
 
 ## 預期問答
 
-**可能被問的問題：**
+**可能會被問的：**
 
-1. **為什麼同步屏障這麼關鍵？**
-   - CKF 是迭代式的：傳播 → 匹配 → 更新 → 重複
-   - 每一步都需要前一步的結果
-   - 沒辦法跨步驟做 pipeline
+1. **為什麼 sync barrier 這麼重要？**
+   - CKF 是迭代的：propagate → match → update → 重複
+   - 每一步都要等前一步的結果
+   - 沒辦法跨 step 做 pipeline
 
-2. **可以用多事件批次來隱藏延遲嗎？**
-   - GPU 上已經在做多事件批次了，throughput 提升了 93%
-   - FPGA 也需要同樣的策略
-   - 但這不能消除單一事件內的每步同步
+2. **可以用 multi-event batching 來藏延遲嗎？**
+   - GPU 上已經在做了，throughput 提升 93%
+   - FPGA 也要用一樣的策略
+   - 但這不能消除單一 event 裡面的 per-step sync
 
-3. **如果同步 overhead 太高怎麼辦？**
-   - 可以只卸載非 CKF 的 kernel，像是 seeding 和 clustering
-   - 或者探索更粗粒度的卸載方式
-   - 最壞的情況就是 FPGA 不可行，繼續做 GPU 優化
+3. **如果 sync overhead 太高怎麼辦？**
+   - 可以只 offload 非 CKF 的 kernel，像 seeding、clustering
+   - 或是用更粗粒度的 offload
+   - 最壞就是 FPGA 不可行，繼續做 GPU 優化
 
 ---
 
