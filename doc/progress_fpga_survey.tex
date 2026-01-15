@@ -192,6 +192,7 @@
 \begin{itemize}
     \item Measured GPU$\leftrightarrow$Host transfer latency as proxy for GPU$\leftrightarrow$FPGA
     \item Tested different data sizes (params only vs full state vs + Jacobians)
+    \item \textbf{Limitation:} Proxy only --- actual GPU$\leftrightarrow$FPGA differs due to XRT overhead and PCIe topology
 \end{itemize}
 
 \vspace{0.5em}
@@ -209,7 +210,7 @@
 \end{tabular}
 \end{table}
 
-\textbf{Implication:} Must minimize data transfer. Cache covariance on FPGA HBM, transfer only 24-byte parameter vectors.
+\textbf{Implication:} Transfer strategy defined (params-only), but actual overhead needs validation on real V80 hardware.
 \end{frame}
 
 %==============================================================================%

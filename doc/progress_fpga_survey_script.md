@@ -102,10 +102,12 @@ This is a theoretical estimate - actual numbers require Vitis HLS synthesis to c
 **What I did:**
 I measured GPU-to-Host transfer latency as a proxy for GPU-to-FPGA communication, testing different data sizes.
 
+Important caveat: this is only a proxy measurement. The actual GPU-to-FPGA path will have different characteristics due to XRT runtime overhead and different PCIe topology. This gives us a rough estimate, but we'll need to validate on real hardware.
+
 **What it means:**
 If we transfer only the 24-byte parameter vector per track, overhead is 2.7% - acceptable. If we transfer full track state at 176 bytes, overhead jumps to 13% - concerning. Adding Jacobians pushes it to 18% - prohibitive.
 
-The implication is we must minimize data transfer. We should cache covariance matrices on FPGA HBM and only transfer the small parameter vectors.
+The implication is we have a transfer strategy defined - params-only - but the actual overhead needs validation on real V80 hardware.
 
 ---
 
@@ -277,10 +279,12 @@ V80 有 10,848 個 DSP58，理論上可以支援大約 98 條平行的軌跡 pip
 **我做了什麼：**
 我量測了 GPU 到 Host 的傳輸延遲，用這個來估算未來 GPU 到 FPGA 的通訊成本，測試了不同的資料大小。
 
+要注意這只是一個代理量測，實際 GPU 到 FPGA 的路徑會因為 XRT runtime 的 overhead 和 PCIe 拓撲不同而有差異。這只能給我們一個粗略的估計，實際數字要在真正的硬體上驗證。
+
 **這代表什麼意義：**
 如果只傳 24 bytes 的參數向量，overhead 是 2.7%，這是可以接受的。如果傳完整的軌跡狀態 176 bytes，overhead 就跳到 13%，這就有點令人擔心。如果再加上 Jacobian，就到 18%，這太高了。
 
-結論是我們必須最小化資料傳輸量。應該把共變異數矩陣快取在 FPGA 的 HBM 上，只傳小的參數向量。
+結論是傳輸策略已經確定，就是只傳參數向量，但實際的 overhead 還需要在真正的 V80 硬體上驗證。
 
 ---
 
