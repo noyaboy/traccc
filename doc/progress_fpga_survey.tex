@@ -37,356 +37,231 @@
 \centering{\small Advisor: Prof. Bo-Cheng, Lai}
 \end{frame}
 
-%--- Outline ---%
-\begin{frame}{Outline}
-\tableofcontents
-\end{frame}
-
 %==============================================================================%
-\section{Executive Summary}
+\section{What I Have Done}
 %==============================================================================%
 
-\begin{frame}{Survey Objective}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Goal:} Evaluate hybrid GPU/FPGA execution for TRACCC particle tracking
-
-\vspace{0.5em}
-\textbf{Target Platform:}
-\begin{itemize}
-    \item AMD Alveo V80 accelerator
-    \item 10,848 DSP58 slices (native FP32)
-    \item 32 GB HBM2e (819 GB/s)
-    \item PCIe Gen5 x8x8 ($\sim$64 GB/s)
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Survey Scope:}
-\begin{itemize}
-    \item Precision analysis (FP32 vs FP64)
-    \item NCU/Nsys profiling
-    \item FPGA suitability assessment
-\end{itemize}
-
-\column{0.5\textwidth}
-\centering
-\begin{tikzpicture}[scale=0.8, transform shape]
-    \node[draw, rounded corners, fill=blue!20, minimum width=3.5cm, minimum height=0.8cm] (gpu) at (0,2) {GPU (DP)};
-    \node[draw, rounded corners, fill=green!20, minimum width=3.5cm, minimum height=0.8cm] (fpga) at (0,0) {Alveo V80 (SP)};
-    \node[draw, rounded corners, fill=gray!20, minimum width=3.5cm, minimum height=0.8cm] (host) at (0,4) {Host CPU};
-
-    \draw[<->, thick] (host) -- (gpu);
-    \draw[<->, thick] (host) -- (fpga);
-    \draw[<->, thick, dashed] (gpu) -- node[right] {PCIe Gen5} (fpga);
-\end{tikzpicture}
-
-\vspace{0.5em}
-\textbf{Key Question:}\\
-Can FPGA offload latency-bound GPU kernels?
-\end{columns}
-\end{frame}
-
-%--- Key Finding ---%
-\begin{frame}{Key Finding: FPGA Offload Candidate}
-\begin{alertblock}{Primary Finding}
-\texttt{propagate\_to\_next\_surface} kernel: \textbf{63\% of GPU time}, \textbf{93\% warp stalls}
-\end{alertblock}
-
-\vspace{0.5em}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Why It's Latency-Bound:}
-\begin{itemize}
-    \item RK4 integration: sequential MAC operations
-    \item B-field lookup: dependent memory access
-    \item Variable step count: 1--34 steps/track
-    \item 62\% wasted GPU cycles due to divergence
-\end{itemize}
-
-\column{0.5\textwidth}
-\textbf{Why FPGA is Ideal:}
-\begin{itemize}
-    \item DSP58: native FP32 MAC chains
-    \item Pipelined execution (no warp sync)
-    \item Dedicated pipelines per track
-    \item Variable steps $\neq$ resource waste
-\end{itemize}
-\end{columns}
-
-\vspace{0.5em}
-\centering
-\begin{tikzpicture}
-\draw[fill=blue!30] (0,0) rectangle (6.3,0.5);
-\draw[fill=green!30] (6.3,0) rectangle (8.0,0.5);
-\draw[fill=gray!30] (8.0,0) rectangle (10,0.5);
-\node at (3.15,0.25) {\small propagate (63\%)};
-\node at (7.15,0.25) {\small other (17\%)};
-\node at (9,0.25) {\small GPU (20\%)};
-\end{tikzpicture}
-\end{frame}
-
-%==============================================================================%
-\section{Precision Validation}
-%==============================================================================%
-
-\begin{frame}{FP32 vs FP64: No Physics Difference}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Validation Result:}
-\begin{itemize}
-    \item Chi$^2$/NDF identical: $1.0042 \pm 0.0020$
-    \item Pull distributions: $\sigma$ differs by $<0.003$
-    \item All 10,000 tracks tested
-\end{itemize}
-
-\vspace{0.5em}
+\begin{frame}{Completed Work Overview}
 \begin{table}
-\scriptsize
-\begin{tabular}{lcccc}
+\begin{tabular}{clp{7cm}}
     \toprule
-    \textbf{Param} & \textbf{FP32 $\sigma$} & \textbf{FP64 $\sigma$} & \textbf{$\Delta\sigma$} \\
+    & \textbf{Task} & \textbf{Meaning} \\
     \midrule
-    d0 & 0.987 & 0.987 & 0.000 \\
-    $\phi$ & 0.980 & 0.980 & 0.000 \\
-    q/p & 0.980 & 0.980 & 0.000 \\
-    $\theta$ & 0.953 & 0.955 & 0.002 \\
-    z0 & 0.987 & 0.987 & 0.000 \\
+    \cmark & FP32 vs FP64 Validation & Confirms FPGA can use native single-precision without physics degradation \\
+    \cmark & NCU Profiling Analysis & Identifies GPU bottlenecks (register pressure, cache misses, warp stalls) \\
+    \cmark & Nsys Profiling Analysis & Quantifies kernel time distribution across the pipeline \\
+    \cmark & FPGA Suitability Assessment & Determines which kernels are good FPGA candidates \\
+    \cmark & Alveo V80 Resource Estimation & Estimates DSP58 utilization and parallel pipeline count \\
+    \cmark & PCIe Latency Analysis & Measures data transfer overhead for GPU-FPGA communication \\
     \bottomrule
 \end{tabular}
-\caption{10 GeV muon pull distributions}
 \end{table}
 
-\column{0.5\textwidth}
-\textbf{Implication for FPGA:}
+\vspace{0.5em}
+\centering
+\textbf{Output:} \texttt{doc/survey-fpga.md} (3000+ lines of documented analysis)
+\end{frame}
+
+%--- FP32 vs FP64 ---%
+\begin{frame}{1. FP32 vs FP64 Precision Validation}
+\textbf{What I did:}
 \begin{itemize}
-    \item DSP58 native FP32 $\Rightarrow$ \textbf{No precision loss}
-    \item No FP32$\leftrightarrow$FP64 conversion needed
-    \item GPU and FPGA produce identical physics
+    \item Built TRACCC with \texttt{-DTRACCC\_CUSTOM\_SCALARTYPE=float} and \texttt{=double}
+    \item Ran Kalman fitter tests on 10,000 muon tracks (1 GeV, 10 GeV configurations)
+    \item Compared pull distributions ($\mu$, $\sigma$) and $\chi^2$/NDF
 \end{itemize}
 
 \vspace{0.5em}
-\begin{block}{Conclusion}
-FP32 is physics-equivalent to FP64 for TRACCC Kalman filtering. DSP58 native FP32 is safe for FPGA offloading.
-\end{block}
-\end{columns}
+\textbf{What it means:}
+\begin{itemize}
+    \item \textbf{Result:} FP32 and FP64 produce \textbf{identical} physics results
+    \item Pull $\sigma$ differs by $<0.003$ (within statistical noise)
+    \item $\chi^2$/NDF = $1.0042 \pm 0.0020$ for both precisions
+    \item \textbf{Implication:} DSP58 native FP32 is safe for FPGA offloading --- no precision loss
+\end{itemize}
 \end{frame}
 
-%==============================================================================%
-\section{Profiling Results}
-%==============================================================================%
+%--- NCU Profiling ---%
+\begin{frame}{2. NCU Profiling Analysis}
+\textbf{What I did:}
+\begin{itemize}
+    \item Profiled \texttt{propagate\_to\_next\_surface} kernel with NVIDIA Nsight Compute
+    \item Analyzed register pressure, cache hit rates, warp stall reasons
+\end{itemize}
 
-\begin{frame}{GPU Kernel Time Breakdown}
-\begin{columns}
-\column{0.55\textwidth}
+\vspace{0.5em}
+\textbf{What it means:}
+\begin{itemize}
+    \item \textbf{93\% warp stall cycles} --- kernel is latency-bound, not compute-bound
+    \item \textbf{96--128 registers/thread} --- high register pressure limits occupancy
+    \item \textbf{46--54\% L1 cache hit} --- unpredictable memory access patterns
+    \item \textbf{Implication:} GPU's SIMT model is fundamentally inefficient for this workload. FPGA's pipelined execution can eliminate stalls.
+\end{itemize}
+\end{frame}
+
+%--- Nsys Profiling ---%
+\begin{frame}{3. Nsys Profiling Analysis}
+\textbf{What I did:}
+\begin{itemize}
+    \item Ran full pipeline with Nsight Systems to measure kernel time distribution
+    \item Analyzed 2,144 kernel invocations across 100 events
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{What it means:}
 \begin{table}
-\scriptsize
+\small
 \begin{tabular}{lrl}
     \toprule
-    \textbf{Kernel} & \textbf{Time} & \textbf{Target} \\
+    \textbf{Kernel} & \textbf{GPU Time} & \textbf{Implication} \\
     \midrule
-    propagate\_to\_next\_surface & 63.0\% & \textcolor{acadgreen}{FPGA} \\
-    build\_tracks & 14.6\% & GPU \\
-    apply\_interaction & 6.3\% & \textcolor{acadgreen}{FPGA} \\
-    find\_tracks & 4.2\% & \textcolor{acadgreen}{FPGA} \\
-    make\_doublets & 3.9\% & \textcolor{acadgreen}{FPGA} \\
-    select\_seeds & 3.1\% & \textcolor{acadgreen}{FPGA} \\
-    form\_spacepoints & 2.6\% & \textcolor{acadgreen}{FPGA} \\
-    CCL clustering & 1.8\% & \textcolor{acadgreen}{FPGA} \\
+    propagate\_to\_next\_surface & 63.0\% & Primary FPGA target \\
+    build\_tracks & 14.6\% & Must stay on GPU (pointer chasing) \\
+    Other kernels & 22.4\% & Mostly FPGA-suitable \\
     \midrule
-    \textbf{FPGA suitable} & \textbf{80.5\%} & \\
+    \textbf{Total FPGA-suitable} & \textbf{$\sim$80\%} & \\
     \bottomrule
 \end{tabular}
 \end{table}
 
-\column{0.45\textwidth}
-\textbf{Propagation Bottleneck:}
-\begin{itemize}
-    \item 93\% warp stall cycles
-    \item Register pressure: 96--128 regs
-    \item L1 cache hit: 46--54\%
-    \item Latency-bound, not compute-bound
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Why GPU Struggles:}
-\begin{itemize}
-    \item SIMT model penalizes divergence
-    \item RK4 is inherently sequential
-    \item Memory access is unpredictable
-\end{itemize}
-\end{columns}
+\textbf{Implication:} 80\% of GPU work could potentially move to FPGA.
 \end{frame}
 
-%==============================================================================%
-\section{Hybrid Architecture}
-%==============================================================================%
+%--- FPGA Suitability ---%
+\begin{frame}{4. FPGA Suitability Assessment}
+\textbf{What I did:}
+\begin{itemize}
+    \item Analyzed each kernel's computational pattern (MAC chains, memory access, branching)
+    \item Mapped operations to DSP58 capabilities
+\end{itemize}
 
-\begin{frame}{Proposed GPU/FPGA Partitioning}
+\vspace{0.5em}
+\textbf{What it means:}
 \begin{columns}
 \column{0.5\textwidth}
-\textbf{Alveo V80 (Single Precision):}
+\textbf{Good for FPGA:}
 \begin{itemize}
-    \item RK4 propagation (63\% GPU time)
-    \item B-field polynomial evaluation
-    \item Chi$^2$ computation + threshold
-    \item Measurement matching
-    \item CCL clustering
-    \item Seeding/doublets
-\end{itemize}
-
-\vspace{0.3em}
-\textbf{V80 Resources:}
-\begin{itemize}
-    \item 10,848 DSP58 $\Rightarrow$ $\sim$98 track pipelines
-    \item 32 GB HBM2e for geometry
-    \item 190W TDP
+    \item RK4 propagation (MAC chains)
+    \item B-field polynomial (Horner's method)
+    \item Matrix-vector ops (systolic arrays)
+    \item CCL clustering (well-known FPGA pattern)
 \end{itemize}
 
 \column{0.5\textwidth}
-\textbf{GPU (Double Precision):}
+\textbf{Keep on GPU:}
 \begin{itemize}
-    \item Covariance matrix updates
-    \item 6$\times$6 matrix inversions
-    \item Chi$^2$ accumulation
-    \item Track deduplication
-    \item Final track fitting
+    \item Track deduplication (irregular branching)
+    \item build\_tracks (pointer chasing)
+    \item 6$\times$6 matrix inversion (complex control)
 \end{itemize}
-
-\vspace{0.3em}
-\textbf{Expected Benefits:}
-\begin{table}
-\scriptsize
-\begin{tabular}{lcc}
-    \toprule
-    \textbf{Metric} & \textbf{GPU} & \textbf{Hybrid} \\
-    \midrule
-    Warp stalls & 93\% & 0\% (FPGA) \\
-    Throughput & 1$\times$ & 1.5--2$\times$ \\
-    Power & 300W & 490W total \\
-    \bottomrule
-\end{tabular}
-\end{table}
 \end{columns}
+
+\vspace{0.5em}
+\textbf{Implication:} Clear partitioning strategy --- offload compute-regular kernels, keep irregular ones on GPU.
 \end{frame}
 
-%==============================================================================%
-\section{Risk Assessment}
-%==============================================================================%
-
-\begin{frame}{Critical Blockers and Risks}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{CRITICAL: Per-Step Sync Barrier}
+%--- V80 Estimation ---%
+\begin{frame}{5. Alveo V80 Resource Estimation}
+\textbf{What I did:}
 \begin{itemize}
-    \item CKF requires GPU$\leftrightarrow$FPGA sync per step
-    \item 15 surfaces $\times$ sync overhead
-    \item If overhead $>$200$\mu$s/step: \textbf{not viable}
-    \item \textcolor{acadred}{Must validate before development}
+    \item Estimated DSP58 usage per track pipeline ($\sim$110 DSP58)
+    \item Calculated parallel pipeline capacity from V80 specs (10,848 DSP58)
 \end{itemize}
 
 \vspace{0.5em}
-\textbf{PCIe Latency Analysis:}
+\textbf{What it means:}
 \begin{table}
-\scriptsize
-\begin{tabular}{lcc}
+\small
+\begin{tabular}{ll}
     \toprule
-    \textbf{Scenario} & \textbf{Overhead} & \textbf{Status} \\
+    \textbf{Resource} & \textbf{Estimate} \\
     \midrule
-    Params only & 2.7\% & \cmark OK \\
-    Full state & 13\% & Concerning \\
-    + Jacobians & 18\% & \xmark Bad \\
+    DSP58 per pipeline & $\sim$110 (RK4 + matrix ops) \\
+    Parallel pipelines & $\sim$98 (10,848 / 110) \\
+    HBM capacity & 32 GB (sufficient for geometry + B-field) \\
     \bottomrule
 \end{tabular}
 \end{table}
 
-\column{0.5\textwidth}
-\textbf{Other Risks:}
+\textbf{Implication:} V80 can theoretically run $\sim$98 tracks in parallel with deeply pipelined execution. This is a \textbf{theoretical estimate} --- actual numbers need Vitis HLS synthesis.
+\end{frame}
+
+%--- PCIe Latency ---%
+\begin{frame}{6. PCIe Latency Analysis}
+\textbf{What I did:}
 \begin{itemize}
-    \item DSP58 resource estimates: theoretical
-    \item XRT integration complexity
-    \item Vitis HLS learning curve
-    \item B-field too large for BRAM (139 MB)
+    \item Measured GPU$\leftrightarrow$Host transfer latency as proxy for GPU$\leftrightarrow$FPGA
+    \item Tested different data sizes (params only vs full state vs + Jacobians)
 \end{itemize}
 
 \vspace{0.5em}
-\textbf{Mitigations:}
-\begin{itemize}
-    \item Cache covariance in HBM2e
-    \item Transfer params only (24 bytes/track)
-    \item Use V80 HBM for B-field
-    \item Start with propagation kernel only
-\end{itemize}
-\end{columns}
+\textbf{What it means:}
+\begin{table}
+\small
+\begin{tabular}{lcl}
+    \toprule
+    \textbf{Transfer Scenario} & \textbf{Overhead} & \textbf{Assessment} \\
+    \midrule
+    Parameters only (24 B/track) & 2.7\% & \cmark Acceptable \\
+    Full track state (176 B/track) & 13\% & Concerning \\
+    + Jacobians (320 B/track) & 18\% & \xmark Prohibitive \\
+    \bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Implication:} Must minimize data transfer. Cache covariance on FPGA HBM, transfer only 24-byte parameter vectors.
 \end{frame}
 
 %==============================================================================%
 \section{Next Steps}
 %==============================================================================%
 
-\begin{frame}{Implementation Roadmap}
-\textbf{Phase 1: Validation (Current)}
-\begin{itemize}
-    \item[\cmark] FP32 vs FP64 precision validation
-    \item[\cmark] NCU/Nsys profiling analysis
-    \item[\cmark] FPGA suitability assessment
-    \item[\xmark] Sync barrier overhead measurement
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Phase 2: Prototype}
-\begin{itemize}
-    \item RK4 propagation kernel in Vitis HLS
-    \item Single-precision validation vs GPU baseline
-    \item XRT host API integration
-\end{itemize}
-
-\vspace{0.5em}
-\textbf{Phase 3: Integration}
-\begin{itemize}
-    \item GPU$\leftrightarrow$FPGA data path
-    \item Full CKF loop with hybrid execution
-    \item Performance benchmarking
-\end{itemize}
-
-\vspace{0.5em}
-\begin{alertblock}{Immediate Next Step}
-Measure actual per-step synchronization overhead on V100 (GPU$\leftrightarrow$Host as proxy for GPU$\leftrightarrow$FPGA). This is the critical go/no-go decision point.
+\begin{frame}{Next Step: Validate Per-Step Sync Barrier}
+\begin{alertblock}{Critical Blocker}
+CKF algorithm requires GPU$\leftrightarrow$FPGA synchronization at \textbf{each of 15 surfaces}. If sync overhead $>$ 200$\mu$s/step, FPGA offloading is \textbf{not viable}.
 \end{alertblock}
+
+\vspace{0.5em}
+\textbf{What needs to be done:}
+\begin{enumerate}
+    \item Instrument CKF loop to measure actual per-step synchronization time
+    \item Test with GPU$\leftrightarrow$Host sync as proxy (no FPGA hardware yet)
+    \item Calculate total overhead: $15 \times \text{sync\_time}$ vs 23ms baseline
+\end{enumerate}
+
+\vspace{0.5em}
+\textbf{Decision criteria:}
+\begin{itemize}
+    \item If overhead $<$ 5\% ($<$1.15ms total): \textcolor{acadgreen}{Proceed with FPGA development}
+    \item If overhead 5--15\%: Consider async/overlap strategies
+    \item If overhead $>$ 15\%: \textcolor{acadred}{FPGA offloading not viable for CKF}
+\end{itemize}
+
+\vspace{0.5em}
+\textbf{This is the go/no-go decision point before any FPGA development.}
 \end{frame}
 
-%==============================================================================%
-\section{Summary}
-%==============================================================================%
-
+%--- Summary ---%
 \begin{frame}{Summary}
-\begin{columns}
-\column{0.5\textwidth}
-\textbf{Key Findings:}
+\textbf{Completed:}
 \begin{enumerate}
-    \item \texttt{propagate\_to\_next\_surface}: 63\% of GPU time, 93\% stalls --- ideal FPGA candidate
-    \item FP32 $\equiv$ FP64 for physics --- DSP58 safe
-    \item 80\% of GPU work is FPGA-suitable
-    \item V80 can support $\sim$98 parallel track pipelines
-\end{enumerate}
-
-\column{0.5\textwidth}
-\textbf{Open Questions:}
-\begin{enumerate}
-    \item Per-step sync overhead (critical blocker)
-    \item Actual DSP58 utilization
-    \item XRT integration complexity
+    \item FP32 = FP64 for physics $\Rightarrow$ DSP58 native FP32 is safe
+    \item 63\% GPU time in one kernel with 93\% stalls $\Rightarrow$ ideal FPGA candidate
+    \item 80\% of work is FPGA-suitable $\Rightarrow$ clear partitioning strategy
+    \item V80 can support $\sim$98 parallel pipelines $\Rightarrow$ sufficient resources
+    \item PCIe overhead 2.7\% for params-only $\Rightarrow$ transfer strategy defined
 \end{enumerate}
 
 \vspace{0.5em}
-\textbf{Recommendation:}\\
-Proceed with sync overhead validation before any FPGA development.
-\end{columns}
+\textbf{Next:}
+\begin{itemize}
+    \item Measure per-step sync barrier overhead (critical go/no-go)
+    \item If viable: prototype RK4 kernel in Vitis HLS
+\end{itemize}
 
 \vspace{0.5em}
 \centering
-\begin{block}{Survey Document}
-Full analysis: \texttt{doc/survey-fpga.md} (3000+ lines)
-\end{block}
+\textbf{Full documentation:} \texttt{doc/survey-fpga.md}
 \end{frame}
 
 \end{document}
