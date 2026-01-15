@@ -71,6 +71,143 @@ using Acc = ::alpaka::AccFpgaSyclIntel<Dim, Idx>;
 
 The Alpaka abstraction layer already supports FPGA via Intel SYCL OneAPI. The infrastructure exists but is not actively integrated into the build pipeline.
 
+### 1.5 Production vs Test Binaries: Seeding Methodology
+
+> **Key Distinction (2026-01-15):** TRACCC has two different seeding methodologies depending on the binary type. This affects how track quality is handled and has implications for FPGA offloading validation.
+
+#### 1.5.1 Production Binaries (End-to-End Reconstruction)
+
+**Binary:** `traccc_throughput_mt_cuda`, `traccc_seeding_example_cuda`
+
+**Pipeline:**
+```
+Cells → Clusterization → Measurements → Spacepoint Formation → Seeding → CKF → Fitting
+         (CCL)                          (real triplet algorithm)
+```
+
+**Code path:**
+```cpp
+// examples/run/cuda/throughput_mt.cpp
+return traccc::throughput_mt<traccc::cuda::full_chain_algorithm>(...);
+
+// examples/run/cuda/full_chain_algorithm.cpp:180-184
+const spacepoint_formation_algorithm::output_type spacepoints =
+    m_spacepoint_formation(m_device_detector, measurements);
+const track_params_estimation::output_type track_params =
+    m_track_parameter_estimation(measurements, spacepoints,
+                                 m_seeding(spacepoints), m_field_vec);  // Real seeding
+```
+
+**Characteristics:**
+- Seeds generated from **real triplet algorithm** on spacepoints
+- No Monte Carlo truth information used
+- Seed quality varies based on detector noise, pile-up, etc.
+- Representative of real LHC data processing
+
+#### 1.5.2 Test Binaries (Validation with Truth Seeds)
+
+**Binary:** `traccc_test_cuda` (Kalman fitter tests)
+
+**Pipeline:**
+```
+Truth Tracks → Smeared Measurements → Truth-Based Seeds → Fitting
+(Monte Carlo)   (Gaussian noise)      (seed_generator)
+```
+
+**Code path:**
+```cpp
+// tests/cuda/test_kalman_fitter_telescope.cpp
+
+// Track generator from truth
+using generator_type =
+    detray::random_track_generator<traccc::free_track_parameters<>, uniform_gen_t>;
+
+// Measurement smearing (simulates detector resolution)
+traccc::measurement_smearer<traccc::default_algebra> meas_smearer(
+    smearing[0], smearing[1]);
+
+// Seed generator uses truth information
+seed_generator<host_detector_type> sg(
+    polymorphic_detector.as<detector_traits>(), stddevs);
+
+// Generate track candidates from truth
+evt_data.generate_truth_candidates(track_candidates, measurements, sg, host_mr);
+```
+
+**Characteristics:**
+- Seeds generated from **Monte Carlo truth** with Gaussian smearing
+- Seed parameters are close to true values (typically 1-2% deviation)
+- Used to validate fitter precision in isolation
+- Not representative of real reconstruction challenges
+
+#### 1.5.3 Comparison Table
+
+| Aspect | Production (`throughput_mt`) | Test (`test_cuda`) |
+|--------|------------------------------|-------------------|
+| **Seeding source** | Real triplet algorithm | Monte Carlo truth |
+| **Seed quality** | Variable (real-world) | High (close to truth) |
+| **Deviation from truth** | 10-20% possible | 1-2% (smearing only) |
+| **Purpose** | Performance benchmark | Precision validation |
+| **Iterative fitting needed** | Yes (for bad seeds) | No (seeds already good) |
+| **End-to-end** | Yes | No (skips seeding) |
+
+#### 1.5.4 Implications for Track Quality
+
+**CKF Quality Control Mechanisms** (`core/include/traccc/finding/finding_config.hpp`):
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `chi2_max` | 30.0 | Reject branches with bad measurement-to-track chi² |
+| `max_num_branches_per_seed` | 10 | Limit combinatorial explosion from ambiguous seeds |
+| `max_num_branches_per_surface` | 1 | Prune unlikely branches early |
+| `min_track_candidates_per_track` | 3 | Require minimum number of hits |
+| `max_num_skipping_per_cand` | 3 | Allow holes for detector inefficiency |
+| `min_p` / `min_pT` | 100 MeV / 600 MeV | Reject low-momentum tracks |
+
+**Handling Bad Seeds:**
+1. **Chi² cut:** Branches with chi² > 30 are rejected
+2. **Branch limiting:** Bad seeds creating many branches are capped at 10
+3. **Early termination:** `ckf_aborter` aborts if >100 RK4 steps without hitting a surface
+4. **Minimum hits:** Tracks need ≥3 measurements to be accepted
+
+#### 1.5.5 Iterative Fitting Limitation
+
+**Current Status:** Iterative fitting (`n_iterations > 1`) is broken.
+
+**Location:** `core/include/traccc/fitting/kalman_filter/kalman_fitter.hpp:175-194`
+
+**Root Cause:**
+```cpp
+for (std::size_t i = 0; i < m_cfg.n_iterations; i++) {
+    if (res = fit_iteration(params, fitter_state) != SUCCESS) return res;
+    // BUG: filtered_params() returns BOUND parameters (5D on surface)
+    // but next iteration expects FREE parameters (6D global coordinates)
+    params = fitter_state.m_fit_actor_state.m_track_states
+                 .at(...).filtered_params();  // Missing bound→free conversion
+}
+```
+
+**Impact:**
+- Setting `n_iterations > 1` causes 100% fit failure
+- Single iteration works because initial seed is already in FREE parameters
+- For truth-smeared seeds (tests): single iteration sufficient
+- For real pattern recognition seeds: iterative fitting would help recover bad seeds
+
+**Fix (not implemented):**
+- Add `bound_to_free_vector()` conversion before next iteration
+- Function exists in detray but not called in fitting loop
+
+#### 1.5.6 FPGA Validation Strategy
+
+For FPGA offloading validation:
+
+| Phase | Binary | Purpose |
+|-------|--------|---------|
+| **Phase 1** | `traccc_test_cuda` | Validate FPGA precision matches GPU (truth seeds eliminate seeding variance) |
+| **Phase 2** | `traccc_throughput_mt_cuda` | Validate end-to-end physics with real seeding |
+
+**Rationale:** Using truth-smeared seeds in Phase 1 isolates FPGA precision validation from seeding quality issues. Once FPGA precision is confirmed, Phase 2 validates the complete reconstruction chain.
+
 ---
 
 ## 2. Precision Handling Analysis
