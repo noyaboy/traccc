@@ -921,6 +921,45 @@ for (auto& p : {"d0", "phi", "qop", "theta", "z0"}) {
 
 The quantitative pull distribution analysis validates FP32 as physics-equivalent to FP64 for TRACCC Kalman filtering. This removes precision concerns as a blocker for FPGA offloading using DSP58 native FP32 multiply-accumulate operations.
 
+##### 2.7.2.5 Methodology Note: Why Truth-Smeared Seeds
+
+> **Key Point (2026-01-15):** The FP32 vs FP64 comparison intentionally uses truth-smeared seeds (test binary) rather than production seeding. This is the correct methodology for isolating precision effects.
+
+**Test used:** `KalmanFitTelescope` from `traccc_test_cpu`
+
+**Seeding method:** Truth + Gaussian smearing (see Section 1.5.2)
+```cpp
+// tests/cpu/test_kalman_fitter_telescope.cpp
+seed_generator<host_detector_type> sg(...);
+evt_data.generate_truth_candidates(track_candidates, measurements, sg, ...);
+```
+
+**Why this is correct:**
+
+| Approach | Variables | Can isolate precision? |
+|----------|-----------|------------------------|
+| Truth seeds + FP32 vs FP64 | Only precision differs | Yes |
+| Real seeding + FP32 vs FP64 | Precision + seeding randomness | No |
+
+**Rationale:**
+
+1. **Identical initial conditions:** Truth seeds ensure both FP32 and FP64 runs start from exactly the same track parameters (within smearing). Any difference in output is purely due to floating-point precision.
+
+2. **No seeding variance:** Real triplet seeding has inherent randomness (which triplets are selected, noise effects). Running FP32 and FP64 with real seeding could produce different seeds, making it impossible to distinguish precision effects from seeding effects.
+
+3. **Controlled experiment:** This is standard experimental methodology - change only one variable (precision) while holding others constant (initial seeds).
+
+**What this tells us:**
+- FP32 and FP64 fitting produce **identical physics results** when starting from the same seeds
+- Any differences in production (real seeding) would be due to seeding variance, not precision
+
+**Validation phases for FPGA:**
+
+| Phase | Seeding | Purpose |
+|-------|---------|---------|
+| 1 | Truth-smeared | Validate FPGA precision = GPU precision (isolated test) |
+| 2 | Real triplet | Validate end-to-end physics (includes seeding effects) |
+
 #### 2.7.3 Accumulated Precision Loss vs Kalman Updates
 
 **Gap:** ~~Not systematically tested for tracks with many Kalman updates~~ **RESOLVED (2026-01-12)**
